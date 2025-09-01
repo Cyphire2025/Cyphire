@@ -6,14 +6,13 @@ import { signJwt } from "../utils/jwt.js";
 const setAuthCookie = (res, token, rememberMe) => {
   const cookieOptions = {
     httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    sameSite: "none",                 // ✅ was "lax"
+    secure: true,                     // ✅ on Render (HTTPS)
   };
-  if (rememberMe) {
-    cookieOptions.maxAge = 30 * 24 * 60 * 60 * 1000; // 30 days
-  }
+  if (rememberMe) cookieOptions.maxAge = 30 * 24 * 60 * 60 * 1000;
   res.cookie("token", token, cookieOptions);
 };
+
 
 // POST /api/auth/signup (email + password)
 export const emailSignup = async (req, res) => {
@@ -68,7 +67,7 @@ export const googleAuth = (req, res, next) => {
   const remember = req.query.remember === "1" ? "1" : "0";
   passport.authenticate("google", {
     scope: ["profile", "email"],
-    session: true,
+    session: false,
     state: remember,             // <- persist remember across the roundtrip
     prompt: "select_account",
   })(req, res, next);

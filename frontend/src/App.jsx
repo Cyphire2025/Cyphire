@@ -15,7 +15,6 @@ import WorkroomComplete from "./pages/WorkroomComplete.jsx";
 import WorkroomPayment from "./pages/WorkroomPayment.jsx";
 import Pricing from './pages/Pricing.jsx';
 import Checkout from "./pages/Checkout.jsx";
-import OAuthSuccess from "./pages/OAuthSuccess.jsx"
 
 function AutoLogin() {
   const navigate = useNavigate();
@@ -36,7 +35,6 @@ function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/signin" element={<Signin />} />
-        <Route path="/oauth/success" element={<OAuthSuccess />} />
         <Route path="/home" element={<Home />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/posttask" element={<PostTask />} />

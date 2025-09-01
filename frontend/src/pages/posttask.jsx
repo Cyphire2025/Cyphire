@@ -79,7 +79,8 @@ export default function PostTask() {
       formData.append("createdBy", "64b7e261fc13ae1fbd000001"); // Dummy user ID for now
       attachments.forEach(file => formData.append("attachments", file));
 
-      const res = await fetch("http://localhost:5000/api/tasks", {
+      const API_BASE = import.meta.env?.VITE_API_BASE || "http://localhost:5000";
+      const res = await fetch(`${API_BASE}/api/tasks`, {
         method: "POST",
         credentials: "include",   // 👈 ADD THIS
         body: formData,

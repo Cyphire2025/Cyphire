@@ -30,7 +30,8 @@ import { Server } from "socket.io";
 // ✅ Allow both frontend and admin origins
 const allowedOrigins = [
   "http://localhost:5173",         // main frontend
-  "http://localhost:5174",         // admin panel
+  "http://localhost:5174",  
+  "https://cyphire-frontend.vercel.app",       // admin panel
   "https://cyphire.com",           // production frontend
   "https://admin.cyphire.com"      // production admin panel
 ];
