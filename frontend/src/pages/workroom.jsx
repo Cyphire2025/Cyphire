@@ -15,7 +15,7 @@ import {
   RefreshCcw,
   X,
 } from "lucide-react";
-import Navbar from "../components/Navbar";
+import Navbar from "../components/navbar";
 
 const API_BASE = import.meta.env?.VITE_API_BASE || "http://localhost:5000";
 
