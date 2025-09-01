@@ -4,7 +4,7 @@
 
 import React, { useMemo, Suspense, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Navbar from "../components/Navbar";
+import Navbar from "../components/navbar";
 import Footer from "../components/footer";
 import { motion, useMotionValue, useTransform } from "framer-motion";
 import {
