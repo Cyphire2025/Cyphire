@@ -1,7 +1,7 @@
 // src/pages/viewprofile.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import Navbar from "../components/Navbar";
+import Navbar from "../components/navbar";
 import Footer from "../components/footer";
 import { Globe2, Tag, FolderOpen, ArrowLeft } from "lucide-react";
 

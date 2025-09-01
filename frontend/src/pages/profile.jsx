@@ -1,6 +1,6 @@
 // src/pages/profile.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import Navbar from "../components/Navbar";
+import Navbar from "../components/navbar";
 import Footer from "../components/footer";
 import { motion } from "framer-motion";
 import {
