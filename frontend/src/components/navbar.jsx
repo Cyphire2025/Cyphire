@@ -431,37 +431,70 @@ export default function Navbar() {
         </div>
 
         {/* Mobile actions (Dashboard + Profile + Menu) */}
-<div className="lg:hidden flex items-center space-x-3">
-  {/* Dashboard button always visible */}
-  <button
-    className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 px-3 py-1.5 rounded-xl text-white font-semibold transition-all duration-200 shadow-lg hover:shadow-purple-500/25"
-    onClick={() => (window.location.href = "/dashboard")}
-  >
-    Dashboard
-  </button>
+        <div className="lg:hidden flex items-center space-x-3">
+          {/* Dashboard button always visible */}
+          <button
+            className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 px-3 py-1.5 rounded-xl text-white font-semibold transition-all duration-200 shadow-lg hover:shadow-purple-500/25"
+            onClick={() => (window.location.href = "/dashboard")}
+          >
+            Dashboard
+          </button>
 
-  {/* Profile icon always visible */}
-  <button
-    onClick={() => setProfileOpen((v) => !v)}
-    className="flex items-center justify-center h-9 w-9 rounded-full border border-white/20 bg-white/10 overflow-hidden hover:bg-white/15 transition"
-    aria-label="Profile"
-    title={user?.name || user?.email || "Profile"}
-  >
-    {avatarUrl ? (
-      <img src={avatarUrl} alt="Profile" className="h-full w-full object-cover" />
-    ) : (
-      <span className="text-sm font-semibold text-white/90">{initial}</span>
-    )}
-  </button>
+          {/* Profile */}
+          <button
+            className="flex items-center gap-2 text-left hover:text-white"
+            onClick={() => setProfileOpen((v) => !v)}
+          >
+            {avatarUrl ? (
+              <img
+                src={avatarUrl}
+                alt="Profile"
+                className="h-7 w-7 rounded-full object-cover"
+              />
+            ) : (
+              <span className="h-7 w-7 flex items-center justify-center rounded-full bg-white/10 text-sm font-semibold">
+                {initial}
+              </span>
+            )}
+            {user?.name || user?.email || "Profile"}
+          </button>
+          {profileOpen && (
+            <div className="pl-4 space-y-1">
+              <a
+                onClick={() => (window.location.href = "/profile")}
+                className="block text-sm hover:text-white cursor-pointer"
+              >
+                View Profile
+              </a>
+              <a
+                onClick={async () => {
+                  try {
+                    await fetch(`${API_BASE}/api/auth/signout`, {
+                      method: "POST",
+                      credentials: "include",
+                    });
+                  } catch { }
+                  localStorage.removeItem("token");
+                  localStorage.removeItem("userId");
+                  sessionStorage.removeItem("token");
+                  sessionStorage.removeItem("userId");
+                  window.location.href = "/signin";
+                }}
+                className="block text-sm text-red-400 hover:text-red-300 cursor-pointer"
+              >
+                Sign Out
+              </a>
+            </div>
+          )}
 
-  {/* Hamburger menu toggle */}
-  <button
-    className="p-2 rounded-lg text-gray-300 hover:text-white hover:bg-white/10 transition"
-    onClick={() => setMobileMenuOpen((v) => !v)}
-  >
-    {mobileMenuOpen ? <FiX size={22} /> : <FiMenu size={22} />}
-  </button>
-</div>
+          {/* Hamburger menu toggle */}
+          <button
+            className="p-2 rounded-lg text-gray-300 hover:text-white hover:bg-white/10 transition"
+            onClick={() => setMobileMenuOpen((v) => !v)}
+          >
+            {mobileMenuOpen ? <FiX size={22} /> : <FiMenu size={22} />}
+          </button>
+        </div>
 
 
       </div>
