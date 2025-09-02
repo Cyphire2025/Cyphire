@@ -390,7 +390,9 @@ export default function ViewTask() {
                       </NeonButton>
                     )}
                     {isOwner && (
-                      <NeonButton onClick={handleStartEscrow}>Start Escrow</NeonButton>
+                      <NeonButton onClick={() => navigate("/dashboard")}>
+                        View Dashboard
+                      </NeonButton>
                     )}
                   </div>
                 </GlassCard>

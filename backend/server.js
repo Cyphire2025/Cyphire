@@ -20,6 +20,7 @@ import projectRoutes from "./routes/projectRoutes.js";
 import workroomRoutes from "./routes/workroomRoutes.js";
 import workroomMessageRoutes from "./routes/workroomMessageRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
+import paymentRoutes from "./routes/paymentRoutes.js";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -109,7 +110,7 @@ app.use("/api/projects", projectRoutes);
 app.use("/api/workrooms", workroomRoutes);
 app.use("/api/workrooms", workroomMessageRoutes);
 app.use("/api/admin", adminRoutes);
-
+app.use("/api/payment", paymentRoutes);
 // ----- Start Server -----
 connectDB().then(() => {
   server.listen(PORT, () => {

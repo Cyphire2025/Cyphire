@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
 export default function PostTask() {
@@ -62,6 +63,82 @@ export default function PostTask() {
 
   const removeAttachment = (index) => {
     setAttachments(attachments.filter((_, i) => i !== index));
+  };
+
+  const handlePayment = async () => {
+    try {
+      if (!price || Number(price) <= 0) {
+        alert("Please enter a valid price before continuing.");
+        return;
+      }
+
+      const API_BASE = import.meta.env?.VITE_API_BASE || "http://localhost:5000";
+
+      // 1) create Razorpay order
+      const orderRes = await axios.post(
+        `${API_BASE}/api/payment/create-order`,
+        { amount: Number(price) },
+        { withCredentials: true }
+      );
+      const order = orderRes.data;
+
+      // 2) open Razorpay checkout
+      const options = {
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+        amount: order.amount,
+        currency: order.currency,
+        name: "Cyphire",
+        description: "Task Payment",
+        order_id: order.id,
+        handler: async function (response) {
+          try {
+            // 3) on success -> verify + create task (multipart with attachments)
+            const fd = new FormData();
+            fd.append("razorpay_order_id", response.razorpay_order_id);
+            fd.append("razorpay_payment_id", response.razorpay_payment_id);
+            fd.append("razorpay_signature", response.razorpay_signature);
+
+            fd.append("title", title);
+            fd.append("description", description);
+            selectedCategories.forEach((c) => fd.append("categories[]", c));
+            fd.append("numberOfApplicants", numApplicants);
+            fd.append("price", price);
+            fd.append("deadline", deadline);
+            attachments.forEach((f) => fd.append("attachments", f));
+
+            setPosting(true);
+
+            const verifyRes = await axios.post(
+              `${API_BASE}/api/payment/verify-payment`,
+              fd,
+              {
+                headers: { "Content-Type": "multipart/form-data" },
+                withCredentials: true,
+              }
+            );
+
+            if (verifyRes.data?.success) {
+              setPosted(true);
+              setTimeout(() => navigate("/home"), 1500);
+            } else {
+              setPosting(false);
+              alert("Payment verified but task creation failed.");
+            }
+          } catch (e) {
+            setPosting(false);
+            console.error("Verify/payment error:", e);
+            alert("Payment verification failed. Task not posted.");
+          }
+        },
+        theme: { color: "#5A67D8" },
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.open();
+    } catch (e) {
+      console.error("Payment init error:", e);
+      alert("Failed to start payment.");
+    }
   };
 
   const handleSubmit = async () => {
@@ -286,10 +363,11 @@ export default function PostTask() {
           whileTap={{ scale: 0.97 }}
           transition={{ type: "spring", stiffness: 300 }}
           className="w-full py-3 rounded-lg bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 shadow-lg shadow-purple-500/30 font-semibold text-lg"
-          onClick={handleSubmit} // 👈 this is the magic
+          onClick={handlePayment}   // <-- new
         >
-          Post Task
+          Continue to Payment       {/* <-- new text */}
         </motion.button>
+
       </motion.div>
       {posting && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80 backdrop-blur-md text-white text-lg font-semibold">

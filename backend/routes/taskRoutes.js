@@ -14,7 +14,7 @@ import {
 const router = express.Router();
 
 // Create a task (auth) + attachments via multer
-router.post("/", protect, upload.array("attachments"), createTask);
+// router.post("/", protect, upload.array("attachments"), createTask);
 
 // Public: list tasks
 router.get("/", getTasks);

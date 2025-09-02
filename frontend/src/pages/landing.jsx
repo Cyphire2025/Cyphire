@@ -1,6 +1,6 @@
 // landing.jsx
-import React, { useState, useEffect } from "react";
- 
+import React, { useState, useEffect, useMemo, useCallback, memo } from "react";
+
 import { motion } from "framer-motion";
 import {
   FaLock,
@@ -8,40 +8,108 @@ import {
   FaRocket,
   FaUserShield,
   FaArrowRight,
-  FaStar,
   FaQuoteLeft,
   FaCheckCircle,
-  FaTimesCircle,
-  FaGithub,
-  FaLinkedin,
-  FaTwitter,
-  FaBars,
-  FaTimes,
 } from "react-icons/fa";
 
-export default function LandingPage() {
+function LandingPage() {
   const [scrolled, setScrolled] = useState(false);
+
+  const debounce = (func, delay) => {
+    let timeoutId;
+    return (...args) => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => func.apply(null, args), delay);
+    };
+  };
+
+  const handleScroll = useCallback(
+    debounce(() => setScrolled(window.scrollY > 50), 10),
+    []
+  );
+
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 50);
     window.addEventListener("scroll", handleScroll);
-    
+
     // Add smooth scroll behavior
     document.documentElement.style.scrollBehavior = 'smooth';
-    
+
     return () => {
       window.removeEventListener("scroll", handleScroll);
       document.documentElement.style.scrollBehavior = 'auto';
     };
-  }, []);
+  }, [handleScroll]);
 
-  const fadeUp = {
+  const fadeUp = useMemo(() => ({
     hidden: { opacity: 0, y: 40 },
     visible: (delay = 0) => ({
       opacity: 1,
       y: 0,
       transition: { delay, duration: 0.6, ease: "easeOut" },
     }),
-  };
+  }), []);
+
+  const stepsData = useMemo(() => [
+    { step: "1", title: "Publisher Posts Task" },
+    { step: "2", title: "Executors Apply" },
+    { step: "3", title: "Workroom Collaboration" },
+    { step: "4", title: "Escrow Release" },
+  ], []);
+
+  const statsData = useMemo(() => [
+    { label: "Users", value: 12500 },
+    { label: "Tasks Completed", value: 4500 },
+    { label: "Escrow Released", value: 320000 },
+  ], []);
+
+  const testimonialsData = useMemo(() => [
+    { name: "Alice", quote: "Cyphire made my project safe and smooth!" },
+    { name: "Bob", quote: "Highly recommend for freelance security." },
+    { name: "Charlie", quote: "Fast matching and trustworthy executors." },
+  ], []);
+
+  const pricingData = useMemo(() => [
+    {
+      name: "Free",
+      price: "$0",
+      features: [
+        "Post up to 3 tasks",
+        "Basic support",
+        "Limited escrow",
+      ],
+    },
+    {
+      name: "Pro",
+      price: "$29/mo",
+      features: [
+        "Unlimited tasks",
+        "Priority support",
+        "Full escrow features",
+      ],
+    },
+    {
+      name: "Enterprise",
+      price: "$99/mo",
+      features: ["Team management", "Dedicated support", "Custom escrow"],
+    },
+  ], []);
+
+  const faqData = useMemo(() => [
+    {
+      q: "How does escrow work?",
+      a: "Funds are held securely until the project is completed and approved.",
+    },
+    {
+      q: "Can I cancel a task?",
+      a: "Yes, you can cancel before an executor accepts. Escrow will be released accordingly.",
+    },
+    {
+      q: "Is Cyphire safe?",
+      a: "Absolutely, all users are verified and all payments are handled securely.",
+    },
+  ], []);
+
+  const marqueeData = useMemo(() => ["Google", "Microsoft", "Tesla", "Amazon", "Facebook"], []);
 
   return (
     <div className="bg-gradient-to-b from-gray-900 via-gray-950 to-black text-white overflow-x-hidden">
@@ -203,12 +271,7 @@ export default function LandingPage() {
           How It Works
         </motion.h2>
         <div className="flex flex-col md:flex-row justify-between gap-8">
-          {[
-            { step: "1", title: "Publisher Posts Task" },
-            { step: "2", title: "Executors Apply" },
-            { step: "3", title: "Workroom Collaboration" },
-            { step: "4", title: "Escrow Release" },
-          ].map((s, i) => (
+          {stepsData.map((s, i) => (
             <motion.div
               key={i}
               variants={fadeUp}
@@ -237,11 +300,7 @@ export default function LandingPage() {
           Our Impact
         </motion.h2>
         <div className="flex flex-col md:flex-row justify-around items-center gap-8 max-w-5xl mx-auto">
-          {[
-            { label: "Users", value: 12500 },
-            { label: "Tasks Completed", value: 4500 },
-            { label: "Escrow Released", value: 320000 },
-          ].map((s, i) => (
+          {statsData.map((s, i) => (
             <motion.div
               key={i}
               variants={fadeUp}
@@ -266,7 +325,7 @@ export default function LandingPage() {
             transition={{ repeat: Infinity, duration: 15, ease: "linear" }}
             className="flex gap-12 text-gray-400"
           >
-            {["Google", "Microsoft", "Tesla", "Amazon", "Facebook"].map(
+            {marqueeData.map(
               (p, i) => (
                 <div key={i} className="text-2xl font-bold">
                   {p}
@@ -289,11 +348,7 @@ export default function LandingPage() {
           What People Say
         </motion.h2>
         <div className="flex flex-col md:flex-row justify-around gap-8">
-          {[
-            { name: "Alice", quote: "Cyphire made my project safe and smooth!" },
-            { name: "Bob", quote: "Highly recommend for freelance security." },
-            { name: "Charlie", quote: "Fast matching and trustworthy executors." },
-          ].map((t, i) => (
+          {testimonialsData.map((t, i) => (
             <motion.div
               key={i}
               variants={fadeUp}
@@ -321,31 +376,7 @@ export default function LandingPage() {
           Pricing Plans
         </motion.h2>
         <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto px-6">
-          {[
-            {
-              name: "Free",
-              price: "$0",
-              features: [
-                "Post up to 3 tasks",
-                "Basic support",
-                "Limited escrow",
-              ],
-            },
-            {
-              name: "Pro",
-              price: "$29/mo",
-              features: [
-                "Unlimited tasks",
-                "Priority support",
-                "Full escrow features",
-              ],
-            },
-            {
-              name: "Enterprise",
-              price: "$99/mo",
-              features: ["Team management", "Dedicated support", "Custom escrow"],
-            },
-          ].map((p, i) => (
+          {pricingData.map((p, i) => (
             <motion.div
               key={i}
               variants={fadeUp}
@@ -382,20 +413,7 @@ export default function LandingPage() {
           Frequently Asked Questions
         </motion.h2>
         <div className="space-y-4">
-          {[
-            {
-              q: "How does escrow work?",
-              a: "Funds are held securely until the project is completed and approved.",
-            },
-            {
-              q: "Can I cancel a task?",
-              a: "Yes, you can cancel before an executor accepts. Escrow will be released accordingly.",
-            },
-            {
-              q: "Is Cyphire safe?",
-              a: "Absolutely, all users are verified and all payments are handled securely.",
-            },
-          ].map((f, i) => (
+          {faqData.map((f, i) => (
             <details
               key={i}
               className="bg-gray-800/60 p-4 rounded-lg cursor-pointer hover:bg-gray-800/80 transition"
@@ -461,3 +479,5 @@ export default function LandingPage() {
     </div>
   );
 }
+
+export default memo(LandingPage);
