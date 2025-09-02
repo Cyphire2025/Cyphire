@@ -430,206 +430,173 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* Mobile menu toggle */}
-        <div className="lg:hidden">
-          <button
-            className="p-2 rounded-lg text-gray-300 hover:text-white hover:bg-white/10 transition"
-            onClick={() => setMobileMenuOpen((v) => !v)}
-          >
-            {mobileMenuOpen ? <FiX size={22} /> : <FiMenu size={22} />}
-          </button>
-        </div>
+        {/* Mobile actions (Dashboard + Profile + Menu) */}
+<div className="lg:hidden flex items-center space-x-3">
+  {/* Dashboard button always visible */}
+  <button
+    className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 px-3 py-1.5 rounded-xl text-white font-semibold transition-all duration-200 shadow-lg hover:shadow-purple-500/25"
+    onClick={() => (window.location.href = "/dashboard")}
+  >
+    Dashboard
+  </button>
+
+  {/* Profile icon always visible */}
+  <button
+    onClick={() => setProfileOpen((v) => !v)}
+    className="flex items-center justify-center h-9 w-9 rounded-full border border-white/20 bg-white/10 overflow-hidden hover:bg-white/15 transition"
+    aria-label="Profile"
+    title={user?.name || user?.email || "Profile"}
+  >
+    {avatarUrl ? (
+      <img src={avatarUrl} alt="Profile" className="h-full w-full object-cover" />
+    ) : (
+      <span className="text-sm font-semibold text-white/90">{initial}</span>
+    )}
+  </button>
+
+  {/* Hamburger menu toggle */}
+  <button
+    className="p-2 rounded-lg text-gray-300 hover:text-white hover:bg-white/10 transition"
+    onClick={() => setMobileMenuOpen((v) => !v)}
+  >
+    {mobileMenuOpen ? <FiX size={22} /> : <FiMenu size={22} />}
+  </button>
+</div>
+
 
       </div>
       {/* Step 3: Mobile dropdown menu */}
-{mobileMenuOpen && (
-  <div className="lg:hidden absolute top-full left-0 right-0 bg-black/80 backdrop-blur-xl border-t border-white/20 shadow-lg">
-    <div className="flex flex-col space-y-3 p-4 text-gray-200">
-      {/* Search bar */}
-      <div className="flex items-center bg-white/10 rounded-full px-3 py-2">
-        <FiSearch className="text-gray-400 mr-2" />
-        <input
-          type="text"
-          placeholder="Search..."
-          className="bg-transparent outline-none text-sm text-gray-200 w-full placeholder-gray-500"
-        />
-      </div>
+      {mobileMenuOpen && (
+        <div className="lg:hidden absolute top-full left-0 right-0 bg-black/80 backdrop-blur-xl border-t border-white/20 shadow-lg">
+          <div className="flex flex-col space-y-3 p-4 text-gray-200">
+            {/* Search bar */}
+            <div className="flex items-center bg-white/10 rounded-full px-3 py-2">
+              <FiSearch className="text-gray-400 mr-2" />
+              <input
+                type="text"
+                placeholder="Search..."
+                className="bg-transparent outline-none text-sm text-gray-200 w-full placeholder-gray-500"
+              />
+            </div>
 
-      {/* Discover */}
-      <button
-        className="text-left hover:text-white flex items-center"
-        onClick={() => setDiscoverOpen((v) => !v)}
-      >
-        Discover
-        <FiChevronDown
-          className={`ml-1 transition-transform ${
-            discoverOpen ? "rotate-180" : ""
-          }`}
-        />
-      </button>
-      {discoverOpen && (
-        <div className="pl-4 space-y-1">
-          {["Popular", "New & Noteworthy", "Editors’ Picks"].map((t, i) => (
-            <a
-              key={i}
-              className="block text-sm hover:text-white cursor-pointer"
+            {/* Discover */}
+            <button
+              className="text-left hover:text-white flex items-center"
+              onClick={() => setDiscoverOpen((v) => !v)}
             >
-              {t}
-            </a>
-          ))}
-        </div>
-      )}
-
-      {/* Solutions */}
-      <button
-        className="text-left hover:text-white flex items-center"
-        onClick={() => setSolutionsOpen((v) => !v)}
-      >
-        Solutions
-        <FiChevronDown
-          className={`ml-1 transition-transform ${
-            solutionsOpen ? "rotate-180" : ""
-          }`}
-        />
-      </button>
-      {solutionsOpen && (
-        <div className="pl-4 space-y-1">
-          {["For Startups", "For Agencies", "For Enterprise"].map((t, i) => (
-            <a
-              key={i}
-              className="block text-sm hover:text-white cursor-pointer"
-            >
-              {t}
-            </a>
-          ))}
-        </div>
-      )}
-
-      {/* Messages */}
-      <button
-        className="text-left hover:text-white"
-        onClick={() => setMsgOpen((v) => !v)}
-      >
-        Messages{" "}
-        {unreadCount > 0 && (
-          <span className="ml-1 text-xs text-pink-400">({unreadCount})</span>
-        )}
-      </button>
-      {msgOpen && (
-        <div className="pl-4 space-y-1 text-sm">
-          {messages.length === 0 ? (
-            <p className="text-gray-400">No new messages</p>
-          ) : (
-            visibleMessages.map((m, i) => (
-              <div key={i} className="py-1">
-                <span className="text-white">{m.message}</span>
-                {m.link && (
-                  <button
-                    onClick={() => (window.location.href = m.link)}
-                    className="text-fuchsia-300 hover:text-fuchsia-200 underline underline-offset-2 ml-1"
+              Discover
+              <FiChevronDown
+                className={`ml-1 transition-transform ${discoverOpen ? "rotate-180" : ""
+                  }`}
+              />
+            </button>
+            {discoverOpen && (
+              <div className="pl-4 space-y-1">
+                {["Popular", "New & Noteworthy", "Editors’ Picks"].map((t, i) => (
+                  <a
+                    key={i}
+                    className="block text-sm hover:text-white cursor-pointer"
                   >
-                    View
+                    {t}
+                  </a>
+                ))}
+              </div>
+            )}
+
+            {/* Solutions */}
+            <button
+              className="text-left hover:text-white flex items-center"
+              onClick={() => setSolutionsOpen((v) => !v)}
+            >
+              Solutions
+              <FiChevronDown
+                className={`ml-1 transition-transform ${solutionsOpen ? "rotate-180" : ""
+                  }`}
+              />
+            </button>
+            {solutionsOpen && (
+              <div className="pl-4 space-y-1">
+                {["For Startups", "For Agencies", "For Enterprise"].map((t, i) => (
+                  <a
+                    key={i}
+                    className="block text-sm hover:text-white cursor-pointer"
+                  >
+                    {t}
+                  </a>
+                ))}
+              </div>
+            )}
+
+            {/* Messages */}
+            <button
+              className="text-left hover:text-white"
+              onClick={() => setMsgOpen((v) => !v)}
+            >
+              Messages{" "}
+              {unreadCount > 0 && (
+                <span className="ml-1 text-xs text-pink-400">({unreadCount})</span>
+              )}
+            </button>
+            {msgOpen && (
+              <div className="pl-4 space-y-1 text-sm">
+                {messages.length === 0 ? (
+                  <p className="text-gray-400">No new messages</p>
+                ) : (
+                  visibleMessages.map((m, i) => (
+                    <div key={i} className="py-1">
+                      <span className="text-white">{m.message}</span>
+                      {m.link && (
+                        <button
+                          onClick={() => (window.location.href = m.link)}
+                          className="text-fuchsia-300 hover:text-fuchsia-200 underline underline-offset-2 ml-1"
+                        >
+                          View
+                        </button>
+                      )}
+                    </div>
+                  ))
+                )}
+                {messages.length > 1 && (
+                  <button
+                    className="text-purple-300 hover:text-purple-200 text-xs"
+                    onClick={() => setShowAllMsgs((v) => !v)}
+                  >
+                    {showAllMsgs ? "Show less" : "View all messages"}
                   </button>
                 )}
               </div>
-            ))
-          )}
-          {messages.length > 1 && (
+            )}
+
+            {/* Notifications */}
             <button
-              className="text-purple-300 hover:text-purple-200 text-xs"
-              onClick={() => setShowAllMsgs((v) => !v)}
+              className="text-left hover:text-white"
+              onClick={() => setNotifOpen((v) => !v)}
             >
-              {showAllMsgs ? "Show less" : "View all messages"}
+              Notifications
             </button>
-          )}
+            {notifOpen && (
+              <div className="pl-4 text-sm text-gray-400">No new notifications</div>
+            )}
+
+            {/* Settings */}
+            <button
+              className="text-left hover:text-white"
+              onClick={() => setSettingsOpen((v) => !v)}
+            >
+              Settings
+            </button>
+            {settingsOpen && (
+              <div className="pl-4 space-y-1 text-sm">
+                <a className="block hover:text-white cursor-pointer">Preferences</a>
+                <a className="block hover:text-white cursor-pointer">Account</a>
+                <a className="block hover:text-white cursor-pointer">
+                  Help & Support
+                </a>
+              </div>
+            )}
+          </div>
         </div>
       )}
-
-      {/* Notifications */}
-      <button
-        className="text-left hover:text-white"
-        onClick={() => setNotifOpen((v) => !v)}
-      >
-        Notifications
-      </button>
-      {notifOpen && (
-        <div className="pl-4 text-sm text-gray-400">No new notifications</div>
-      )}
-
-      {/* Settings */}
-      <button
-        className="text-left hover:text-white"
-        onClick={() => setSettingsOpen((v) => !v)}
-      >
-        Settings
-      </button>
-      {settingsOpen && (
-        <div className="pl-4 space-y-1 text-sm">
-          <a className="block hover:text-white cursor-pointer">Preferences</a>
-          <a className="block hover:text-white cursor-pointer">Account</a>
-          <a className="block hover:text-white cursor-pointer">
-            Help & Support
-          </a>
-        </div>
-      )}
-
-      {/* Dashboard */}
-      <button
-        className="bg-gradient-to-r from-purple-600 to-purple-700 px-3 py-2 rounded-xl text-white font-semibold shadow-lg hover:shadow-purple-500/25"
-        onClick={() => (window.location.href = "/dashboard")}
-      >
-        Dashboard
-      </button>
-
-      {/* Profile */}
-      <button
-        className="flex items-center gap-2 text-left hover:text-white"
-        onClick={() => setProfileOpen((v) => !v)}
-      >
-        {avatarUrl ? (
-          <img
-            src={avatarUrl}
-            alt="Profile"
-            className="h-7 w-7 rounded-full object-cover"
-          />
-        ) : (
-          <span className="h-7 w-7 flex items-center justify-center rounded-full bg-white/10 text-sm font-semibold">
-            {initial}
-          </span>
-        )}
-        {user?.name || user?.email || "Profile"}
-      </button>
-      {profileOpen && (
-        <div className="pl-4 space-y-1">
-          <a
-            onClick={() => (window.location.href = "/profile")}
-            className="block text-sm hover:text-white cursor-pointer"
-          >
-            View Profile
-          </a>
-          <a
-            onClick={async () => {
-              try {
-                await fetch(`${API_BASE}/api/auth/signout`, {
-                  method: "POST",
-                  credentials: "include",
-                });
-              } catch {}
-              localStorage.removeItem("token");
-              localStorage.removeItem("userId");
-              sessionStorage.removeItem("token");
-              sessionStorage.removeItem("userId");
-              window.location.href = "/signin";
-            }}
-            className="block text-sm text-red-400 hover:text-red-300 cursor-pointer"
-          >
-            Sign Out
-          </a>
-        </div>
-      )}
-    </div>
-  </div>
-)}
     </header>
   );
 }
