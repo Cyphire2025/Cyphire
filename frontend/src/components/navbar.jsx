@@ -441,71 +441,55 @@ export default function Navbar() {
           </button>
 
           {/* Profile */}
-          {/* Profile icon */}
-          <button
-            onClick={() => setProfileOpen((v) => !v)}
-            className="flex items-center justify-center h-9 w-9 rounded-full border border-white/20 bg-white/10 overflow-hidden hover:bg-white/15 transition"
-            aria-label="Profile"
-            title={user?.name || user?.email || "Profile"}
-          >
-            {avatarUrl ? (
-              <img src={avatarUrl} alt="Profile" className="h-full w-full object-cover" />
-            ) : (
-              <span className="text-sm font-semibold text-white/90">{initial}</span>
-            )}
-          </button>
-
-          {/* Profile dropdown inside hamburger menu */}
-          {mobileMenuOpen && (
-            <>
-              <button
-                className="flex items-center gap-2 text-left hover:text-white"
-                onClick={() => setProfileOpen((v) => !v)}
-              >
-                {avatarUrl ? (
-                  <img
-                    src={avatarUrl}
-                    alt="Profile"
-                    className="h-7 w-7 rounded-full object-cover"
-                  />
-                ) : (
-                  <span className="h-7 w-7 flex items-center justify-center rounded-full bg-white/10 text-sm font-semibold">
-                    {initial}
-                  </span>
-                )}
-                {user?.name || user?.email || "Profile"}
-              </button>
-
-              {profileOpen && (
-                <div className="pl-4 space-y-1 mt-2">
-                  <a
-                    onClick={() => (window.location.href = "/profile")}
-                    className="block text-sm hover:text-white cursor-pointer"
-                  >
-                    View Profile
-                  </a>
-                  <a
-                    onClick={async () => {
-                      try {
-                        await fetch(`${API_BASE}/api/auth/signout`, {
-                          method: "POST",
-                          credentials: "include",
-                        });
-                      } catch { }
-                      localStorage.removeItem("token");
-                      localStorage.removeItem("userId");
-                      sessionStorage.removeItem("token");
-                      sessionStorage.removeItem("userId");
-                      window.location.href = "/signin";
-                    }}
-                    className="block text-sm text-red-400 hover:text-red-300 cursor-pointer"
-                  >
-                    Sign Out
-                  </a>
-                </div>
+          {/* Profile button (mobile + desktop) */}
+          <div className="relative">
+            <button
+              onClick={() => setProfileOpen((v) => !v)}
+              className="flex items-center justify-center h-9 w-9 rounded-full border border-white/20 bg-white/10 overflow-hidden hover:bg-white/15 transition"
+              aria-label="Profile"
+              title={user?.name || user?.email || "Profile"}
+            >
+              {avatarUrl ? (
+                <img src={avatarUrl} alt="Profile" className="h-full w-full object-cover" />
+              ) : (
+                <span className="text-sm font-semibold text-white/90">{initial}</span>
               )}
-            </>
-          )}
+            </button>
+
+            {/* Profile dropdown - floats below avatar */}
+            {profileOpen && (
+              <div className="absolute right-0 mt-3 w-48 bg-gradient-to-br from-[#1a1a2e]/80 to-[#16213e]/80 border border-white/10 shadow-xl rounded-xl z-50 backdrop-blur-md p-2 animate-fadeIn">
+                <a
+                  onClick={() => {
+                    setProfileOpen(false);
+                    window.location.href = "/profile";
+                  }}
+                  className="block px-4 py-2 text-sm text-white/90 hover:text-white hover:bg-white/10 rounded-md cursor-pointer transition"
+                >
+                  👤 View Profile
+                </a>
+                <a
+                  onClick={async () => {
+                    setProfileOpen(false);
+                    try {
+                      await fetch(`${API_BASE}/api/auth/signout`, {
+                        method: "POST",
+                        credentials: "include",
+                      });
+                    } catch { }
+                    localStorage.removeItem("token");
+                    localStorage.removeItem("userId");
+                    sessionStorage.removeItem("token");
+                    sessionStorage.removeItem("userId");
+                    window.location.href = "/signin";
+                  }}
+                  className="block px-4 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-white/5 rounded-md cursor-pointer transition"
+                >
+                  🚪 Sign Out
+                </a>
+              </div>
+            )}
+          </div>
 
 
           {/* Hamburger menu toggle */}
