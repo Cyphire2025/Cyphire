@@ -441,51 +441,72 @@ export default function Navbar() {
           </button>
 
           {/* Profile */}
+          {/* Profile icon */}
           <button
-            className="flex items-center gap-2 text-left hover:text-white"
             onClick={() => setProfileOpen((v) => !v)}
+            className="flex items-center justify-center h-9 w-9 rounded-full border border-white/20 bg-white/10 overflow-hidden hover:bg-white/15 transition"
+            aria-label="Profile"
+            title={user?.name || user?.email || "Profile"}
           >
             {avatarUrl ? (
-              <img
-                src={avatarUrl}
-                alt="Profile"
-                className="h-7 w-7 rounded-full object-cover"
-              />
+              <img src={avatarUrl} alt="Profile" className="h-full w-full object-cover" />
             ) : (
-              <span className="h-7 w-7 flex items-center justify-center rounded-full bg-white/10 text-sm font-semibold">
-                {initial}
-              </span>
+              <span className="text-sm font-semibold text-white/90">{initial}</span>
             )}
-            {user?.name || user?.email || "Profile"}
           </button>
-          {profileOpen && (
-            <div className="pl-4 space-y-1">
-              <a
-                onClick={() => (window.location.href = "/profile")}
-                className="block text-sm hover:text-white cursor-pointer"
+
+          {/* Profile dropdown inside hamburger menu */}
+          {mobileMenuOpen && (
+            <>
+              <button
+                className="flex items-center gap-2 text-left hover:text-white"
+                onClick={() => setProfileOpen((v) => !v)}
               >
-                View Profile
-              </a>
-              <a
-                onClick={async () => {
-                  try {
-                    await fetch(`${API_BASE}/api/auth/signout`, {
-                      method: "POST",
-                      credentials: "include",
-                    });
-                  } catch { }
-                  localStorage.removeItem("token");
-                  localStorage.removeItem("userId");
-                  sessionStorage.removeItem("token");
-                  sessionStorage.removeItem("userId");
-                  window.location.href = "/signin";
-                }}
-                className="block text-sm text-red-400 hover:text-red-300 cursor-pointer"
-              >
-                Sign Out
-              </a>
-            </div>
+                {avatarUrl ? (
+                  <img
+                    src={avatarUrl}
+                    alt="Profile"
+                    className="h-7 w-7 rounded-full object-cover"
+                  />
+                ) : (
+                  <span className="h-7 w-7 flex items-center justify-center rounded-full bg-white/10 text-sm font-semibold">
+                    {initial}
+                  </span>
+                )}
+                {user?.name || user?.email || "Profile"}
+              </button>
+
+              {profileOpen && (
+                <div className="pl-4 space-y-1 mt-2">
+                  <a
+                    onClick={() => (window.location.href = "/profile")}
+                    className="block text-sm hover:text-white cursor-pointer"
+                  >
+                    View Profile
+                  </a>
+                  <a
+                    onClick={async () => {
+                      try {
+                        await fetch(`${API_BASE}/api/auth/signout`, {
+                          method: "POST",
+                          credentials: "include",
+                        });
+                      } catch { }
+                      localStorage.removeItem("token");
+                      localStorage.removeItem("userId");
+                      sessionStorage.removeItem("token");
+                      sessionStorage.removeItem("userId");
+                      window.location.href = "/signin";
+                    }}
+                    className="block text-sm text-red-400 hover:text-red-300 cursor-pointer"
+                  >
+                    Sign Out
+                  </a>
+                </div>
+              )}
+            </>
           )}
+
 
           {/* Hamburger menu toggle */}
           <button
