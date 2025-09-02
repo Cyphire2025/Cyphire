@@ -6,7 +6,7 @@ import { signJwt } from "../utils/jwt.js";
 const setAuthCookie = (res, token, rememberMe) => {
   const cookieOptions = {
     httpOnly: true,
-    sameSite: "none",                 // ✅ was "lax"
+    sameSite: "None",                 // ✅ was "lax"
     secure: true,                     // ✅ on Render (HTTPS)
   };
   if (rememberMe) cookieOptions.maxAge = 30 * 24 * 60 * 60 * 1000;
