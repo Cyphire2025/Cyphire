@@ -83,6 +83,7 @@ export default function WorkroomPage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [reactions, setReactions] = useState({}); // key: messageId -> 'like' | 'heart' | 'fire'
 
   const [text, setText] = useState("");
   const [files, setFiles] = useState([]);
@@ -141,17 +142,30 @@ export default function WorkroomPage() {
   };
 
   /* ====== Messages ====== */
-  useEffect(() => {
-    (async () => {
+  const fetchMessages = useCallback(async () => {
+    try {
       const r = await fetch(`${API_BASE}/api/workrooms/${workroomId}/messages`, {
         credentials: "include",
       });
       const d = await r.json();
-      setItems(d.items || []);
+      const list = d.items || d.messages || [];
+      setItems(list);
       setLoading(false);
-      setTimeout(scrollToBottom, 50);
-    })();
-  }, [workroomId]);
+      if (atBottom) setTimeout(scrollToBottom, 10);
+    } catch (e) {
+      // ignore network errors in polling
+    }
+  }, [workroomId, atBottom]);
+
+  useEffect(() => {
+    fetchMessages();
+  }, [fetchMessages]);
+
+  // Poll every 1s to reflect new messages
+  useEffect(() => {
+    const id = setInterval(fetchMessages, 1000);
+    return () => clearInterval(id);
+  }, [fetchMessages]);
 
   /* ====== Send ====== */
   const onSend = async () => {
@@ -225,7 +239,7 @@ export default function WorkroomPage() {
           </div>
           <div className="flex gap-2">
             <button
-              onClick={() => window.location.reload()}
+              onClick={fetchMessages}
               className="px-3 py-2 text-sm rounded-xl bg-white/10 hover:bg-white/20 flex items-center gap-2"
             >
               <RefreshCcw className="h-4 w-4" /> Refresh
@@ -279,10 +293,11 @@ export default function WorkroomPage() {
             ) : (
               <AnimatePresence>
                 {items.map((m, idx) => {
+                  const key = m._id || m.id || String(idx);
                   const mine = String(getSenderId(m) || "") === String(meId || "");
                   return (
                     <motion.div
-                      key={m._id || m.id || idx}
+                      key={key}
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10 }}
@@ -315,16 +330,37 @@ export default function WorkroomPage() {
                           ) : null;
                         })()}
                         {/* Reactions */}
-                        <div className="flex gap-2 mt-1 text-xs opacity-70">
-                          <button className="hover:text-fuchsia-300">
-                            <ThumbsUp size={14} />
-                          </button>
-                          <button className="hover:text-rose-400">
-                            <Heart size={14} />
-                          </button>
-                          <button className="hover:text-orange-400">
-                            <Flame size={14} />
-                          </button>
+                        <div className="flex gap-2 mt-1 text-xs">
+                          {(() => {
+                            const sel = reactions[key];
+                            const set = (type) =>
+                              setReactions((prev) => ({ ...prev, [key]: prev[key] === type ? undefined : type }));
+                            return (
+                              <>
+                                <button
+                                  className={`${sel === "like" ? "text-fuchsia-300" : "text-white/70 hover:text-fuchsia-300"}`}
+                                  onClick={() => set("like")}
+                                  title="Like"
+                                >
+                                  <ThumbsUp size={14} />
+                                </button>
+                                <button
+                                  className={`${sel === "heart" ? "text-rose-400" : "text-white/70 hover:text-rose-400"}`}
+                                  onClick={() => set("heart")}
+                                  title="Love"
+                                >
+                                  <Heart size={14} />
+                                </button>
+                                <button
+                                  className={`${sel === "fire" ? "text-orange-400" : "text-white/70 hover:text-orange-400"}`}
+                                  onClick={() => set("fire")}
+                                  title="Fire"
+                                >
+                                  <Flame size={14} />
+                                </button>
+                              </>
+                            );
+                          })()}
                         </div>
                         {(() => {
                           const ts = getTimestamp(m);
