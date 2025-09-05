@@ -141,7 +141,7 @@ export default function DashboardPage() {
     const selectedId = toId(task.selectedApplicant);
     const iAmSelected = me && sameId(selectedId, me._id);
     //const canOpenWorkroom = !!selectedId && (isOwner || iAmSelected);
-    const workroomHref = `/workroom/${task.workroomId || toId(task._id)}`;
+    const workroomHref = `http://localhost:5174/workroom/${task.workroomId || toId(task._id)}`;
 
     const isOpen = openTaskIdx === idx;
     const appliedCount = task.applicants?.length || 0;
@@ -186,7 +186,7 @@ export default function DashboardPage() {
             // OWNER VIEW
             selectedId ? (
               <button
-                onClick={() => (window.location.href = workroomHref)}
+                onClick={() => window.open(workroomHref, "_blank")}
                 className="text-emerald-200 hover:text-emerald-100 rounded-lg border border-emerald-400/40 bg-emerald-400/10 px-3 py-1 text-xs"
               >
                 Open Workroom

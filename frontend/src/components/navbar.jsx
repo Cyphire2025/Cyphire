@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { FiSearch, FiMessageSquare, FiSettings, FiChevronDown, FiMenu, FiX } from "react-icons/fi";
 import { FaRegBell } from "react-icons/fa";
+import { Link } from "react-router-dom";
 
 const API_BASE = import.meta.env?.VITE_API_BASE || "http://localhost:5000";
 
@@ -155,21 +156,25 @@ export default function Navbar() {
               }}
               className="flex items-center text-gray-300 hover:text-white transition-all duration-200 font-medium"
             >
-              Discover
+              About
               <FiChevronDown
                 className={`ml-1 transition-transform duration-200 ${discoverOpen ? "rotate-180" : ""}`}
               />
             </button>
             {discoverOpen && (
               <div className="absolute right-0 mt-3 w-52 bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl overflow-hidden z-20">
-                {["Popular", "New & Noteworthy", "Editors’ Picks"].map((t, i) => (
-                  <a
-                    key={i}
-                    className="block px-4 py-3 text-sm text-gray-200 hover:bg-white/20 border-b last:border-b-0 border-white/10 cursor-pointer"
-                  >
-                    {t}
-                  </a>
-                ))}
+                {["About Us", "Team", "Join us", "Contact"].map((t, i) => {
+                  const paths = ["/about-us", "/team", "/join-us", "/contact"];
+                  return (
+                    <Link
+                      key={i}
+                      to={paths[i]}
+                      className="block px-4 py-3 text-sm text-gray-200 hover:bg-white/20 border-b last:border-b-0 border-white/10"
+                    >
+                      {t}
+                    </Link>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -187,21 +192,25 @@ export default function Navbar() {
               }}
               className="flex items-center text-gray-300 hover:text-white transition-all duration-200 font-medium"
             >
-              Solutions
+              Explore
               <FiChevronDown
                 className={`ml-1 transition-transform duration-200 ${solutionsOpen ? "rotate-180" : ""}`}
               />
             </button>
             {solutionsOpen && (
               <div className="absolute right-0 mt-3 w-56 bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl overflow-hidden z-20">
-                {["For Startups", "For Agencies", "For Enterprise"].map((t, i) => (
-                  <a
-                    key={i}
-                    className="block px-4 py-3 text-sm text-gray-200 hover:bg-white/20 border-b last:border-b-0 border-white/10 cursor-pointer"
-                  >
-                    {t}
-                  </a>
-                ))}
+                {["How It Works", "Pricing & Plans", "Escrow Policy", "Help Center"].map((t, i) => {
+                  const paths = ["/how-it-works", "/pricing", "/escrow-policy", "/help"];
+                  return (
+                    <Link
+                      key={i}
+                      to={paths[i]}
+                      className="block px-4 py-3 text-sm text-gray-200 hover:bg-white/20 border-b last:border-b-0 border-white/10"
+                    >
+                      {t}
+                    </Link>
+                  );
+                })}
               </div>
             )}
           </div>

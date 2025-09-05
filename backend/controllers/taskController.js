@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import Task from "../models/taskModel.js";
 import User from "../models/userModel.js";
 import cloudinary from "../utils/cloudinary.js"; // uses your utils/cloudinary.js config
+import { getNextWorkroomId } from "../utils/getNextWorkroomId.js";
 
 // Helper: upload a single file buffer/path to Cloudinary
 const uploadToCloudinary = (file) =>
@@ -207,32 +208,31 @@ export const applyToTask = async (req, res) => {
 ;
 // POST /api/tasks/:id/select
 // POST /api/tasks/:id/select
+
 export const selectApplicant = async (req, res) => {
   try {
     const { id } = req.params;
     const { applicantId } = req.body;
 
-    // Load the task with applicants
     const task = await Task.findById(id).populate("applicants", "_id name");
     if (!task) return res.status(404).json({ error: "Task not found" });
 
-    // Only owner can select
     if (String(task.createdBy) !== String(req.user._id)) {
       return res.status(403).json({ error: "Only the task owner can select an applicant" });
     }
 
-    // Must be an actual applicant
-    const applied = (task.applicants || []).some(a => String(a._id || a) === String(applicantId));
+    const applied = (task.applicants || []).some(
+      (a) => String(a._id || a) === String(applicantId)
+    );
     if (!applied) return res.status(400).json({ error: "This user has not applied to the task" });
 
-    // Only one selection allowed
     if (task.selectedApplicant) {
       return res.status(400).json({ error: "An applicant has already been selected" });
     }
 
-    // Persist selection
+    // ✅ Generate numeric 10-digit workroomId
     task.selectedApplicant = applicantId;
-    task.workroomId = `wr_${task._id}_${applicantId}`;
+    task.workroomId = await getNextWorkroomId();
     await task.save();
 
     // Build notifications

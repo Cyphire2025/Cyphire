@@ -15,7 +15,7 @@ import {
   RefreshCcw,
   X,
 } from "lucide-react";
-import Navbar from "../components/navbar";
+
 
 const API_BASE = import.meta.env?.VITE_API_BASE || "http://localhost:5000";
 
@@ -209,7 +209,7 @@ export default function WorkroomPage() {
       } catch (e) {
         console.error("auto meta refresh error", e);
       }
-    }, 10);
+    }, 1000);
 
     return () => clearInterval(interval);
   }, [workroomId]);
@@ -318,7 +318,7 @@ export default function WorkroomPage() {
   /* ====== UI ====== */
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#0a0a0f] via-[#0c0c14] to-[#000] text-gray-100 overflow-x-hidden">
-      <Navbar />
+     
       <main className="relative pt-24 pb-10">
         <Aurora />
         <Particles />

@@ -176,6 +176,7 @@ export const SwipeCarousel = () => {
               alt=""
               className="aspect-square w-[95%] h-[95%] rounded-xl object-cover shadow-[0_0_20px_rgba(255,255,255,0.08)]"
               draggable={false}
+              loading="lazy"
             />
           </div>
         ))}
@@ -190,6 +191,7 @@ export const SwipeCarousel = () => {
               const target = BASE + i; // always jump to the middle copy
               setIndex(target);
               goTo(target);
+              
               startAuto();
             }}
             className={`h-2.5 w-2.5 rounded-full transition-all ${

@@ -10,11 +10,20 @@ import ViewTask from './pages/viewtask';
 import ProfilePage from './pages/profile';
 import DashboardPage from "./pages/dashboard";
 import ViewProfilePage from './pages/viewprofile';
-import WorkroomPage from "./pages/workroom.jsx";
-import WorkroomComplete from "./pages/WorkroomComplete.jsx";
-import WorkroomPayment from "./pages/WorkroomPayment.jsx";
+
 import Pricing from './pages/Pricing.jsx';
 import Checkout from "./pages/Checkout.jsx";
+ 
+//pages2
+import AboutUs from "./pages2/AboutUs.jsx";
+import Team from "./pages2/Team.jsx";
+import JoinUs from "./pages2/JoinUs.jsx";
+import Contact from "./pages2/Contact.jsx";
+import HowitWorks from"./pages2/HowItWorks.jsx";
+import PricingPlans from "./pages2/PricingPlans.jsx";
+import EscrowPolicy from "./pages2/EscrowPolicy.jsx";
+import HelpCenter from "./pages2/HelpCenter.jsx";
+
 
 function AutoLogin() {
   const navigate = useNavigate();
@@ -41,11 +50,21 @@ function App() {
         <Route path="/task/:id" element={<ViewTask />} />
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/u/:slug" element={<ViewProfilePage />} />
-        <Route path="/workroom/:workroomId" element={<WorkroomPage />} />
-        <Route path="/workroom/:workroomId/complete" element={<WorkroomComplete />} />
-        <Route path="/workroom/:workroomId/payment" element={<WorkroomPayment />} />
         <Route path="/pricing" element={<Pricing />} />
         <Route path="/checkout" element={<Checkout />} />
+
+
+        <Route path="/about-us" element={<AboutUs />} />
+        <Route path="/team" element={<Team />} />
+        <Route path="/join-us" element={<JoinUs />} />
+        <Route path="/contact" element={<Contact />} />
+
+        <Route path="/how-it-works" element={<HowitWorks />} />
+        <Route path="/pricing" element={<PricingPlans />} />
+        <Route path="/escrow-policy" element={<EscrowPolicy />} />
+        <Route path="/help" element={<HelpCenter />} />
+
+
       </Routes>
     </Router>
   );

@@ -25,19 +25,80 @@ import { SwipeCarousel } from "../components/HeroArt";
 const API_BASE = import.meta.env?.VITE_API_BASE || "http://localhost:5000";
 
 /* ========== Utilities ========== */
-
-const GradientText = ({ children, className = "" }) => (
-  <span className={`bg-gradient-to-r from-violet-300 via-fuchsia-300 to-sky-300 bg-clip-text text-transparent ${className}`}>
+export const GradientText = ({ children, className = "" }) => (
+  <span
+    className={`bg-gradient-to-r from-violet-300 via-fuchsia-300 to-sky-300 
+      bg-clip-text text-transparent ${className}`}
+  >
     {children}
   </span>
 );
+
+export const GlassCard = ({ children, className = "" }) => (
+  <div
+    className={`rounded-2xl border border-white/10 bg-white/5 
+      backdrop-blur-xl shadow-[0_0_0_1px_rgba(255,255,255,0.04)] ${className}`}
+  >
+    {children}
+  </div>
+);
+
+export const NeonButton = ({ children, className = "", ...props }) => (
+  <button
+    {...props}
+    className={`relative inline-flex items-center gap-2 rounded-xl px-6 py-3 
+      text-sm font-semibold text-white transition-transform duration-200 
+      hover:scale-[1.03] focus:outline-none ${className}`}
+  >
+    <span className="absolute inset-0 rounded-xl bg-gradient-to-r from-violet-600 via-fuchsia-600 to-sky-600" />
+    <span className="absolute -inset-[1px] rounded-xl 
+      bg-gradient-to-r from-violet-400/40 via-fuchsia-400/30 to-sky-400/30 blur-md" />
+    <span className="relative">{children}</span>
+  </button>
+);
+
+const SectionHeader = ({ eyebrow, title, subtitle }) => (
+  <header className="mx-auto mb-10 max-w-3xl text-center">
+    {eyebrow && (
+      <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/70">
+        <Sparkles className="h-4 w-4" aria-hidden="true" /> {eyebrow}
+      </div>
+    )}
+    <h2 className="text-3xl md:text-4xl font-bold">
+      <GradientText>{title}</GradientText>
+    </h2>
+    {subtitle && <p className="mt-4 text-white/70">{subtitle}</p>}
+  </header>
+);
+
+const Stat = ({ k, v }) => (
+  <GlassCard className="px-5 py-4 text-center">
+    <div className="text-xs uppercase tracking-wide text-white/60">{k}</div>
+    <div className="mt-1 text-2xl font-semibold text-white">{v}</div>
+  </GlassCard>
+);
+
+/* ========== Utils & Data ========== */
+
+const inr = (n) =>
+  typeof n === "number"
+    ? new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 0,
+    }).format(n)
+    : "—";
+
+
+/* ========== Background Effects ========== */
 
 const Aurora = ({ className = "" }) => (
   <div className={`absolute inset-0 -z-10 overflow-hidden ${className}`}>
     <div className="absolute -inset-x-40 -top-40 h-[50rem] bg-[radial-gradient(ellipse_at_top,rgba(139,92,246,0.15),transparent_60%)]" />
     <div className="absolute -inset-x-20 -top-20 h-[50rem] bg-[radial-gradient(ellipse_at_center,rgba(236,72,153,0.12),transparent_60%)]" />
     <div className="absolute inset-x-0 bottom-0 h-[40rem] bg-[radial-gradient(ellipse_at_bottom,rgba(14,165,233,0.12),transparent_60%)]" />
-    <div className="pointer-events-none absolute inset-0 bg-[conic-gradient(from_180deg_at_50%_50%,rgba(168,85,247,0.06),rgba(14,165,233,0.06),rgba(236,72,153,0.06),rgba(168,85,247,0.06))]" />
+    <div className="pointer-events-none absolute inset-0 
+      bg-[conic-gradient(from_180deg_at_50%_50%,rgba(168,85,247,0.06),rgba(14,165,233,0.06),rgba(236,72,153,0.06),rgba(168,85,247,0.06))]" />
   </div>
 );
 
@@ -60,38 +121,6 @@ const Particles = () => (
       @keyframes float1 { 0%,100%{ transform: translateY(0)} 50%{ transform: translateY(-16px)} }
       @keyframes float2 { 0%,100%{ transform: translateY(0)} 50%{ transform: translateY(-22px)} }
     `}</style>
-  </div>
-);
-
-const NeonButton = ({ children, className = "", ...props }) => (
-  <button
-    {...props}
-    className={`relative inline-flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold text-white transition-transform duration-200 hover:scale-[1.03] focus:outline-none ${className}`}
-  >
-    <span className="absolute inset-0 rounded-xl bg-gradient-to-r from-violet-600 via-fuchsia-600 to-sky-600" />
-    <span className="absolute -inset-[1px] rounded-xl bg-gradient-to-r from-violet-400/40 via-fuchsia-400/30 to-sky-400/30 blur-md" />
-    <span className="relative">{children}</span>
-  </button>
-);
-
-const SectionHeader = ({ eyebrow, title, subtitle }) => (
-  <div className="mx-auto mb-10 max-w-3xl text-center">
-    {eyebrow && (
-      <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/70">
-        <Sparkles className="h-4 w-4" /> {eyebrow}
-      </div>
-    )}
-    <h2 className="text-3xl md:text-4xl font-bold">
-      <GradientText>{title}</GradientText>
-    </h2>
-    {subtitle && <p className="mt-4 text-white/60">{subtitle}</p>}
-  </div>
-);
-
-const Stat = ({ k, v }) => (
-  <div className="rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-center backdrop-blur-xl">
-    <div className="text-xs uppercase tracking-wide text-white/60">{k}</div>
-    <div className="mt-1 text-2xl font-semibold text-white">{v}</div>
   </div>
 );
 
@@ -133,14 +162,6 @@ const categories = [
   { name: "AI", icon: <Bolt className="h-4 w-4" /> },
   { name: "DevOps", icon: <Compass className="h-4 w-4" /> },
 ];
-
-/* ========== INR formatter ========== */
-const inr = (n) => {
-  if (n == null) return "—";
-  const num = Number(n);
-  if (Number.isNaN(num)) return "—";
-  return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(num);
-};
 
 /* ========== Task Card (3D tilt + shine, with requested fields) ========== */
 const TiltTaskCard = ({ task }) => {
