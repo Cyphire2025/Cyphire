@@ -1,6 +1,4 @@
 // src/pages/Workroom.jsx
-// Adds a Refresh button + fixes attachments showing empty boxes by using server payload/refetch
-
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import io from "socket.io-client";
@@ -9,71 +7,40 @@ import {
   Send,
   Loader2,
   CheckCircle2,
-  Image as ImageIcon,
-  File as FileIcon,
-  Video as VideoIcon,
   RefreshCcw,
   X,
+  Sparkles,
+  ChevronDown,
+  ThumbsUp,
+  Heart,
+  Flame,
 } from "lucide-react";
-
+import { motion, AnimatePresence } from "framer-motion";
 
 const API_BASE = import.meta.env?.VITE_API_BASE || "http://localhost:5000";
 
-/* ====== Background pretties (same as before) ====== */
-const Aurora = ({ className = "" }) => (
-  <div className={`absolute inset-0 -z-10 overflow-hidden max-w-full ${className}`}>
-    <div className="absolute -inset-x-40 -top-40 h-[50rem] bg-[radial-gradient(ellipse_at_top,rgba(139,92,246,0.15),transparent_60%)]" />
-    <div className="absolute -inset-x-20 -top-20 h-[50rem] bg-[radial-gradient(ellipse_at_center,rgba(236,72,153,0.12),transparent_60%)]" />
-    <div className="absolute inset-x-0 bottom-0 h-[40rem] bg-[radial-gradient(ellipse_at_bottom,rgba(14,165,233,0.12),transparent_60%)]" />
-    <div className="pointer-events-none absolute inset-0 bg-[conic-gradient(from_180deg_at_50%_50%,rgba(168,85,247,0.06),rgba(14,165,233,0.06),rgba(236,72,153,0.06),rgba(168,85,247,0.06))]" />
+/* ====== Background ====== */
+const Aurora = () => (
+  <div className="absolute inset-0 -z-10 overflow-hidden">
+    <div className="absolute -inset-x-40 -top-40 h-[50rem] bg-[radial-gradient(ellipse_at_top,rgba(139,92,246,0.15),transparent_70%)]" />
+    <div className="absolute -inset-x-20 -top-20 h-[50rem] bg-[radial-gradient(ellipse_at_center,rgba(236,72,153,0.12),transparent_70%)]" />
+    <div className="absolute inset-x-0 bottom-0 h-[40rem] bg-[radial-gradient(ellipse_at_bottom,rgba(14,165,233,0.12),transparent_70%)]" />
   </div>
 );
 
-const Particles = () => (
-  <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden max-w-full">
-    {Array.from({ length: 40 }).map((_, i) => (
-      <span
-        key={i}
-        className="absolute h-1 w-1 rounded-full bg-white/40 shadow-[0_0_12px_rgba(255,255,255,0.35)]"
-        style={{
-          left: `${Math.random() * 100}%`,
-          top: `${Math.random() * 100}%`,
-          animation: `float${i % 3} ${6 + (i % 5)}s ease-in-out ${i * 0.12}s infinite`,
-          opacity: 0.5,
-        }}
-      />
-    ))}
-    <style>{`
-      @keyframes float0 { 0%,100%{ transform: translateY(0)} 50%{ transform: translateY(-10px)} }
-      @keyframes float1 { 0%,100%{ transform: translateY(0)} 50%{ transform: translateY(-16px)} }
-      @keyframes float2 { 0%,100%{ transform: translateY(0)} 50%{ transform: translateY(-22px)} }
-    `}</style>
-  </div>
-);
-
+/* ====== Helpers ====== */
 const bubbleCls = (mine) =>
-  `max-w-[78%] rounded-2xl px-3 py-2 text-sm shadow-md ${mine
-    ? "bg-gradient-to-br from-fuchsia-500/25 to-sky-500/20 text-fuchsia-50 border border-fuchsia-400/30 rounded-br-sm ml-auto"
+  `max-w-[78%] px-4 py-3 rounded-2xl shadow-lg backdrop-blur-md transition relative ${mine
+    ? "bg-gradient-to-br from-fuchsia-500/40 to-sky-500/30 text-fuchsia-50 border border-fuchsia-400/40 ml-auto rounded-br-sm"
     : "bg-white/10 text-white border border-white/20 rounded-bl-sm"
   }`;
 
-/* ====== Type helper for attachments (handles different backend shapes) ====== */
-function guessType(att) {
-  const t = att?.type || att?.mime || att?.mimetype || "";
-  const url = att?.url || att?.secure_url || att?.location || att?.path || "";
-  const name = att?.original_name || att?.originalName || att?.filename || att?.key || "";
-
-  const str = `${t} ${url} ${name}`.toLowerCase();
-  if (str.includes("image/") || /\.(png|jpe?g|gif|webp|bmp|svg)$/.test(str)) return "image";
-  if (str.includes("video/") || /\.(mp4|webm|mov|m4v|avi)$/.test(str)) return "video";
+const guessType = (att) => {
+  const str = `${att?.type || ""} ${att?.name || ""}`.toLowerCase();
+  if (str.includes("image") || /\.(png|jpe?g|gif|webp)$/.test(str)) return "image";
+  if (str.includes("video") || /\.(mp4|webm|mov)$/.test(str)) return "video";
   return "file";
-}
-function pickUrl(att) {
-  return att?.url || att?.secure_url || att?.location || att?.path || "";
-}
-function pickName(att) {
-  return att?.original_name || att?.originalName || att?.filename || att?.key || att?.name || "file";
-}
+};
 
 /* ====== Page ====== */
 export default function WorkroomPage() {
@@ -82,202 +49,98 @@ export default function WorkroomPage() {
 
   const [me, setMe] = useState(null);
   const [meta, setMeta] = useState(null);
-
   const [items, setItems] = useState([]);
-  const [nextCursor, setNextCursor] = useState(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
 
   const [text, setText] = useState("");
   const [files, setFiles] = useState([]);
+  const [typing, setTyping] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [atBottom, setAtBottom] = useState(true);
 
   const listRef = useRef(null);
   const socketRef = useRef(null);
-  const isAtBottomRef = useRef(true);
-
   const meId = me?._id;
 
-  const isLocked = !!meta?.finalisedAt;
-  const bothFinalised = !!meta?.finalisedAt || (!!meta?.clientFinalised && !!meta?.workerFinalised);
+  const bothFinalised =
+    !!meta?.finalisedAt || (!!meta?.clientFinalised && !!meta?.workerFinalised);
 
-  /* ====== Load me + meta ====== */
+  /* ====== Fetch me + meta ====== */
   useEffect(() => {
     (async () => {
-      try {
-        const [r1, r2] = await Promise.all([
-          fetch(`${API_BASE}/api/auth/me`, { credentials: "include" }),
-          fetch(`${API_BASE}/api/workrooms/${workroomId}/meta`, { credentials: "include" }),
-        ]);
-        const meJson = await r1.json();
-        const metaJson = await r2.json();
-        setMe(meJson?.user || null);
-        setMeta(metaJson || null);
-      } catch (e) {
-        console.error(e);
-      }
+      const [r1, r2] = await Promise.all([
+        fetch(`${API_BASE}/api/auth/me`, { credentials: "include" }),
+        fetch(`${API_BASE}/api/workrooms/${workroomId}/meta`, { credentials: "include" }),
+      ]);
+      setMe((await r1.json())?.user || null);
+      setMeta(await r2.json());
     })();
   }, [workroomId]);
 
-  /* ====== SOCKET ====== */
+  /* ====== Socket ====== */
   useEffect(() => {
     const s = io(API_BASE, { withCredentials: true });
     socketRef.current = s;
+    s.emit("workroom:join", { workroomId });
 
-    s.on("connect", () => {
-      s.emit("workroom:join", { workroomId });
+    s.on("message:new", (msg) => {
+      setItems((prev) => [...prev, msg]);
+      if (atBottom) scrollToBottom();
+    });
+    s.on("typing", (d) => {
+      if (d?.workroomId === workroomId && d?.userId !== meId) {
+        setTyping(true);
+        setTimeout(() => setTyping(false), 2000);
+      }
     });
 
-    s.on("connect_error", (err) => console.warn("socket connect_error:", err?.message));
-
-    // When server broadcasts a fully-formed message (with uploaded file URLs), append it
-    const onIncoming = (msg) => {
-      if (msg?.workroomId && msg.workroomId !== workroomId) return;
-      setItems((prev) => [...prev, msg]);
-      if (isAtBottomRef.current) scrollToBottomSmooth();
-    };
-    s.on("message:new", onIncoming);
-
-    const onFinaliseUpdate = (payload) => {
-      if (!payload || payload.workroomId !== workroomId) return;
-      setMeta((prev) => ({
-        ...(prev || {}),
-        clientFinalised: payload.clientFinalised ?? prev?.clientFinalised,
-        workerFinalised: payload.workerFinalised ?? prev?.workerFinalised,
-        finalisedAt: payload.finalisedAt ?? prev?.finalisedAt ?? null,
-      }));
-    };
-    s.on("workroom:finalise:update", onFinaliseUpdate);
-
-    return () => {
-      s.off("message:new", onIncoming);
-      s.off("workroom:finalise:update", onFinaliseUpdate);
-      s.disconnect();
-    };
-  }, [workroomId]);
+    return () => s.disconnect();
+  }, [workroomId, meId, atBottom]);
 
   /* ====== Scroll helpers ====== */
-  const scrollToBottomSmooth = () => {
-    requestAnimationFrame(() => {
-      listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
-    });
-  };
-  const handleScroll = useCallback(() => {
+  const scrollToBottom = () =>
+    requestAnimationFrame(() =>
+      listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" })
+    );
+  const handleScroll = () => {
     const el = listRef.current;
     if (!el) return;
-    const nearBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 40;
-    isAtBottomRef.current = nearBottom;
-  }, []);
+    setAtBottom(el.scrollTop + el.clientHeight >= el.scrollHeight - 40);
+  };
 
-  /* ====== Fetch messages ====== */
-  const fetchMessages = async (cursor) => {
-    const url = new URL(`${API_BASE}/api/workrooms/${workroomId}/messages`);
-    if (cursor) url.searchParams.set("cursor", cursor);
-    const r = await fetch(url, { credentials: "include" });
-    const d = await r.json();
-
-    if (!cursor) {
+  /* ====== Messages ====== */
+  useEffect(() => {
+    (async () => {
+      const r = await fetch(`${API_BASE}/api/workrooms/${workroomId}/messages`, {
+        credentials: "include",
+      });
+      const d = await r.json();
       setItems(d.items || []);
-      setTimeout(scrollToBottomSmooth, 50);
-    } else {
-      setItems((prev) => [...(d.items || []), ...prev]);
-    }
-    setNextCursor(d.nextCursor || null);
-  };
-  useEffect(() => {
-    setLoading(true);
-    fetchMessages().finally(() => setLoading(false));
-  }, [workroomId]);
-  // auto refresh messages every 2 seconds
-  useEffect(() => {
-    const interval = setInterval(() => {
-      fetchMessages();
-    }, 1000);
-
-    return () => clearInterval(interval); // cleanup on unmount
+      setLoading(false);
+      setTimeout(scrollToBottom, 50);
+    })();
   }, [workroomId]);
 
-  // 2️⃣ Auto-refresh finalise/meta
-  useEffect(() => {
-    const interval = setInterval(async () => {
-      try {
-        const r = await fetch(`${API_BASE}/api/workrooms/${workroomId}/meta`, {
-          credentials: "include",
-        });
-        const d = await r.json();
-        setMeta(d);
-      } catch (e) {
-        console.error("auto meta refresh error", e);
-      }
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [workroomId]);
-
-  /* ====== File helpers ====== */
-  const addFiles = (picked) => {
-    if (!picked?.length) return;
-    setFiles((prev) => [...prev, ...Array.from(picked)]);
-  };
-  const onPickFiles = (e) => {
-    addFiles(e.target.files);
-    e.target.value = null;
-  };
-  const onRemoveFile = (index) => {
-    setFiles((prev) => prev.filter((_, i) => i !== index));
-  };
-  const onPaste = (e) => {
-    if (isLocked) return;
-    const pastedFiles = Array.from(e.clipboardData?.files || []);
-    if (pastedFiles.length) {
-      e.preventDefault();
-      addFiles(pastedFiles);
-    }
-  };
-  const onDrop = (e) => {
-    if (isLocked) return;
-    e.preventDefault();
-    setDragOver(false);
-    addFiles(e.dataTransfer?.files);
-  };
-  const onDragOver = (e) => {
-    if (isLocked) return;
-    e.preventDefault();
-    setDragOver(true);
-  };
-  const onDragLeave = () => setDragOver(false);
-
-  /* ====== Send message (NO optimistic attachments; use server payload) ====== */
+  /* ====== Send ====== */
   const onSend = async () => {
-    if (sending || isLocked) return;
-    const empty = !text.trim() && files.length === 0;
-    if (empty) return;
-
+    if (sending || bothFinalised) return;
+    if (!text.trim() && files.length === 0) return;
     setSending(true);
     try {
       const form = new FormData();
       if (text.trim()) form.append("text", text.trim());
       files.forEach((f) => form.append("attachments", f));
-
       const r = await fetch(`${API_BASE}/api/workrooms/${workroomId}/messages`, {
         method: "POST",
         body: form,
         credentials: "include",
       });
       const d = await r.json();
-      if (!r.ok) throw new Error(d.error || "Failed to send");
-
-      // If server returns the full saved message, append that; else hard refresh list.
-      const serverMsg = d?.message || d; // tolerate different API shapes
-      if (serverMsg && (serverMsg.text || serverMsg.attachments)) {
-        setItems((prev) => [...prev, serverMsg]);
-        if (isAtBottomRef.current) scrollToBottomSmooth();
-      } else {
-        // fallback: re-fetch to get the last message with proper uploaded URLs
-        await fetchMessages();
+      if (r.ok && d?.message) {
+        setItems((p) => [...p, d.message]);
+        scrollToBottom();
       }
-
-      // clear composer
       setText("");
       setFiles([]);
     } catch (e) {
@@ -287,313 +150,237 @@ export default function WorkroomPage() {
     }
   };
 
-  /* ====== Finalise ====== */
-  const onFinalise = async () => {
-    try {
-      const r = await fetch(`${API_BASE}/api/workrooms/${workroomId}/finalise`, {
-        method: "POST",
-        credentials: "include",
-      });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error || "Failed to finalize");
+  const onTyping = () => socketRef.current?.emit("typing", { workroomId, userId: meId });
 
-      setMeta((prevMeta) => ({
-        ...(prevMeta || {}),
-        clientFinalised: d.clientFinalised,
-        workerFinalised: d.workerFinalised,
-        finalisedAt: d.finalisedAt || null,
-      }));
-
-      socketRef.current?.emit("workroom:finalise:update", {
-        workroomId,
-        clientFinalised: d.clientFinalised,
-        workerFinalised: d.workerFinalised,
-        finalisedAt: d.finalisedAt || null,
-      });
-    } catch (e) {
-      alert(e.message);
-    }
+  /* ====== Drag & Drop ====== */
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setDragOver(true);
+  };
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+  };
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    const dropped = Array.from(e.dataTransfer?.files || []);
+    if (dropped.length) setFiles((prev) => [...prev, ...dropped]);
   };
 
   /* ====== UI ====== */
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#0a0a0f] via-[#0c0c14] to-[#000] text-gray-100 overflow-x-hidden">
-     
-      <main className="relative pt-24 pb-10">
-        <Aurora />
-        <Particles />
-        <div className="mx-auto max-w-6xl px-4">
-          {/* Header card */}
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-xl">
-            <div>
-              <h1 className="text-xl font-semibold text-white">Workroom</h1>
-              <div className="text-xs text-white/60">Room: {workroomId}</div>
-
-              {!bothFinalised ? (
-                <div className="mt-1 text-xs text-white/70">
-                  {meta?.role === "client" ? (
-                    <>Your status: <b>{meta?.clientFinalised ? "Finalized" : "Pending"}</b> • Partner: <b>{meta?.workerFinalised ? "Finalized" : "Pending"}</b></>
-                  ) : (
-                    <>Your status: <b>{meta?.workerFinalised ? "Finalized" : "Pending"}</b> • Partner: <b>{meta?.clientFinalised ? "Finalized" : "Pending"}</b></>
-                  )}
-                </div>
-              ) : (
-                <div className="mt-1 text-xs text-white/80">Both parties finalised. Chat is locked.</div>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2">
-              {/* REFRESH BUTTON (hard page reload) */}
-              <button
-                onClick={() => window.location.reload()}
-                className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2 text-sm border border-white/20 hover:bg-white/15"
-                title="Refresh page"
-              >
-                <RefreshCcw className="h-4 w-4" />
-                Refresh
-              </button>
-
-              {!bothFinalised ? (
-                <button
-                  onClick={onFinalise}
-                  className="rounded-xl bg-emerald-600 px-4 py-2 text-sm hover:bg-emerald-700"
-                >
-                  Finalize
-                </button>
-              ) : (
-                <div className="flex items-center gap-2 text-emerald-300">
-                  <CheckCircle2 className="h-5 w-5" />
-                  <span className="text-sm">Finalized</span>
-                </div>
-              )}
-
-              {bothFinalised && (
-                <button
-                  onClick={() => navigate(`/workroom/${workroomId}/complete`)}
-                  className="rounded-xl bg-fuchsia-600 px-4 py-2 text-sm hover:bg-fuchsia-700"
-                >
-                  Proceed
-                </button>
-              )}
-            </div>
+    <div className="min-h-screen bg-gradient-to-b from-[#08080d] via-[#0b0b13] to-black text-gray-100">
+      <Aurora />
+      <main className="relative pt-24 pb-10 mx-auto max-w-6xl px-4">
+        {/* Header */}
+        <div className="mb-6 flex justify-between items-center rounded-2xl border border-white/10 bg-white/5 backdrop-blur-2xl p-5">
+          <div>
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-fuchsia-400 to-sky-400 bg-clip-text text-transparent">
+              Workroom
+            </h1>
+            <p className="text-xs text-white/60">Room: {workroomId}</p>
           </div>
-
-          {/* Chat card */}
-          <div
-            className={`relative rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl ${dragOver ? "ring-2 ring-fuchsia-400/50" : ""
-              }`}
-            onDrop={onDrop}
-            onDragOver={onDragOver}
-            onDragLeave={onDragLeave}
-          >
-            {/* Top bar */}
-            <div className="flex items-center justify-between border-b border-white/10 px-3 py-2">
-              <button
-                disabled={!nextCursor}
-                onClick={() => fetchMessages(nextCursor)}
-                className={`text-xs rounded-md px-3 py-1 ${nextCursor
-                  ? "text-white/80 hover:text-white bg-white/10 border border-white/20"
-                  : "text-white/30 bg-white/5 border border-white/10 cursor-not-allowed"
-                  }`}
-              >
-                {nextCursor ? "Load previous" : "No more"}
-              </button>
-              <div className="text-[11px] text-white/50">Drag & drop or paste files to attach</div>
-              {/* Quick refresh messages only (soft refresh) */}
-              <button
-                onClick={() => fetchMessages()}
-                className="text-xs rounded-md px-3 py-1 text-white/80 hover:text-white bg-white/10 border border-white/20"
-                title="Refresh messages"
-              >
-                Refresh chat
-              </button>
-            </div>
-
-            {/* Messages */}
-            <div
-              ref={listRef}
-              className="h-[68vh] overflow-y-auto p-4 space-y-3 scroll-smooth"
-              onScroll={handleScroll}
-              onPaste={onPaste}
+          <div className="flex gap-2">
+            <button
+              onClick={() => window.location.reload()}
+              className="px-3 py-2 text-sm rounded-xl bg-white/10 hover:bg-white/20 flex items-center gap-2"
             >
-              {loading ? (
-                <div className="text-white/60">Loading…</div>
-              ) : items.length === 0 ? (
-                <div className="text-white/60">No messages yet.</div>
-              ) : (
-                items.map((m) => {
-                  const mine = String(m.sender?._id || m.sender) === String(meId);
-                  const attachments = Array.isArray(m.attachments) ? m.attachments : [];
+              <RefreshCcw className="h-4 w-4" /> Refresh
+            </button>
+            {bothFinalised ? (
+              <div className="flex items-center gap-2 text-emerald-300">
+                <CheckCircle2 className="h-5 w-5" /> Finalized
+              </div>
+            ) : (
+              <button
+                onClick={async () =>
+                  await fetch(`${API_BASE}/api/workrooms/${workroomId}/finalise`, {
+                    method: "POST",
+                    credentials: "include",
+                  })
+                }
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-sky-600 font-semibold"
+              >
+                Finalize
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Chat */}
+        <div
+          className={`relative rounded-2xl border border-white/10 bg-white/5 backdrop-blur-2xl ${dragOver ? "ring-2 ring-fuchsia-400/50" : ""}`}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
+          <div
+            ref={listRef}
+            onScroll={handleScroll}
+            className="h-[65vh] overflow-y-auto p-4 space-y-3"
+          >
+            {loading ? (
+              <div className="space-y-3 animate-pulse">
+                {[...Array(4)].map((_, i) => (
+                  <div
+                    key={i}
+                    className={`h-10 w-1/2 rounded-xl ${i % 2 ? "ml-auto bg-fuchsia-900/30" : "bg-white/10"}`}
+                  ></div>
+                ))}
+              </div>
+            ) : items.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-white/50">
+                <Sparkles className="h-10 w-10 mb-2 animate-pulse" />
+                <p>No messages yet</p>
+              </div>
+            ) : (
+              <AnimatePresence>
+                {items.map((m) => {
+                  const mine = String(m.sender?._id) === String(meId);
                   return (
-                    <div key={m._id || `${m.createdAt}-${Math.random()}`} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+                    <motion.div
+                      key={m._id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className={`flex ${mine ? "justify-end" : "justify-start"}`}
+                    >
                       <div className={bubbleCls(mine)}>
-                        {m.text && <div className="whitespace-pre-wrap leading-relaxed">{m.text}</div>}
-
-                        {attachments.length > 0 && (
-                          <div className="mt-2 space-y-2">
-                            {attachments.map((a, i) => {
-                              const t = guessType(a);
-                              const url = pickUrl(a);
-                              const name = pickName(a);
-                              if (!url) return null;
-
-                              if (t === "image") {
-                                return (
-                                  <a key={i} href={url} target="_blank" rel="noreferrer">
-                                    <img
-                                      src={url}
-                                      alt={name}
-                                      className="max-h-64 rounded-lg border border-white/20"
-                                    />
-                                  </a>
-                                );
-                              }
-                              if (t === "video") {
-                                return (
-                                  <video
-                                    key={i}
-                                    controls
-                                    src={url}
-                                    className="max-h-64 rounded-lg border border-white/20"
-                                  />
-                                );
-                              }
+                        {m.text && <p className="whitespace-pre-wrap leading-relaxed">{m.text}</p>}
+                        {Array.isArray(m.attachments) && m.attachments.length > 0 && (
+                          <div className="mt-2 grid grid-cols-2 gap-2">
+                            {m.attachments.map((att, i) => {
+                              const t = guessType(att);
+                              const src = att?.url || att?.path || att?.location || "";
+                              const name = att?.name || (typeof src === "string" ? src.split("/").pop() : "attachment");
+                              if (!src) return null;
                               return (
-                                <a
-                                  key={i}
-                                  href={url}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="block break-all rounded-md border border-white/15 bg-white/5 px-2 py-1 text-xs underline text-white/90"
-                                >
-                                  {name}
-                                </a>
+                                <div key={i} className="overflow-hidden rounded-xl border border-white/20 bg-black/20">
+                                  {t === "image" ? (
+                                    <a href={src} target="_blank" rel="noreferrer">
+                                      <img src={src} alt={name || "image"} className="max-h-48 w-full object-cover" />
+                                    </a>
+                                  ) : t === "video" ? (
+                                    <video src={src} controls className="max-h-48 w-full" />
+                                  ) : (
+                                    <a
+                                      href={src}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="flex items-center gap-2 p-2 text-xs hover:bg-white/10"
+                                    >
+                                      <Paperclip className="h-4 w-4" /> {name || "attachment"}
+                                    </a>
+                                  )}
+                                </div>
                               );
                             })}
                           </div>
                         )}
-
-                        <div className="mt-1 text-[10px] text-white/40">
-                          {new Date(m.createdAt).toLocaleString()}
+                        {/* Reactions */}
+                        <div className="flex gap-2 mt-1 text-xs opacity-70">
+                          <button className="hover:text-fuchsia-300">
+                            <ThumbsUp size={14} />
+                          </button>
+                          <button className="hover:text-rose-400">
+                            <Heart size={14} />
+                          </button>
+                          <button className="hover:text-orange-400">
+                            <Flame size={14} />
+                          </button>
                         </div>
+                        <p className="text-[10px] text-white/40 mt-1">
+                          {new Date(m.createdAt).toLocaleTimeString()}
+                        </p>
                       </div>
-                    </div>
+                    </motion.div>
                   );
-                })
-              )}
-            </div>
-
-            {/* Composer */}
-            <div className="border-t border-white/10 p-3 space-y-2">
-              {files.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {files.map((f, i) => (
-                    <AttachmentPreview key={`${f.name}-${i}`} f={f} i={i} onRemove={() => onRemoveFile(i)} />
-                  ))}
-                </div>
-              )}
-
-              <div className="flex items-end gap-2">
-                <label
-                  className={`inline-flex items-center gap-2 text-white/80 ${isLocked ? "opacity-40 cursor-not-allowed" : "hover:text-white cursor-pointer"
-                    } bg-white/10 border border-white/20 rounded-lg px-3 py-2`}
-                  title="Attach files"
-                >
-                  <Paperclip className="h-4 w-4" />
-                  <input
-                    type="file"
-                    className="hidden"
-                    multiple
-                    onChange={onPickFiles}
-                    disabled={isLocked}
-                    // keep broad list; backend decides allowed types
-                    accept="image/*,video/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,.rar,.txt"
-                  />
-                </label>
-
-                <div className="flex-1">
-                  <textarea
-                    rows={1}
-                    value={text}
-                    onChange={(e) => setText(e.target.value)}
-                    disabled={isLocked}
-                    placeholder={isLocked ? "Chat is locked after finalization." : "Write a message…"}
-                    className="w-full resize-none rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm outline-none placeholder:text-white/40"
-                    onKeyDown={(e) => {
-                      if (isLocked) return;
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        onSend();
-                      }
-                    }}
-                  />
-                </div>
-
-                <button
-                  onClick={onSend}
-                  disabled={sending || isLocked}
-                  className="inline-flex items-center gap-2 rounded-xl bg-fuchsia-600 px-4 py-2 text-white hover:bg-fuchsia-700 disabled:opacity-50"
-                >
-                  {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                  <span className="text-sm">Send</span>
-                </button>
-              </div>
-            </div>
+                })}
+              </AnimatePresence>
+            )}
           </div>
 
-          {bothFinalised && (
-            <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4">
-              <div className="text-sm text-white/80">
-                You have finalized the task. Click proceed to go to the next step.
+          {/* Scroll to bottom */}
+          {!atBottom && (
+            <button
+              onClick={scrollToBottom}
+              className="absolute bottom-24 right-4 bg-gradient-to-r from-fuchsia-600 to-sky-600 text-white p-2 rounded-full shadow-lg animate-bounce"
+            >
+              <ChevronDown />
+            </button>
+          )}
+
+          {/* Composer */}
+          <div className="border-t border-white/10 p-3 space-y-2">
+            {files.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {files.map((f, i) => {
+                  const t = guessType(f);
+                  const url = URL.createObjectURL(f);
+                  return (
+                    <div key={i} className="flex items-center gap-2 bg-white/10 border border-white/20 rounded-lg p-2">
+                      {t === "image" ? (
+                        <img src={url} alt={f.name} className="h-10 w-10 object-cover rounded" onLoad={() => URL.revokeObjectURL(url)} />
+                      ) : t === "video" ? (
+                        <video src={url} className="h-10 w-10 rounded" onLoadedData={() => URL.revokeObjectURL(url)} />
+                      ) : (
+                        <Paperclip className="h-4 w-4" />
+                      )}
+                      <span className="truncate max-w-[150px] text-xs" title={f.name}>{f.name}</span>
+                      <button onClick={() => setFiles((prev) => prev.filter((_, j) => j !== i))}>
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
+            )}
+
+            <div className="flex items-end gap-2">
+              <label className="px-3 py-2 bg-white/10 border border-white/20 rounded-lg cursor-pointer hover:bg-white/20 flex items-center gap-2">
+                <Paperclip className="h-4 w-4" />
+                <input
+                  type="file"
+                  className="hidden"
+                  multiple
+                  onChange={(e) =>
+                    setFiles((prev) => [...prev, ...Array.from(e.target.files)])
+                  }
+                />
+              </label>
+              <textarea
+                rows={1}
+                value={text}
+                onChange={(e) => {
+                  setText(e.target.value);
+                  onTyping();
+                }}
+                placeholder="Type a message…"
+                className="flex-1 resize-none rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm placeholder:text-white/40 focus:outline-none"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault(); // prevent newline
+                    onSend();           // send message
+                  }
+                }}
+              />
+
               <button
-                onClick={() => navigate(`/workroom/${workroomId}/complete`)}
-                className="mt-2 rounded-xl bg-fuchsia-600 px-4 py-2 text-sm hover:bg-fuchsia-700"
+                onClick={onSend}
+                disabled={sending}
+                className="px-5 py-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-sky-600 hover:scale-105 transition disabled:opacity-50 flex items-center gap-2"
               >
-                Proceed
+                {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                Send
               </button>
             </div>
-          )}
+            {typing && (
+              <div className="text-xs text-white/60 pl-2 animate-pulse">Partner is typing…</div>
+            )}
+          </div>
         </div>
       </main>
-    </div>
-  );
-}
-
-/* ====== Attachment Preview ====== */
-function AttachmentPreview({ f, i, onRemove }) {
-  const type = f.type || "";
-  const url = URL.createObjectURL(f);
-  const isImage = type.startsWith("image/");
-  const isVideo = type.startsWith("video/");
-
-  return (
-    <div className="group relative flex items-center gap-2 rounded-lg border border-white/15 bg-white/10 px-2 py-1 text-xs">
-      <div className="flex items-center gap-2">
-        {isImage ? (
-          <ImageIcon className="h-4 w-4 opacity-80" />
-        ) : isVideo ? (
-          <VideoIcon className="h-4 w-4 opacity-80" />
-        ) : (
-          <FileIcon className="h-4 w-4 opacity-80" />
-        )}
-        <span className="truncate max-w-[180px]">{f.name}</span>
-      </div>
-      <div className="ml-auto flex items-center gap-2">
-        {isImage && (
-          <a href={url} target="_blank" rel="noreferrer" className="rounded-md border border-white/15" title="Preview">
-            <img src={url} alt={f.name} className="h-10 w-10 rounded-md object-cover" />
-          </a>
-        )}
-        {isVideo && <video src={url} className="h-10 w-14 rounded-md" muted playsInline />}
-        <button
-          onClick={onRemove}
-          className="rounded-md p-1 text-white/70 hover:text-white hover:bg-white/10"
-          title="Remove"
-        >
-          <X className="h-4 w-4" />
-        </button>
-      </div>
     </div>
   );
 }
