@@ -141,7 +141,7 @@ export default function DashboardPage() {
     const selectedId = toId(task.selectedApplicant);
     const iAmSelected = me && sameId(selectedId, me._id);
     //const canOpenWorkroom = !!selectedId && (isOwner || iAmSelected);
-    const workroomHref = `https://cyphire-workroom.vercel.app/workroom/${task.workroomId || toId(task._id)}`;
+    const workroomHref = `https://cyphire-workroom.vercel.app/${task.workroomId || toId(task._id)}`;
 
     const isOpen = openTaskIdx === idx;
     const appliedCount = task.applicants?.length || 0;
