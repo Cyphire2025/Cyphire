@@ -42,6 +42,37 @@ const guessType = (att) => {
   return "file";
 };
 
+// Safely extract common message fields regardless of backend naming
+const firstOf = (obj, keys) => {
+  for (const k of keys) {
+    if (obj && obj[k] !== undefined && obj[k] !== null && obj[k] !== "") return obj[k];
+  }
+  return undefined;
+};
+
+const getSenderId = (m) => firstOf(m, ["senderId", "userId", "authorId"]) || m?.sender?._id || m?.user?._id || m?.author?._id;
+const getMessageText = (m) => firstOf(m, ["text", "content", "message", "body", "msg", "caption"]);
+const getTimestamp = (m) => firstOf(m, ["createdAt", "created_at", "timestamp", "time", "createdOn", "created_on", "date"]);
+
+// Normalize attachments to array of { url, name, type }
+const normalizeAttachments = (m) => {
+  let atts = firstOf(m, ["attachments", "files", "media", "assets", "uploads"]) || [];
+  if (!Array.isArray(atts)) atts = [atts];
+  return atts
+    .map((a) => {
+      if (typeof a === "string") {
+        const name = a.split("/").pop();
+        return { url: a, name, type: guessType({ name }) };
+      }
+      const url = firstOf(a, ["url", "path", "location", "secure_url", "src", "href"]);
+      const name = a?.name || (typeof url === "string" ? url.split("/").pop() : undefined);
+      const type = guessType({ type: a?.type, name });
+      if (!url) return null;
+      return { url, name, type };
+    })
+    .filter(Boolean);
+};
+
 /* ====== Page ====== */
 export default function WorkroomPage() {
   const { workroomId } = useParams();
@@ -129,8 +160,19 @@ export default function WorkroomPage() {
     setSending(true);
     try {
       const form = new FormData();
-      if (text.trim()) form.append("text", text.trim());
-      files.forEach((f) => form.append("attachments", f));
+      const trimmed = text.trim();
+      if (trimmed) {
+        // Send with multiple common keys for backend compatibility
+        form.append("text", trimmed);
+        form.append("content", trimmed);
+        form.append("message", trimmed);
+        form.append("body", trimmed);
+      }
+      files.forEach((f) => {
+        form.append("attachments", f);
+        form.append("files", f);
+        form.append("uploads", f);
+      });
       const r = await fetch(`${API_BASE}/api/workrooms/${workroomId}/messages`, {
         method: "POST",
         body: form,
@@ -236,48 +278,42 @@ export default function WorkroomPage() {
               </div>
             ) : (
               <AnimatePresence>
-                {items.map((m) => {
-                  const mine = String(m.sender?._id) === String(meId);
+                {items.map((m, idx) => {
+                  const mine = String(getSenderId(m) || "") === String(meId || "");
                   return (
                     <motion.div
-                      key={m._id}
+                      key={m._id || m.id || idx}
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10 }}
                       className={`flex ${mine ? "justify-end" : "justify-start"}`}
                     >
                       <div className={bubbleCls(mine)}>
-                        {m.text && <p className="whitespace-pre-wrap leading-relaxed">{m.text}</p>}
-                        {Array.isArray(m.attachments) && m.attachments.length > 0 && (
-                          <div className="mt-2 grid grid-cols-2 gap-2">
-                            {m.attachments.map((att, i) => {
-                              const t = guessType(att);
-                              const src = att?.url || att?.path || att?.location || "";
-                              const name = att?.name || (typeof src === "string" ? src.split("/").pop() : "attachment");
-                              if (!src) return null;
-                              return (
+                        {getMessageText(m) && (
+                          <p className="whitespace-pre-wrap leading-relaxed">{getMessageText(m)}</p>
+                        )}
+                        {(() => {
+                          const atts = normalizeAttachments(m);
+                          return atts.length > 0 ? (
+                            <div className="mt-2 grid grid-cols-2 gap-2">
+                              {atts.map((att, i) => (
                                 <div key={i} className="overflow-hidden rounded-xl border border-white/20 bg-black/20">
-                                  {t === "image" ? (
-                                    <a href={src} target="_blank" rel="noreferrer">
-                                      <img src={src} alt={name || "image"} className="max-h-48 w-full object-cover" />
+                                  {att.type === "image" ? (
+                                    <a href={att.url} target="_blank" rel="noreferrer">
+                                      <img src={att.url} alt={att.name || "image"} className="max-h-48 w-full object-cover" />
                                     </a>
-                                  ) : t === "video" ? (
-                                    <video src={src} controls className="max-h-48 w-full" />
+                                  ) : att.type === "video" ? (
+                                    <video src={att.url} controls className="max-h-48 w-full" />
                                   ) : (
-                                    <a
-                                      href={src}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="flex items-center gap-2 p-2 text-xs hover:bg-white/10"
-                                    >
-                                      <Paperclip className="h-4 w-4" /> {name || "attachment"}
+                                    <a href={att.url} target="_blank" rel="noreferrer" className="flex items-center gap-2 p-2 text-xs hover:bg-white/10">
+                                      <Paperclip className="h-4 w-4" /> {att.name || "attachment"}
                                     </a>
                                   )}
                                 </div>
-                              );
-                            })}
-                          </div>
-                        )}
+                              ))}
+                            </div>
+                          ) : null;
+                        })()}
                         {/* Reactions */}
                         <div className="flex gap-2 mt-1 text-xs opacity-70">
                           <button className="hover:text-fuchsia-300">
@@ -290,9 +326,14 @@ export default function WorkroomPage() {
                             <Flame size={14} />
                           </button>
                         </div>
-                        <p className="text-[10px] text-white/40 mt-1">
-                          {new Date(m.createdAt).toLocaleTimeString()}
-                        </p>
+                        {(() => {
+                          const ts = getTimestamp(m);
+                          const d = ts ? new Date(ts) : null;
+                          const valid = d && !Number.isNaN(d.getTime());
+                          return valid ? (
+                            <p className="text-[10px] text-white/40 mt-1">{d.toLocaleTimeString()}</p>
+                          ) : null;
+                        })()}
                       </div>
                     </motion.div>
                   );
