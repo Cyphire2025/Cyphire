@@ -42,6 +42,17 @@ const guessType = (att) => {
   return "file";
 };
 
+// Parse JSON only when response is JSON; otherwise surface text with status
+const parseJsonSafe = async (res) => {
+  const ct = res.headers.get("content-type") || "";
+  if (ct.includes("application/json")) {
+    return await res.json();
+  }
+  const txt = await res.text();
+  const snippet = txt.slice(0, 300);
+  throw new Error(`Unexpected ${res.status} ${res.statusText}. Non-JSON response: ${snippet}`);
+};
+
 // Safely extract common message fields regardless of backend naming
 const firstOf = (obj, keys) => {
   for (const k of keys) {
@@ -147,13 +158,14 @@ export default function WorkroomPage() {
       const r = await fetch(`${API_BASE}/api/workrooms/${workroomId}/messages`, {
         credentials: "include",
       });
-      const d = await r.json();
-      const list = d.items || d.messages || [];
+      const d = await parseJsonSafe(r);
+      const list = d.items || d.messages || d.data || [];
       setItems(list);
       setLoading(false);
       if (atBottom) setTimeout(scrollToBottom, 10);
     } catch (e) {
-      // ignore network errors in polling
+      // ignore network errors in polling, but log once in dev
+      if (import.meta.env?.DEV) console.warn("poll error", e);
     }
   }, [workroomId, atBottom]);
 
@@ -173,34 +185,44 @@ export default function WorkroomPage() {
     if (!text.trim() && files.length === 0) return;
     setSending(true);
     try {
-      const form = new FormData();
+
       const trimmed = text.trim();
+      const form = new FormData();
       if (trimmed) {
-        // Send with multiple common keys for backend compatibility
-        form.append("text", trimmed);
-        form.append("content", trimmed);
-        form.append("message", trimmed);
-        form.append("body", trimmed);
+        form.append("text", trimmed);   // keep only one text field
       }
       files.forEach((f) => {
-        form.append("attachments", f);
-        form.append("files", f);
-        form.append("uploads", f);
+        form.append("attachments", f);  // keep only one attachments field
       });
+
       const r = await fetch(`${API_BASE}/api/workrooms/${workroomId}/messages`, {
         method: "POST",
         body: form,
         credentials: "include",
       });
-      const d = await r.json();
-      if (r.ok && d?.message) {
-        setItems((p) => [...p, d.message]);
+      // Better error surfacing for non-JSON or error pages
+      if (!r.ok) {
+        const ct = r.headers.get("content-type") || "";
+        const body = ct.includes("application/json") ? await r.json() : await r.text();
+        const msg = typeof body === "string" ? body.slice(0, 300) : (body?.error || body?.message || JSON.stringify(body).slice(0, 300));
+        let hint = "";
+        if (r.status === 413) hint = " (file too large)";
+        if (r.status === 401 || r.status === 403) hint = " (not authenticated/authorized)";
+        if (r.status === 404) hint = " (endpoint not found — check VITE_API_BASE)";
+        throw new Error(`Upload failed: ${r.status} ${r.statusText}${hint}. ${msg}`);
+      }
+
+      const d = await parseJsonSafe(r);
+      const newMsg = d?.message || d?.item || d?.data || d?.msg;
+      if (newMsg) {
+        setItems((p) => [...p, newMsg]);
         scrollToBottom();
       }
       setText("");
       setFiles([]);
     } catch (e) {
-      alert(e.message);
+      console.error("send error", e);
+      alert(e?.message || "Failed to send. See console for details.");
     } finally {
       setSending(false);
     }
@@ -453,7 +475,7 @@ export default function WorkroomPage() {
               </button>
             </div>
             {typing && (
-              <div className="text-xs text-white/60 pl-2 animate-pulse">Partner is typing…</div>
+              <div className="text-xs text-white/60 pl-2 animate-pulse">Typing…</div>
             )}
           </div>
         </div>
