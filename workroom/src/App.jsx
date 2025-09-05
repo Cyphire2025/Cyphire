@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, useNavigate } from "react-router-dom";
-import WorkroomPage from "./pages/Workroom";
+import WorkroomPage from "./pages/workroom";
 import WorkroomComplete from "./pages/WorkroomComplete";
 import WorkroomPayment from "./pages/WorkroomPayment";
 
