@@ -387,7 +387,7 @@ export default function About() {
                   roles, partnerships, or start collaborating today.
                 </p>
               </div>
-              <NeonButton onClick={() => (window.location.href = "/careers")}>
+              <NeonButton onClick={() => (window.location.href = "/JoinUs")}>
                 Explore Careers <ArrowRight className="h-4 w-4" />
               </NeonButton>
             </div>

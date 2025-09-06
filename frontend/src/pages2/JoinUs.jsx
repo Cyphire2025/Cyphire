@@ -129,7 +129,7 @@ export default function JoinUs() {
               But Cyphire is growing fast — new roles will open soon.
             </p>
             <div className="mt-6">
-              <NeonButton onClick={() => (window.location.href = "/")}>
+              <NeonButton onClick={() => (window.location.href = "/home")}>
                 Back to Home <ArrowRight className="h-4 w-4" />
               </NeonButton>
             </div>
