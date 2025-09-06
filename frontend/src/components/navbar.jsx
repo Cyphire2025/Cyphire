@@ -3,6 +3,8 @@ import React, { useEffect, useState } from "react";
 import { FiSearch, FiMessageSquare, FiSettings, FiChevronDown, FiMenu, FiX } from "react-icons/fi";
 import { FaRegBell } from "react-icons/fa";
 import { Link } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
+
 
 const API_BASE = import.meta.env?.VITE_API_BASE || "http://localhost:5000";
 
@@ -626,16 +628,16 @@ export default function Navbar() {
 
             {/* Messages */}
             <button
-              className="text-left hover:text-white"
               onClick={() => setMsgOpen((v) => !v)}
+              className="flex items-center justify-between w-full px-3 py-2 bg-white/5 rounded-xl hover:bg-white/10 transition-all duration-200 font-medium"
             >
-              Messages{" "}
+              <span>Messages</span>
               {unreadCount > 0 && (
                 <span className="ml-1 text-xs text-pink-400">({unreadCount})</span>
               )}
             </button>
             {msgOpen && (
-              <div className="pl-4 space-y-1 text-sm">
+              <div className="pl-4 space-y-1 text-sm mt-2">
                 {messages.length === 0 ? (
                   <p className="text-gray-400">No new messages</p>
                 ) : (
@@ -666,33 +668,34 @@ export default function Navbar() {
 
             {/* Notifications */}
             <button
-              className="text-left hover:text-white"
               onClick={() => setNotifOpen((v) => !v)}
+              className="flex items-center justify-between w-full px-3 py-2 bg-white/5 rounded-xl hover:bg-white/10 transition-all duration-200 font-medium"
             >
-              Notifications
+              <span>Notifications</span>
             </button>
             {notifOpen && (
-              <div className="pl-4 text-sm text-gray-400">No new notifications</div>
+              <div className="pl-4 text-sm text-gray-400 mt-2">
+                No new notifications
+              </div>
             )}
 
             {/* Settings */}
             <button
-              className="text-left hover:text-white"
               onClick={() => setSettingsOpen((v) => !v)}
+              className="flex items-center justify-between w-full px-3 py-2 bg-white/5 rounded-xl hover:bg-white/10 transition-all duration-200 font-medium"
             >
-              Settings
+              <span>Settings</span>
             </button>
             {settingsOpen && (
-              <div className="pl-4 space-y-1 text-sm">
+              <div className="pl-4 space-y-1 text-sm mt-2">
                 <a className="block hover:text-white cursor-pointer">Preferences</a>
                 <a className="block hover:text-white cursor-pointer">Account</a>
-                <a className="block hover:text-white cursor-pointer">
-                  Help & Support
-                </a>
+                <a className="block hover:text-white cursor-pointer">Help & Support</a>
               </div>
             )}
+
           </div>
-          
+
         </motion.div>
       )}
     </header>
