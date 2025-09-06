@@ -313,7 +313,7 @@ export default function Teams() {
               Check out our open roles and join the Cyphire journey.
             </p>
             <div className="mt-6">
-              <NeonButton onClick={() => (window.location.href = "/JoinUs")}>
+              <NeonButton onClick={() => (window.location.href = "/join-us")}>
                 Explore Careers <ArrowRight className="h-4 w-4" />
               </NeonButton>
             </div>
