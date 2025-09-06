@@ -34,7 +34,8 @@ const allowedOrigins = [
   "http://localhost:5174",                        //test admin
   "http://localhost:5175",                        //test workroom
   "https://cyphire-frontend.vercel.app",          //frontend    
-  "https://cyphire-workroom.vercel.app"           //workroom   
+  "https://cyphire-workroom.vercel.app",          //workroom   
+  "https://cyphire-admin.vercel.app"              //admin
 ];
 
 const io = new Server(server, {
