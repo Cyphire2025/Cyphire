@@ -370,12 +370,28 @@ export const ensureSlug = async (req, res) => {
 };
 export const getAllUsers = async (req, res) => {
   try {
-    const users = await User.find(); // or with .select("-password") to exclude passwords
-    res.json(users);
+    const users = await User.find();
+    const now = new Date();
+
+    const updatedUsers = await Promise.all(
+      users.map(async (u) => {
+        if (u.plan !== "free" && u.planExpiresAt && u.planExpiresAt < now) {
+          u.plan = "free";
+          u.planStartedAt = null;
+          u.planExpiresAt = null;
+          await u.save();
+        }
+        return u;
+      })
+    );
+
+    res.json(updatedUsers);
   } catch (err) {
+    console.error("getAllUsers error:", err);
     res.status(500).json({ error: "Failed to get users" });
   }
 };
+
 export const deleteUser = async (req, res) => {
   try {
     await User.findByIdAndDelete(req.params.id);
@@ -413,10 +429,15 @@ export const setUserPlan = async (req, res) => {
     user.plan = plan;
     user.planStartedAt = new Date();
     user.planExpiresAt =
-      plan === "free" ? null : new Date(Date.now() +  60 * 1000);
+      plan === "free" ? null : new Date(Date.now() + 10 * 1000);
 
     await user.save();
-    res.json({ success: true, plan: user.plan });
+    res.json({
+      success: true,
+      plan: user.plan,
+      planExpiresAt: user.planExpiresAt,
+    });
+
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -4,8 +4,13 @@ import {
   loginAdmin,
   getTotalUsers,
   getTotalTasks,
-  banIP,
   listAllUsers,
+  deleteUser, 
+  setUserPlan,
+  listAllTasks,
+  updateTaskStatus,
+  deleteTask,
+  flagTask,
 } from "../controllers/adminController.js";
 import { adminProtect } from "../middlewares/authMiddleware.js";
 
@@ -20,7 +25,15 @@ router.use(adminProtect);
 // Admin-only routes
 router.get("/stats/users", getTotalUsers);
 router.get("/stats/tasks", getTotalTasks);
-router.post("/ban-ip", banIP);
+router.get("/tasks", listAllTasks);
+router.patch("/tasks/:id/status", updateTaskStatus);
+router.delete("/tasks/:id", deleteTask);
+router.patch("/tasks/:id/flag", flagTask);
+router.delete("/users/:id", deleteUser);
+router.patch("/users/:id/plan", setUserPlan);
+
+
+
 
 // List all users (for admin panel user view)
 router.get("/users", listAllUsers);

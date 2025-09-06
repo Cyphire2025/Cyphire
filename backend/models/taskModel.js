@@ -25,6 +25,9 @@ const taskSchema = new mongoose.Schema(
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     selectedApplicant: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
     workroomId: { type: String, default: null }, // simple shared slug; can be improved later
+    // ✅ add these:
+    status: { type: String, enum: ["pending", "in-progress", "completed", "disputed", "cancelled"], default: "pending",},
+    flagged: { type: Boolean, default: false },
     // Finalization handshake
     clientFinalised: { type: Boolean, default: false },     // task owner
     workerFinalised: { type: Boolean, default: false },     // selected applicant

@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Eye, EyeOff } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import  bgImage from "../assets/bg.jpg"; 
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
 
@@ -42,7 +43,10 @@ export default function AdminLogin() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-tr from-black via-[#0a0a0f] to-[#0b0b12] text-white px-4">
+    <div
+      className="min-h-screen flex items-center justify-center px-4 text-white bg-cover bg-center"
+      style={{ backgroundImage: `url(${bgImage})` }}
+    >
       <motion.div
         initial={{ opacity: 0, y: 60 }}
         animate={{ opacity: 1, y: 0 }}

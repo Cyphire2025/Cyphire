@@ -1,19 +1,23 @@
-import React, { useState , useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-  import {
-    Home,
-    Users,
-    ClipboardList,
-    MessageSquare,
-    LogOut,
-    Wallet,
-    ReceiptText,
-    FileText,
-    ShieldAlert,
-    Settings,
-   Gavel
-  } from "lucide-react";
+import {
+  Home,
+  Users,
+  ClipboardList,
+  MessageSquare,
+  LogOut,
+  Wallet,
+  ReceiptText,
+  FileText,
+  ShieldAlert,
+  Settings,
+  Gavel,
+  ChevronDown,
+   ChevronUp
+} from "lucide-react";
 import UserView from "./usersview"
+import TasksView from "./tasksview";
+
 
 const menuItems = [
   { id: "overview", label: "Overview", icon: <Home size={18} /> },
@@ -68,11 +72,10 @@ export default function AdminDashboard() {
             <button
               key={item.id}
               onClick={() => setActive(item.id)}
-              className={`flex items-center gap-3 w-full text-left px-4 py-2 rounded-md transition ${
-                active === item.id
-                  ? "bg-gradient-to-r from-violet-600 via-fuchsia-600 to-sky-600 text-white"
-                  : "hover:bg-white/10 text-white/70"
-              }`}
+              className={`flex items-center gap-3 w-full text-left px-4 py-2 rounded-md transition ${active === item.id
+                ? "bg-gradient-to-r from-violet-600 via-fuchsia-600 to-sky-600 text-white"
+                : "hover:bg-white/10 text-white/70"
+                }`}
             >
               {item.icon}
               <span>{item.label}</span>
@@ -100,7 +103,7 @@ const Overview = () => {
   const [users, setUsers] = useState(null);
   const [tasks, setTasks] = useState(null);
 
-  
+
   useEffect(() => {
     const token = localStorage.getItem("admin-token");
     fetch("http://localhost:5000/api/admin/stats/users", {
@@ -148,13 +151,6 @@ const Overview = () => {
   );
 };
 
-
-const TasksView = () => (
-  <div>
-    <h2 className="text-2xl font-bold mb-4">Tasks</h2>
-    <p className="text-white/60">[Task list will load here]</p>
-  </div>
-);
 const WorkroomViewer = () => {
   const [roomId, setRoomId] = useState("");
   const [messages, setMessages] = useState([]);
