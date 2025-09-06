@@ -485,7 +485,7 @@ export default function Navbar() {
                         method: "POST",
                         credentials: "include",
                       });
-                    } catch { }
+                    } catch {}
                     localStorage.removeItem("token");
                     localStorage.removeItem("userId");
                     sessionStorage.removeItem("token");
@@ -527,52 +527,76 @@ export default function Navbar() {
             </div>
 
             {/* Discover */}
+          <div className="relative">
             <button
-              className="text-left hover:text-white flex items-center"
-              onClick={() => setDiscoverOpen((v) => !v)}
+              onClick={() => {
+                setDiscoverOpen((v) => !v);
+                setSolutionsOpen(false);
+                setMsgOpen(false);
+                setNotifOpen(false);
+                setSettingsOpen(false);
+                setProfileOpen(false);
+              }}
+              className="flex items-center text-gray-300 hover:text-white transition-all duration-200 font-medium"
             >
-              Discover
+              About
               <FiChevronDown
-                className={`ml-1 transition-transform ${discoverOpen ? "rotate-180" : ""
-                  }`}
+                className={`ml-1 transition-transform duration-200 ${discoverOpen ? "rotate-180" : ""}`}
               />
             </button>
             {discoverOpen && (
-              <div className="pl-4 space-y-1">
-                {["Popular", "New & Noteworthy", "Editors’ Picks"].map((t, i) => (
-                  <a
-                    key={i}
-                    className="block text-sm hover:text-white cursor-pointer"
-                  >
-                    {t}
-                  </a>
-                ))}
+              <div className="absolute right-0 mt-3 w-52 bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl overflow-hidden z-20">
+                {["About Us", "Team", "Join us", "Contact"].map((t, i) => {
+                  const paths = ["/about-us", "/team", "/join-us", "/contact"];
+                  return (
+                    <Link
+                      key={i}
+                      to={paths[i]}
+                      className="block px-4 py-3 text-sm text-gray-200 hover:bg-white/20 border-b last:border-b-0 border-white/10"
+                    >
+                      {t}
+                    </Link>
+                  );
+                })}
               </div>
             )}
+          </div>
 
-            {/* Solutions */}
+          {/* Solutions */}
+          <div className="relative">
             <button
-              className="text-left hover:text-white flex items-center"
-              onClick={() => setSolutionsOpen((v) => !v)}
+              onClick={() => {
+                setSolutionsOpen((v) => !v);
+                setDiscoverOpen(false);
+                setMsgOpen(false);
+                setNotifOpen(false);
+                setSettingsOpen(false);
+                setProfileOpen(false);
+              }}
+              className="flex items-center text-gray-300 hover:text-white transition-all duration-200 font-medium"
             >
-              Solutions
+              Explore
               <FiChevronDown
-                className={`ml-1 transition-transform ${solutionsOpen ? "rotate-180" : ""
-                  }`}
+                className={`ml-1 transition-transform duration-200 ${solutionsOpen ? "rotate-180" : ""}`}
               />
             </button>
             {solutionsOpen && (
-              <div className="pl-4 space-y-1">
-                {["For Startups", "For Agencies", "For Enterprise"].map((t, i) => (
-                  <a
-                    key={i}
-                    className="block text-sm hover:text-white cursor-pointer"
-                  >
-                    {t}
-                  </a>
-                ))}
+              <div className="absolute right-0 mt-3 w-56 bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl overflow-hidden z-20">
+                {["How It Works", "Pricing & Plans", "Escrow Policy", "Help Center"].map((t, i) => {
+                  const paths = ["/how-it-works", "/pricing", "/escrow-policy", "/help"];
+                  return (
+                    <Link
+                      key={i}
+                      to={paths[i]}
+                      className="block px-4 py-3 text-sm text-gray-200 hover:bg-white/20 border-b last:border-b-0 border-white/10"
+                    >
+                      {t}
+                    </Link>
+                  );
+                })}
               </div>
             )}
+          </div>
 
             {/* Messages */}
             <button
