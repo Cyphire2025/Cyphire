@@ -19,6 +19,8 @@ import UserView from "./usersview"
 import TasksView from "./tasksview";
 
 
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
+
 const menuItems = [
   { id: "overview", label: "Overview", icon: <Home size={18} /> },
   { id: "users", label: "Users", icon: <Users size={18} /> },
@@ -106,7 +108,7 @@ const Overview = () => {
 
   useEffect(() => {
     const token = localStorage.getItem("admin-token");
-    fetch("http://localhost:5000/api/admin/stats/users", {
+    fetch(`${API_BASE}/api/admin/stats/users`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -115,7 +117,7 @@ const Overview = () => {
       .then((data) => setUsers(data.total))
       .catch(() => setUsers("❌ Error"));
 
-    fetch("http://localhost:5000/api/admin/stats/tasks", {
+    fetch(`${API_BASE}/api/admin/stats/tasks`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -157,7 +159,7 @@ const WorkroomViewer = () => {
 
   const fetchMessages = async () => {
     try {
-      const res = await fetch(`http://localhost:5000/api/workrooms/${roomId}/messages`);
+      const res = await fetch(`${API_BASE}/api/workrooms/${roomId}/messages`);
       const data = await res.json();
       setMessages(data || []);
     } catch {
