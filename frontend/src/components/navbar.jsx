@@ -485,7 +485,7 @@ export default function Navbar() {
                         method: "POST",
                         credentials: "include",
                       });
-                    } catch {}
+                    } catch { }
                     localStorage.removeItem("token");
                     localStorage.removeItem("userId");
                     sessionStorage.removeItem("token");
@@ -514,10 +514,17 @@ export default function Navbar() {
       </div>
       {/* Step 3: Mobile dropdown menu */}
       {mobileMenuOpen && (
-        <div className="lg:hidden absolute top-full left-0 right-0 bg-black/80 backdrop-blur-xl border-t border-white/20 shadow-lg">
-          <div className="flex flex-col space-y-3 p-4 text-gray-200">
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          transition={{ duration: 0.25, ease: "easeInOut" }}
+          className="lg:hidden absolute top-full left-0 right-0 bg-black/70 backdrop-blur-xl border-t border-white/10 shadow-2xl rounded-b-2xl"
+        >
+          <div className="flex flex-col space-y-4 p-5 text-gray-200">
+
             {/* Search bar */}
-            <div className="flex items-center bg-white/10 rounded-full px-3 py-2">
+            <div className="flex items-center bg-gradient-to-r from-white/10 to-white/5 rounded-full px-4 py-2 shadow-inner focus-within:ring-2 focus-within:ring-cyan-400">
               <FiSearch className="text-gray-400 mr-2" />
               <input
                 type="text"
@@ -525,78 +532,97 @@ export default function Navbar() {
                 className="bg-transparent outline-none text-sm text-gray-200 w-full placeholder-gray-500"
               />
             </div>
+            {/* About Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setDiscoverOpen((v) => !v);
+                  setSolutionsOpen(false);
+                  setMsgOpen(false);
+                  setNotifOpen(false);
+                  setSettingsOpen(false);
+                  setProfileOpen(false);
+                }}
+                className="flex items-center justify-between w-full px-3 py-2 bg-white/5 rounded-xl hover:bg-white/10 transition-all duration-200 font-medium"
+              >
+                <span>About</span>
+                <FiChevronDown
+                  className={`ml-1 transition-transform duration-200 ${discoverOpen ? "rotate-180 text-cyan-400" : ""
+                    }`}
+                />
+              </button>
 
-            {/* Discover */}
-          <div className="relative">
-            <button
-              onClick={() => {
-                setDiscoverOpen((v) => !v);
-                setSolutionsOpen(false);
-                setMsgOpen(false);
-                setNotifOpen(false);
-                setSettingsOpen(false);
-                setProfileOpen(false);
-              }}
-              className="flex items-center text-gray-300 hover:text-white transition-all duration-200 font-medium"
-            >
-              About
-              <FiChevronDown
-                className={`ml-1 transition-transform duration-200 ${discoverOpen ? "rotate-180" : ""}`}
-              />
-            </button>
-            {discoverOpen && (
-              <div className="absolute right-0 mt-3 w-52 bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl overflow-hidden z-20">
-                {["About Us", "Team", "Join us", "Contact"].map((t, i) => {
-                  const paths = ["/about-us", "/team", "/join-us", "/contact"];
-                  return (
-                    <Link
-                      key={i}
-                      to={paths[i]}
-                      className="block px-4 py-3 text-sm text-gray-200 hover:bg-white/20 border-b last:border-b-0 border-white/10"
-                    >
-                      {t}
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+              <AnimatePresence>
+                {discoverOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.2 }}
+                    className="mt-2 bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 rounded-2xl shadow-lg overflow-hidden"
+                  >
+                    {["About Us", "Team", "Join Us", "Contact"].map((t, i) => {
+                      const paths = ["/about-us", "/team", "/join-us", "/contact"];
+                      return (
+                        <Link
+                          key={i}
+                          to={paths[i]}
+                          className="block px-5 py-3 text-sm text-gray-200 hover:bg-cyan-500/20 hover:text-white transition-colors border-b border-white/10 last:border-0"
+                        >
+                          {t}
+                        </Link>
+                      );
+                    })}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
 
-          {/* Solutions */}
-          <div className="relative">
-            <button
-              onClick={() => {
-                setSolutionsOpen((v) => !v);
-                setDiscoverOpen(false);
-                setMsgOpen(false);
-                setNotifOpen(false);
-                setSettingsOpen(false);
-                setProfileOpen(false);
-              }}
-              className="flex items-center text-gray-300 hover:text-white transition-all duration-200 font-medium"
-            >
-              Explore
-              <FiChevronDown
-                className={`ml-1 transition-transform duration-200 ${solutionsOpen ? "rotate-180" : ""}`}
-              />
-            </button>
-            {solutionsOpen && (
-              <div className="absolute right-0 mt-3 w-56 bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl overflow-hidden z-20">
-                {["How It Works", "Pricing & Plans", "Escrow Policy", "Help Center"].map((t, i) => {
-                  const paths = ["/how-it-works", "/pricing", "/escrow-policy", "/help"];
-                  return (
-                    <Link
-                      key={i}
-                      to={paths[i]}
-                      className="block px-4 py-3 text-sm text-gray-200 hover:bg-white/20 border-b last:border-b-0 border-white/10"
-                    >
-                      {t}
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+            {/* Explore Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setSolutionsOpen((v) => !v);
+                  setDiscoverOpen(false);
+                  setMsgOpen(false);
+                  setNotifOpen(false);
+                  setSettingsOpen(false);
+                  setProfileOpen(false);
+                }}
+                className="flex items-center justify-between w-full px-3 py-2 bg-white/5 rounded-xl hover:bg-white/10 transition-all duration-200 font-medium"
+              >
+                <span>Explore</span>
+                <FiChevronDown
+                  className={`ml-1 transition-transform duration-200 ${solutionsOpen ? "rotate-180 text-cyan-400" : ""
+                    }`}
+                />
+              </button>
+
+              <AnimatePresence>
+                {solutionsOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.2 }}
+                    className="mt-2 bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 rounded-2xl shadow-lg overflow-hidden"
+                  >
+                    {["How It Works", "Pricing & Plans", "Escrow Policy", "Help Center"].map((t, i) => {
+                      const paths = ["/how-it-works", "/pricing", "/escrow-policy", "/help"];
+                      return (
+                        <Link
+                          key={i}
+                          to={paths[i]}
+                          className="block px-5 py-3 text-sm text-gray-200 hover:bg-cyan-500/20 hover:text-white transition-colors border-b border-white/10 last:border-0"
+                        >
+                          {t}
+                        </Link>
+                      );
+                    })}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
 
             {/* Messages */}
             <button
@@ -666,7 +692,8 @@ export default function Navbar() {
               </div>
             )}
           </div>
-        </div>
+          
+        </motion.div>
       )}
     </header>
   );
