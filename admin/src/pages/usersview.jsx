@@ -152,7 +152,7 @@ export default function UsersView() {
 
   // View profile
   const handleViewProfile = (slug) => {
-    window.open(`${API_FRONTEND_BASE}/u/${slug}`, "_blank");
+    window.open(`/u/${slug}`, "_blank");
   };
 
   return (
