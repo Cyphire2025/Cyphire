@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Eye, Trash2 } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
+const API_FRONTEND_BASE = import.meta.env.VITE_FRONTEND_BASE || "http://localhost:5173";
 
 export default function UsersView() {
   const [users, setUsers] = useState([]);
@@ -151,7 +152,7 @@ export default function UsersView() {
 
   // View profile
   const handleViewProfile = (slug) => {
-    window.open(`http://localhost:5173/u/${slug}`, "_blank");
+    window.open(`${API_FRONTEND_BASE}/u/${slug}`, "_blank");
   };
 
   return (
