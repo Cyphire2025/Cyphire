@@ -164,7 +164,7 @@ const categories = [
 ];
 
 /* ========== Task Card (3D tilt + shine, with requested fields) ========== */
-const TiltTaskCard = ({ task }) => {
+export const TiltTaskCard = ({ task }) => {
   const x = useMotionValue(0.5);
   const y = useMotionValue(0.5);
   const rotateX = useTransform(y, [0, 1], [10, -10]);
@@ -364,14 +364,12 @@ export default function Home() {
                 transition={{ delay: 0.25, duration: 0.6 }}
                 className="mt-8 flex flex-wrap items-center gap-4"
               >
-                <NeonButton onClick={() => navigate("/posttask")}>
+                <NeonButton onClick={() => navigate("/choose-category")}>
                   Post a Task
                 </NeonButton>
+
                 <button
-                  onClick={() => {
-                    const el = document.getElementById("browse-section");
-                    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-                  }}
+                  onClick={() => navigate("/tasks")}   // 👈 instead of scrollIntoView
                   className="group inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-white/80 backdrop-blur-xl transition-all hover:bg-white/10"
                 >
                   Explore Marketplace{" "}

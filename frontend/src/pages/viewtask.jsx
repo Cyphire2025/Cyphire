@@ -299,6 +299,29 @@ export default function ViewTask() {
                   {task.description}
                 </p>
 
+
+                {/* Extra details if metadata exists */}
+                {task?.metadata && Object.keys(task.metadata).length > 0 && (
+                  <div className="mt-6 space-y-2">
+                    <h3 className="text-lg font-semibold text-white">Additional Details</h3>
+                    <ul className="mt-2 space-y-1 text-sm text-white/80">
+                      {Object.entries(task.metadata).map(([key, value]) => {
+                        if (!value || (Array.isArray(value) && value.length === 0)) return null;
+
+                        return (
+                          <li key={key}>
+                            <span className="font-medium capitalize text-fuchsia-300">
+                              {key.replace(/([A-Z])/g, " $1")}:
+                            </span>{" "}
+                            {Array.isArray(value) ? value.join(", ") : String(value)}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                )}
+
+
                 {Array.isArray(task.attachments) && task.attachments.length > 0 && (
                   <div className="mt-8">
                     <Label icon={Paperclip}>Attachments</Label>

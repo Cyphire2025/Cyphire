@@ -61,10 +61,9 @@ export const createTask = async (req, res) => {
       numberOfApplicants,
       price,
       deadline,
-      createdBy,
+      metadata, // 👈 JSON string from frontend
     } = req.body;
 
-    // Normalize categories into an array (model uses `category`)
     const normalizedCategory = Array.isArray(categories)
       ? categories
       : Array.isArray(category)
@@ -73,7 +72,7 @@ export const createTask = async (req, res) => {
           ? [category]
           : [];
 
-    // Upload attachments (if any)
+    // Upload attachments
     const uploadedFiles = [];
     if (Array.isArray(req.files) && req.files.length > 0) {
       for (const f of req.files) {
@@ -82,6 +81,16 @@ export const createTask = async (req, res) => {
       }
     }
 
+    // ✅ Parse metadata safely
+    let parsedMetadata = {};
+    try {
+      if (metadata) {
+        parsedMetadata =
+          typeof metadata === "string" ? JSON.parse(metadata) : metadata;
+      }
+    } catch (err) {
+      console.warn("Invalid metadata JSON:", metadata);
+    }
 
     const newTask = await Task.create({
       title,
@@ -90,10 +99,10 @@ export const createTask = async (req, res) => {
       numberOfApplicants: Number(numberOfApplicants) || 0,
       price: Number(price) || 0,
       deadline: deadline ? new Date(deadline) : null,
-      createdBy: req.user._id, // ← trust server auth, not client
+      createdBy: req.user._id,
       attachments: uploadedFiles,
+      metadata: parsedMetadata, // ✅ now saved
     });
-
 
     return res.status(201).json(newTask);
   } catch (err) {
@@ -101,6 +110,7 @@ export const createTask = async (req, res) => {
     return res.status(500).json({ error: "Server error creating task" });
   }
 };
+
 
 // GET /api/tasks
 export const getTasks = async (_req, res) => {

@@ -17,6 +17,9 @@ import authRoutes from "./routes/authRoutes.js";
 import taskRoutes from "./routes/taskRoutes.js";
 import usersRoutes from "./routes/usersRoutes.js";
 
+import helpRoutes from "./routes/helpRoutes.js";
+import helpQuestionRoutes from "./routes/helpQuestionRoutes.js";
+
 import workroomRoutes from "./routes/workroomRoutes.js";
 import workroomMessageRoutes from "./routes/workroomMessageRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
@@ -112,6 +115,8 @@ app.use("/api/workrooms", workroomRoutes);
 app.use("/api/workrooms", workroomMessageRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/payment", paymentRoutes);
+app.use("/api/help", helpRoutes);
+app.use("/api/help/questions", helpQuestionRoutes);
 // ----- Start Server -----
 connectDB().then(() => {
   server.listen(PORT, () => {

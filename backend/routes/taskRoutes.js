@@ -5,30 +5,34 @@ import { protect } from "../middlewares/authMiddleware.js";
 import {
   createTask,
   getTasks,
-  getMyTasks,     // ← if you don't have this implemented, remove this import and its route below
+  getMyTasks,
   getTaskById,
   applyToTask,
-  selectApplicant, // ← new controller for selecting an applicant
+  selectApplicant,
 } from "../controllers/taskController.js";
 
 const router = express.Router();
 
-// Create a task (auth) + attachments via multer
-// router.post("/", protect, upload.array("attachments"), createTask);
+/* ===========================
+   Routes
+   =========================== */
 
-// Public: list tasks
+// ✅ Create a new task (with attachments + metadata)
+router.post("/", protect, upload.array("attachments", 20), createTask);
+
+// ✅ Public: list all tasks
 router.get("/", getTasks);
 
-// Auth: tasks created by the logged-in user (optional)
+// ✅ Auth: list tasks created by the logged-in user
 router.get("/mine", protect, getMyTasks);
 
-// Public: single task by id
+// ✅ Public: get a single task by ID
 router.get("/:id", getTaskById);
 
-// Auth: select an applicant for a task (owner only)
+// ✅ Auth: select an applicant (task owner only)
 router.post("/:id/select", protect, selectApplicant);
 
-// Auth: apply to a task
+// ✅ Auth: apply to a task
 router.post("/:id/apply", protect, applyToTask);
 
 export default router;

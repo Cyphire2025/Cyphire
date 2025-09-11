@@ -91,7 +91,8 @@ export const verifyPaymentAndCreateTask = async (req, res) => {
       numberOfApplicants,
       price,
       deadline,
-      category,           // could be string or array
+      category,
+      metadata,
     } = req.body;
 
     // categories[] from form OR single category -> normalize to array
@@ -120,9 +121,11 @@ export const verifyPaymentAndCreateTask = async (req, res) => {
       numberOfApplicants: Number(numberOfApplicants) || 0,
       price: Number(price) || 0,
       deadline: deadline ? new Date(deadline) : null,
-      createdBy: req.user._id,            // trust server auth
+      createdBy: req.user._id,
       attachments: uploadedFiles,
+      metadata: metadata ? JSON.parse(metadata) : {}, // ✅ handle metadata
     });
+
 
     return res.json({ success: true, task });
   } catch (err) {
