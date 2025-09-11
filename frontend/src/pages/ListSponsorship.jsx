@@ -19,6 +19,8 @@ export default function SponsorshipPostTask() {
   const [attachments, setAttachments] = useState([]);
   const [posting, setPosting] = useState(false);
   const [posted, setPosted] = useState(false);
+  const [logo, setLogo] = useState(null);
+
 
   // Floating particles (background)
   const [particles, setParticles] = useState([]);
@@ -111,6 +113,8 @@ export default function SponsorshipPostTask() {
             formData.append("title", title);
             formData.append("category", "Sponsorship");
             formData.append("description", description);
+            if (logo) formData.append("logo", logo);
+
 
             const allEvents = [...eventTypes];
             if (eventOther.trim()) allEvents.push(eventOther.trim());
@@ -309,6 +313,32 @@ export default function SponsorshipPostTask() {
           onChange={(e) => setDescription(e.target.value)}
           className="w-full p-3 mb-4 rounded-lg bg-[#1f1f1f]/80 border border-gray-700 focus:ring-2 focus:ring-purple-500"
         ></textarea>
+
+        {/* Logo Upload */}
+        <label className="block mb-2 text-lg">Sponsor Logo</label>
+        <div
+          className="border-2 border-dashed border-gray-600 rounded-lg p-6 text-center bg-[#1f1f1f]/50 hover:border-purple-400 cursor-pointer mb-4"
+          onClick={() => document.getElementById("logoInput").click()}
+        >
+          <p className="text-gray-400">Click or drag a logo here</p>
+          <p className="text-sm text-gray-500">1 file (PNG/JPG)</p>
+          <input
+            id="logoInput"
+            type="file"
+            accept="image/*"
+            onChange={(e) => setLogo(e.target.files[0])}
+            className="hidden"
+          />
+        </div>
+        {logo && (
+          <div className="flex items-center gap-2 mb-4 bg-[#1f1f1f]/80 px-3 py-2 rounded-lg border border-gray-700">
+            <span className="text-sm">{logo.name}</span>
+            <button onClick={() => setLogo(null)} className="text-red-400 hover:text-red-500">
+              ✕
+            </button>
+          </div>
+        )}
+
 
         {/* Attachments */}
         <label className="block mb-2 text-lg">Attachments</label>
