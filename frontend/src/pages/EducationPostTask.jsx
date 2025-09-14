@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
+import PostingOverlay from "../components/PostingOverlay";
+
 
 const API_BASE = import.meta.env?.VITE_API_BASE || "http://localhost:5000";
 
@@ -14,6 +16,7 @@ export default function EducationPostTask() {
   const [deadline, setDeadline] = useState("");
   const [price, setPrice] = useState("");
   const [numApplicants, setNumApplicants] = useState("");
+  const [logo, setLogo] = useState(null);
   const [attachments, setAttachments] = useState([]);
   const [posting, setPosting] = useState(false);
   const [posted, setPosted] = useState(false);
@@ -73,6 +76,8 @@ export default function EducationPostTask() {
       formData.append("price", price);
       formData.append("deadline", deadline);
       formData.append("metadata", JSON.stringify({ subject, deliverables: deliverableTypes, }));
+
+      if (logo) formData.append("logo", logo);
 
       attachments.forEach((file) => formData.append("attachments", file));
 
@@ -147,6 +152,35 @@ export default function EducationPostTask() {
             ⬅ Back
           </motion.button>
         </div>
+
+        {/* Title Image Upload */}
+        <label className="block mb-2 text-lg">Title Image</label>
+        <div
+          className="border-2 border-dashed border-gray-600 rounded-lg p-6 text-center bg-[#1f1f1f]/50 hover:border-purple-400 cursor-pointer mb-4"
+          onClick={() => document.getElementById("logoInput").click()}
+        >
+          <p className="text-gray-400">Click or drag an image here</p>
+          <p className="text-sm text-gray-500">1 file (PNG/JPG)</p>
+          <input
+            id="logoInput"
+            type="file"
+            accept="image/*"
+            onChange={(e) => setLogo(e.target.files[0])}
+            className="hidden"
+          />
+        </div>
+        {logo && (
+          <div className="flex items-center gap-2 mb-4 bg-[#1f1f1f]/80 px-3 py-2 rounded-lg border border-gray-700">
+            <span className="text-sm truncate max-w-[200px]">{logo.name}</span>
+            <button
+              onClick={() => setLogo(null)}
+              className="text-red-400 hover:text-red-500"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
 
         {/* Title */}
         <label className="block mb-2 text-lg">Title</label>
@@ -279,54 +313,8 @@ export default function EducationPostTask() {
       </motion.div>
 
       {/* Overlay */}
-      {posting && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80 backdrop-blur-md text-white text-lg font-semibold">
-          <div className="flex flex-col items-center gap-4">
-            {!posted ? (
-              <>
-                <svg
-                  className="animate-spin h-10 w-10 text-pink-500"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  ></circle>
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8v8H4z"
-                  ></path>
-                </svg>
-                <span>Posting your task...</span>
-              </>
-            ) : (
-              <>
-                <svg
-                  className="h-10 w-10 text-green-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-                <span className="text-green-300">Task posted successfully!</span>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+      <PostingOverlay posting={posting} posted={posted} />
+
 
       {/* Keyframes */}
       <style>{`

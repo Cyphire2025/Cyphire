@@ -16,6 +16,7 @@ export default function ArchitecturePostTask() {
   const [attachments, setAttachments] = useState([]);
   const [posting, setPosting] = useState(false);
   const [posted, setPosted] = useState(false);
+  const [logo, setLogo] = useState(null);
 
   // Metadata states
   const [projectTypes, setProjectTypes] = useState([]);
@@ -112,6 +113,7 @@ export default function ArchitecturePostTask() {
           styles,
         })
       );
+      if (logo) formData.append("logo", logo);
 
       attachments.forEach((file) => formData.append("attachments", file));
 
@@ -186,6 +188,34 @@ export default function ArchitecturePostTask() {
             ⬅ Back
           </motion.button>
         </div>
+
+        {/* Title Image Upload */}
+        <label className="block mb-2 text-lg">Title Image</label>
+        <div
+          className="border-2 border-dashed border-gray-600 rounded-lg p-6 text-center bg-[#1f1f1f]/50 hover:border-purple-400 cursor-pointer mb-4"
+          onClick={() => document.getElementById("logoInput").click()}
+        >
+          <p className="text-gray-400">Click or drag an image here</p>
+          <p className="text-sm text-gray-500">1 file (PNG/JPG)</p>
+          <input
+            id="logoInput"
+            type="file"
+            accept="image/*"
+            onChange={(e) => setLogo(e.target.files[0])}
+            className="hidden"
+          />
+        </div>
+        {logo && (
+          <div className="flex items-center gap-2 mb-4 bg-[#1f1f1f]/80 px-3 py-2 rounded-lg border border-gray-700">
+            <span className="text-sm truncate max-w-[200px]">{logo.name}</span>
+            <button
+              onClick={() => setLogo(null)}
+              className="text-red-400 hover:text-red-500"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {/* Title */}
         <label className="block mb-2 text-lg">Title</label>

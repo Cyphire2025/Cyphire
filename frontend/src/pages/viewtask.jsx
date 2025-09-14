@@ -177,6 +177,9 @@ export default function ViewTask() {
         : [];
   }, [task]);
 
+  const isSponsorship = categories.some((c) => c.toLowerCase() === "sponsorship");
+
+
   // applied/total display
   const appliedCount = Array.isArray(task?.applicants) ? task.applicants.length : 0;
   const totalSeats = Number(task?.numberOfApplicants) || 0;
@@ -272,155 +275,204 @@ export default function ViewTask() {
         )}
 
         {!loading && task && (
-          <div className="grid gap-8 md:grid-cols-3">
-            <div className="md:col-span-2">
+          <div
+            className={`${isSponsorship
+                ? "flex justify-center px-4" // sponsorship → flex centers it
+                : "grid gap-8 md:grid-cols-3" // normal tasks → grid
+              }`}
+          >
+            <div
+              className={`${isSponsorship
+                  ? "w-full max-w-5xl" // sponsorship → centered + capped
+                  : "md:col-span-2"
+                }`}
+            >
               <motion.div
                 initial={{ opacity: 0, y: 14 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="rounded-2xl border border-white/10 bg-white/[0.06] p-6 backdrop-blur-xl"
+                className="rounded-2xl border border-white/10 bg-white/[0.06] overflow-hidden backdrop-blur-xl"
               >
-                <div className="mb-3 inline-flex flex-wrap items-center gap-2 text-xs text-white/70">
-                  {categories.map((cat, idx) => (
-                    <span
-                      key={idx}
-                      className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-1"
-                    >
-                      <Star className="h-3.5 w-3.5" /> {cat}
-                    </span>
-                  ))}
-                  {task?.createdAt && <CountdownTimer createdAt={task.createdAt} />}
-                </div>
-
-                <h1 className="text-3xl md:text-4xl font-bold text-white">
-                  <GradientText>{task.title}</GradientText>
-                </h1>
-
-                <p className="mt-5 text-white/80 leading-relaxed">
-                  {task.description}
-                </p>
-
-
-                {/* Extra details if metadata exists */}
-                {task?.metadata && Object.keys(task.metadata).length > 0 && (
-                  <div className="mt-6 space-y-2">
-                    <h3 className="text-lg font-semibold text-white">Additional Details</h3>
-                    <ul className="mt-2 space-y-1 text-sm text-white/80">
-                      {Object.entries(task.metadata).map(([key, value]) => {
-                        if (!value || (Array.isArray(value) && value.length === 0)) return null;
-
-                        return (
-                          <li key={key}>
-                            <span className="font-medium capitalize text-fuchsia-300">
-                              {key.replace(/([A-Z])/g, " $1")}:
-                            </span>{" "}
-                            {Array.isArray(value) ? value.join(", ") : String(value)}
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                )}
-
-
-                {Array.isArray(task.attachments) && task.attachments.length > 0 && (
-                  <div className="mt-8">
-                    <Label icon={Paperclip}>Attachments</Label>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {task.attachments.map((a, i) => {
-                        const url = a?.url || (typeof a === "string" ? a : "#");
-                        const name =
-                          a?.original_name ||
-                          a?.name ||
-                          `File ${i + 1}`;
-                        const isImage = (a?.contentType || "").startsWith("image/");
-                        const isVideo = (a?.contentType || "").startsWith("video/");
-
-                        return (
-                          <div
-                            key={i}
-                            className="group relative rounded-lg border border-white/10 bg-white/5 p-2"
-                          >
-                            <a
-                              href={url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="block"
-                              title={name}
-                            >
-                              <div className="w-36 h-24 overflow-hidden rounded-md bg-black/30">
-                                {isVideo ? (
-                                  <video src={url} className="w-full h-full object-cover" muted />
-                                ) : isImage ? (
-                                  <img src={url} className="w-full h-full object-cover" />
-                                ) : (
-                                  <div className="flex h-full w-full items-center justify-center text-xs text-white/70">
-                                    <Paperclip className="mr-1 h-4 w-4" />
-                                    {name}
-                                  </div>
-                                )}
-                              </div>
-                            </a>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </motion.div>
-            </div>
-
-            <div className="md:col-span-1">
-              <motion.div
-                initial={{ opacity: 0, y: 14 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="space-y-4"
-              >
-                <GlassCard className="p-5">
-                  <Label icon={Wallet}>Budget</Label>
-                  <div className="text-xl font-semibold text-white">{inr(task.price)}</div>
-                </GlassCard>
-
-                <GlassCard className="p-5">
-                  <Label icon={Calendar}>Deadline</Label>
-                  <div className="text-white">
-                    {task.deadline ? new Date(task.deadline).toLocaleDateString() : "—"}
-                  </div>
-                  {deadlineDaysLeft != null && (
-                    <div className={`mt-1 text-sm ${deadlineDaysLeft < 0 ? "text-red-300" : "text-white/70"}`}>
-                      {deadlineDaysLeft < 0
-                        ? `Expired ${Math.abs(deadlineDaysLeft)} day${Math.abs(deadlineDaysLeft) !== 1 ? "s" : ""} ago`
-                        : `${deadlineDaysLeft} day${deadlineDaysLeft !== 1 ? "s" : ""} left`}
+                {/* 🔥 Banner fills edge-to-edge */}
+                <div className="h-32 sm:h-40 md:h-80 w-full overflow-hidden">
+                  {task.logo?.url ? (
+                    <img
+                      src={task.logo.url}
+                      alt="task-logo"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : task.attachments?.length > 0 ? (
+                    <img
+                      src={task.attachments[0].url}
+                      alt="task-attachment"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-white/50 italic">
+                      No Image
                     </div>
                   )}
-                </GlassCard>
+                </div>
 
-                <GlassCard className="p-5">
-                  <Label icon={Users}>Applicants</Label>
-                  <div className="text-white">
-                    {totalSeats > 0 ? `${appliedCount}/${totalSeats}` : `${appliedCount}`}
-                  </div>
-                </GlassCard>
-
-                <GlassCard className="p-5">
-                  <div className="flex flex-col gap-3">
-                    {!isOwner && (
-                      <NeonButton
-                        onClick={handleApply}
-                        disabled={applied}
-                        className={applied ? "opacity-60 cursor-not-allowed" : ""}
+                {/* Content with padding */}
+                <div className="p-6">
+                  <div className="mb-3 inline-flex flex-wrap items-center gap-2 text-xs text-white/70">
+                    {categories.map((cat, idx) => (
+                      <span
+                        key={idx}
+                        className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-1"
                       >
-                        {applied ? "Applied" : "Apply to this Task"}
-                      </NeonButton>
-                    )}
-                    {isOwner && (
-                      <NeonButton onClick={() => navigate("/dashboard")}>
-                        View Dashboard
-                      </NeonButton>
-                    )}
+                        <Star className="h-3.5 w-3.5" /> {cat}
+                      </span>
+                    ))}
+                    {task?.createdAt && <CountdownTimer createdAt={task.createdAt} />}
                   </div>
-                </GlassCard>
+
+                  <h1 className="text-3xl md:text-4xl font-bold text-white">
+                    <GradientText>{task.title}</GradientText>
+                  </h1>
+
+                  <p className="mt-5 text-white/80 leading-relaxed">
+                    {task.description}
+                  </p>
+
+                  {/* Extra details if metadata exists */}
+                  {task?.metadata && Object.keys(task.metadata).length > 0 && (
+                    <div className="mt-6 space-y-2">
+                      <h3 className="text-lg font-semibold text-white">Additional Details</h3>
+                      <ul className="mt-2 space-y-1 text-sm text-white/80">
+                        {Object.entries(task.metadata).map(([key, value]) => {
+                          if (!value || (Array.isArray(value) && value.length === 0)) return null;
+
+                          return (
+                            <li key={key}>
+                              <span className="font-medium capitalize text-fuchsia-300">
+                                {key.replace(/([A-Z])/g, " $1")}:
+                              </span>{" "}
+                              {Array.isArray(value)
+                                ? value
+                                  .filter((v, i, arr) => v !== "Other" || arr.length === 1) // hide "Other" if custom exists
+                                  .join(", ")
+                                : String(value)}
+
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Extra button only for Sponsorships */}
+                  {isSponsorship && isOwner && (
+                    <div className="mt-8">
+                      <NeonButton onClick={() => navigate("/dashboard")}>
+                        View Contact Details
+                      </NeonButton>
+                    </div>
+                  )}
+
+
+                  {Array.isArray(task.attachments) && task.attachments.length > 0 && (
+                    <div className="mt-8">
+                      <Label icon={Paperclip}>Attachments</Label>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {task.attachments.map((a, i) => {
+                          const url = a?.url || (typeof a === "string" ? a : "#");
+                          const name =
+                            a?.original_name ||
+                            a?.name ||
+                            `File ${i + 1}`;
+                          const isImage = (a?.contentType || "").startsWith("image/");
+                          const isVideo = (a?.contentType || "").startsWith("video/");
+
+                          return (
+                            <div
+                              key={i}
+                              className="group relative rounded-lg border border-white/10 bg-white/5 p-2"
+                            >
+                              <a
+                                href={url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="block"
+                                title={name}
+                              >
+                                <div className="w-36 h-24 overflow-hidden rounded-md bg-black/30">
+                                  {isVideo ? (
+                                    <video src={url} className="w-full h-full object-cover" muted />
+                                  ) : isImage ? (
+                                    <img src={url} className="w-full h-full object-cover" />
+                                  ) : (
+                                    <div className="flex h-full w-full items-center justify-center text-xs text-white/70">
+                                      <Paperclip className="mr-1 h-4 w-4" />
+                                      {name}
+                                    </div>
+                                  )}
+                                </div>
+                              </a>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </motion.div>
             </div>
+
+            {!isSponsorship && (
+              <div className="md:col-span-1">
+                <motion.div
+                  initial={{ opacity: 0, y: 14 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="space-y-4"
+                >
+                  <GlassCard className="p-5">
+                    <Label icon={Wallet}>Budget</Label>
+                    <div className="text-xl font-semibold text-white">{inr(task.price)}</div>
+                  </GlassCard>
+
+                  <GlassCard className="p-5">
+                    <Label icon={Calendar}>Deadline</Label>
+                    <div className="text-white">
+                      {task.deadline ? new Date(task.deadline).toLocaleDateString() : "—"}
+                    </div>
+                    {deadlineDaysLeft != null && (
+                      <div className={`mt-1 text-sm ${deadlineDaysLeft < 0 ? "text-red-300" : "text-white/70"}`}>
+                        {deadlineDaysLeft < 0
+                          ? `Expired ${Math.abs(deadlineDaysLeft)} day${Math.abs(deadlineDaysLeft) !== 1 ? "s" : ""} ago`
+                          : `${deadlineDaysLeft} day${deadlineDaysLeft !== 1 ? "s" : ""} left`}
+                      </div>
+                    )}
+                  </GlassCard>
+
+                  <GlassCard className="p-5">
+                    <Label icon={Users}>Applicants</Label>
+                    <div className="text-white">
+                      {totalSeats > 0 ? `${appliedCount}/${totalSeats}` : `${appliedCount}`}
+                    </div>
+                  </GlassCard>
+
+                  <GlassCard className="p-5">
+                    <div className="flex flex-col gap-3">
+                      {!isOwner && (
+                        <NeonButton
+                          onClick={handleApply}
+                          disabled={applied}
+                          className={applied ? "opacity-60 cursor-not-allowed" : ""}
+                        >
+                          {applied ? "Applied" : "Apply to this Task"}
+                        </NeonButton>
+                      )}
+                      {isOwner && (
+                        <NeonButton onClick={() => navigate("/dashboard")}>
+                          View Dashboard
+                        </NeonButton>
+                      )}
+                    </div>
+                  </GlassCard>
+                </motion.div>
+              </div>
+            )}
           </div>
         )}
       </main>

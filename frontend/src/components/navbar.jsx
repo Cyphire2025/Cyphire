@@ -135,7 +135,7 @@ export default function Navbar() {
             </GradientText>
           </h1>
 
-
+          {/* searchbar */}
           <div className="hidden md:flex items-center bg-white/10 rounded-full px-3 sm:px-4 py-2 w-full max-w-xs lg:max-w-lg focus-within:ring-2 focus-within:ring-purple-500 transition">
             <FiSearch className="text-gray-400 mr-2 flex-shrink-0" />
             <input

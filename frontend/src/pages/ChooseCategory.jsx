@@ -35,12 +35,12 @@ const categories = [
     img: "https://img.icons8.com/color/96/000000/city-buildings.png",
     link: "/posttask-architecture",
   },
-  {
-    name: "Sponsorship",
-    desc: "List your brand as a sponsor and unlock event partnership opportunities.",
-    img: "https://img.icons8.com/color/96/handshake.png",
-    link: "/posttask-sponsorship",
-  },
+  // {
+  //   name: "Sponsorship",
+  //   desc: "List your brand as a sponsor and unlock event partnership opportunities.",
+  //   img: "https://img.icons8.com/color/96/handshake.png",
+  //   link: "/posttask-sponsorship",
+  // },
 ];
 
 export default function ChooseCategory() {
@@ -105,8 +105,32 @@ export default function ChooseCategory() {
 
         {/* Categories */}
         <section className="relative z-10 mx-auto max-w-6xl px-6 pb-20">
-          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-            {categories.map((c, i) => (
+          {/* Row 1: Tech, Education, Healthcare */}
+          <div className="grid gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 justify-items-center mb-8">
+            {categories.slice(0, 3).map((c) => (
+              <motion.div
+                key={c.name}
+                whileHover={{ scale: 1.05, y: -5 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={() => c.link !== "#" && navigate(c.link)}
+                className="cursor-pointer rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl shadow-lg p-6 flex flex-col items-center text-center hover:border-fuchsia-400/40 transition"
+              >
+                <motion.img
+                  src={c.img}
+                  alt={c.name}
+                  className="w-20 h-20 mb-4"
+                  animate={{ y: [0, -6, 0] }}
+                  transition={{ duration: 3, repeat: Infinity }}
+                />
+                <h3 className="text-xl font-semibold">{c.name}</h3>
+                <p className="mt-2 text-sm text-white/70">{c.desc}</p>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Row 2: Event Mgmt + Architecture, centered under row 1 */}
+          <div className="grid gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 justify-center max-w-3xl mx-auto">
+            {categories.slice(3, 5).map((c) => (
               <motion.div
                 key={c.name}
                 whileHover={{ scale: 1.05, y: -5 }}
@@ -127,6 +151,7 @@ export default function ChooseCategory() {
             ))}
           </div>
         </section>
+
       </main>
 
       <Footer />

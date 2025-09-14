@@ -23,7 +23,8 @@ export default function DashboardPage() {
   // UI state
   const [activeTab, setActiveTab] = useState(
     new URLSearchParams(window.location.search).get("tab") || "myTasks"
-  ); // "myTasks" | "myApplications"
+  ); // "myTasks" | "myApplications" | "mySponsorships"
+
   const [openTaskIdx, setOpenTaskIdx] = useState(null);
 
   // Load me + tasks
@@ -65,8 +66,22 @@ export default function DashboardPage() {
   // Derive my lists
   const myTasks = useMemo(() => {
     if (!me) return [];
-    return tasks.filter((t) => sameId(t.createdBy, me._id));
+    return tasks.filter(
+      (t) =>
+        sameId(t.createdBy, me._id) &&
+        !t.category?.some((c) => c.toLowerCase() === "sponsorship")
+    );
   }, [me, tasks, sameId]);
+
+  const mySponsorships = useMemo(() => {
+    if (!me) return [];
+    return tasks.filter(
+      (t) =>
+        sameId(t.createdBy, me._id) &&
+        t.category?.some((c) => c.toLowerCase() === "sponsorship")
+    );
+  }, [me, tasks, sameId]);
+
 
   const myApplications = useMemo(() => {
     if (!me) return [];
@@ -77,7 +92,8 @@ export default function DashboardPage() {
     });
   }, [me, tasks, sameId]);
 
-  const list = activeTab === "myTasks" ? myTasks : myApplications;
+  const list = activeTab === "myTasks" ? myTasks : activeTab === "myApplications" ? myApplications : mySponsorships;
+
 
   // Select applicant (owner only)
   const onSelectApplicant = async (task, applicant) => {
@@ -122,7 +138,7 @@ export default function DashboardPage() {
             </div>
           </div>
         </>
-      ) : (
+      ) : activeTab === "myApplications" ? (
         <>
           <div className="flex items-center gap-2">
             <FolderOpen className="h-5 w-5" />
@@ -132,9 +148,20 @@ export default function DashboardPage() {
             </div>
           </div>
         </>
+      ) : (
+        <>
+          <div className="flex items-center gap-2">
+            <FolderOpen className="h-5 w-5" />
+            <div>
+              <div className="text-2xl font-bold">{mySponsorships.length}</div>
+              <div className="text-white/60 text-sm">Sponsorships posted</div>
+            </div>
+          </div>
+        </>
       )}
     </GlassCard>
   );
+
 
   const TaskCard = ({ task, idx }) => {
     //const isOwner = me && sameId(task.createdBy, me._id);
@@ -145,7 +172,7 @@ export default function DashboardPage() {
 
     const isOpen = openTaskIdx === idx;
     const appliedCount = task.applicants?.length || 0;
-   // const capacity = Number(task.numberOfApplicants || 0);
+    // const capacity = Number(task.numberOfApplicants || 0);
 
     return (
       <GlassCard key={toId(task._id)} className="p-6">
@@ -182,8 +209,8 @@ export default function DashboardPage() {
           </div>
 
           {/* Right-side actions */}
-          {activeTab === "myTasks" ? (
-            // OWNER VIEW
+          {activeTab === "myTasks" || activeTab === "mySponsorships" ? (
+            // OWNER VIEW (for tasks + sponsorships I created)
             selectedId ? (
               <button
                 onClick={() => window.open(workroomHref, "_blank")}
@@ -200,7 +227,7 @@ export default function DashboardPage() {
               </button>
             )
           ) : (
-            // APPLICANT VIEW
+            // APPLICANT VIEW (for My Applications tab)
             (() => {
               if (iAmSelected) {
                 return (
@@ -212,7 +239,6 @@ export default function DashboardPage() {
                   </button>
                 );
               }
-              // polite statuses when I’m not selected (or not yet decided)
               return (
                 <span className="text-xs text-white/60">
                   {selectedId ? "Not selected this time" : "Under review"}
@@ -222,19 +248,20 @@ export default function DashboardPage() {
           )}
 
 
+
         </div>
 
         {/* Applicants dropdown (owner only, only if not selected yet) */}
-        {activeTab === "myTasks" && !selectedId && isOpen && (
+        {(activeTab === "myTasks" || activeTab === "mySponsorships") && !selectedId && isOpen && (
           <div className="mt-4 border-t border-white/10 pt-4 space-y-3">
             {appliedCount > 0 ? (
               task.applicants.map((appl, j) => {
                 const a = typeof appl === "object" ? appl : { _id: appl };
                 const avatar =
-                  a.avatar ||
-                  `https://ui-avatars.com/api/?name=${encodeURIComponent(a.name || "U")}`;
+                  a.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(a.name || "U")}`;
                 const displayName = a.name || "User";
                 const profileSlugOrId = a.slug || a._id;
+
                 return (
                   <div
                     key={toId(a._id) + j}
@@ -270,6 +297,7 @@ export default function DashboardPage() {
             )}
           </div>
         )}
+
       </GlassCard>
     );
   };
@@ -321,6 +349,20 @@ export default function DashboardPage() {
                   >
                     My Applications
                   </button>
+                  <button
+                    onClick={() => {
+                      setActiveTab("mySponsorships");
+                      setOpenTaskIdx(null);
+                      const url = new URL(window.location.href);
+                      url.searchParams.set("tab", "mySponsorships");
+                      window.history.replaceState({}, "", url);
+                    }}
+                    className={`w-full text-left rounded-xl px-4 py-3 transition 
+  ${activeTab === "mySponsorships" ? "bg-white/15 text-white" : "bg-white/5 text-white/80 hover:bg-white/10"}`}
+                  >
+                    My Sponsorships
+                  </button>
+
                 </div>
               </GlassCard>
             </aside>
@@ -335,11 +377,14 @@ export default function DashboardPage() {
                 <GlassCard className="p-6 text-white/70">
                   {activeTab === "myTasks"
                     ? "You haven’t posted any tasks yet."
-                    : "You haven’t applied to any tasks yet."}
+                    : activeTab === "myApplications"
+                      ? "You haven’t applied to any tasks yet."
+                      : "You haven’t listed any sponsorships yet."}
                 </GlassCard>
               ) : (
                 list.map((task, idx) => <TaskCard key={toId(task._id)} task={task} idx={idx} />)
               )}
+
             </section>
           </div>
         )}

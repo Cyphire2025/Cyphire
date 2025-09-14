@@ -18,7 +18,9 @@ const router = express.Router();
    =========================== */
 
 // ✅ Create a new task (with attachments + metadata)
-router.post("/", protect, upload.array("attachments", 20), createTask);
+// new - allow both fields
+router.post("/",protect,upload.fields([{ name: "attachments", maxCount: 20 },{ name: "logo", maxCount: 1 },]),createTask);
+
 
 // ✅ Public: list all tasks
 router.get("/", getTasks);

@@ -3,11 +3,11 @@ import mongoose from "mongoose";
 
 const attachmentSchema = new mongoose.Schema(
   {
-    url: { type: String, required: true },              
-    public_id: { type: String, required: true },        
-    original_name: { type: String },                    
-    size: { type: Number },                             
-    contentType: { type: String },                      
+    url: { type: String, required: true },
+    public_id: { type: String, required: true },
+    original_name: { type: String },
+    size: { type: Number },
+    contentType: { type: String },
   },
   { _id: false }
 );
@@ -29,6 +29,10 @@ const taskSchema = new mongoose.Schema(
     selectedApplicant: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
     workroomId: { type: String, default: null },
 
+    logo: {   // 👈 NEW field
+      url: { type: String, required: true },
+      public_id: { type: String, required: true },
+    },
     // ✅ Flexible metadata field for category-specific fields
     metadata: {
       type: mongoose.Schema.Types.Mixed,

@@ -16,6 +16,7 @@ export default function EventManagementPostTask() {
   const [attachments, setAttachments] = useState([]);
   const [posting, setPosting] = useState(false);
   const [posted, setPosted] = useState(false);
+  const [logo, setLogo] = useState(null);
 
   // Metadata
   const [eventTypes, setEventTypes] = useState([]);
@@ -115,6 +116,7 @@ export default function EventManagementPostTask() {
           location,
         })
       );
+      if (logo) formData.append("logo", logo);
 
       attachments.forEach((file) => formData.append("attachments", file));
 
@@ -190,6 +192,34 @@ export default function EventManagementPostTask() {
           </motion.button>
         </div>
 
+        {/* Title Image Upload */}
+        <label className="block mb-2 text-lg">Title Image</label>
+        <div
+          className="border-2 border-dashed border-gray-600 rounded-lg p-6 text-center bg-[#1f1f1f]/50 hover:border-purple-400 cursor-pointer mb-4"
+          onClick={() => document.getElementById("logoInput").click()}
+        >
+          <p className="text-gray-400">Click or drag an image here</p>
+          <p className="text-sm text-gray-500">1 file (PNG/JPG)</p>
+          <input
+            id="logoInput"
+            type="file"
+            accept="image/*"
+            onChange={(e) => setLogo(e.target.files[0])}
+            className="hidden"
+          />
+        </div>
+        {logo && (
+          <div className="flex items-center gap-2 mb-4 bg-[#1f1f1f]/80 px-3 py-2 rounded-lg border border-gray-700">
+            <span className="text-sm truncate max-w-[200px]">{logo.name}</span>
+            <button
+              onClick={() => setLogo(null)}
+              className="text-red-400 hover:text-red-500"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         {/* Title */}
         <label className="block mb-2 text-lg">Title</label>
         <input
@@ -214,10 +244,9 @@ export default function EventManagementPostTask() {
                   toggleSelection(type, eventTypes, setEventTypes)
                 }
                 className={`px-4 py-2 rounded-full cursor-pointer transition-all text-sm md:text-base
-                  ${
-                    selected
-                      ? "bg-purple-600 border border-purple-400 shadow-lg shadow-purple-500/40"
-                      : "bg-[#1f1f1f]/80 border border-gray-700 hover:border-purple-400"
+                  ${selected
+                    ? "bg-purple-600 border border-purple-400 shadow-lg shadow-purple-500/40"
+                    : "bg-[#1f1f1f]/80 border border-gray-700 hover:border-purple-400"
                   }
                 `}
               >
@@ -239,10 +268,9 @@ export default function EventManagementPostTask() {
                 key={srv}
                 onClick={() => toggleSelection(srv, services, setServices)}
                 className={`px-4 py-2 rounded-full cursor-pointer transition-all text-sm md:text-base
-                  ${
-                    selected
-                      ? "bg-purple-600 border border-purple-400 shadow-lg shadow-purple-500/40"
-                      : "bg-[#1f1f1f]/80 border border-gray-700 hover:border-purple-400"
+                  ${selected
+                    ? "bg-purple-600 border border-purple-400 shadow-lg shadow-purple-500/40"
+                    : "bg-[#1f1f1f]/80 border border-gray-700 hover:border-purple-400"
                   }
                 `}
               >

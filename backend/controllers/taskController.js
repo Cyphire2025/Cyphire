@@ -57,11 +57,11 @@ export const createTask = async (req, res) => {
       title,
       description,
       category,
-      categories, // comes from frontend as categories[]
+      categories,
       numberOfApplicants,
       price,
       deadline,
-      metadata, // 👈 JSON string from frontend
+      metadata,
     } = req.body;
 
     const normalizedCategory = Array.isArray(categories)
@@ -74,11 +74,23 @@ export const createTask = async (req, res) => {
 
     // Upload attachments
     const uploadedFiles = [];
-    if (Array.isArray(req.files) && req.files.length > 0) {
-      for (const f of req.files) {
+    if (req.files?.attachments?.length > 0) {
+      for (const f of req.files.attachments) {
         const uploaded = await uploadToCloudinary(f);
         if (uploaded) uploadedFiles.push(uploaded);
       }
+    }
+
+    // ✅ Upload logo separately
+    let uploadedLogo = null; // <-- define first
+    if (req.files?.logo?.length > 0) {
+      const uploaded = await uploadToCloudinary(req.files.logo[0]);
+      if (uploaded) uploadedLogo = uploaded;
+    }
+
+    // ❌ If no logo uploaded, block sponsorship posting
+    if (!uploadedLogo) {
+      return res.status(400).json({ error: "Logo is required for sponsorships" });
     }
 
     // ✅ Parse metadata safely
@@ -101,7 +113,11 @@ export const createTask = async (req, res) => {
       deadline: deadline ? new Date(deadline) : null,
       createdBy: req.user._id,
       attachments: uploadedFiles,
-      metadata: parsedMetadata, // ✅ now saved
+      logo: {                          // <-- save properly
+        url: uploadedLogo.url,
+        public_id: uploadedLogo.public_id,
+      },
+      metadata: parsedMetadata,
     });
 
     return res.status(201).json(newTask);
@@ -110,6 +126,7 @@ export const createTask = async (req, res) => {
     return res.status(500).json({ error: "Server error creating task" });
   }
 };
+
 
 
 // GET /api/tasks

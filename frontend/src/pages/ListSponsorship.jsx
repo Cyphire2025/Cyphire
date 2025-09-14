@@ -60,16 +60,25 @@ export default function SponsorshipPostTask() {
 
   // Multi-select handler
   const toggleSelection = (value, state, setState, max = 20) => {
-    if (value === "Other") return; // handled separately
-    setState((prev) => {
-      if (prev.includes(value)) return prev.filter((v) => v !== value);
-      if (prev.length >= max) {
-        alert(`You can select up to ${max}`);
-        return prev;
-      }
-      return [...prev, value];
-    });
-  };
+  if (value === "Other") {
+    if (state.includes("Other")) {
+      setState(state.filter((v) => v !== "Other"));
+    } else {
+      setState([...state, "Other"]);
+    }
+    return;
+  }
+
+  setState((prev) => {
+    if (prev.includes(value)) return prev.filter((v) => v !== value);
+    if (prev.length >= max) {
+      alert(`You can select up to ${max}`);
+      return prev;
+    }
+    return [...prev, value];
+  });
+};
+
 
   // File upload
   const handleAttachmentChange = (e) => {
@@ -82,6 +91,57 @@ export default function SponsorshipPostTask() {
   };
   const removeAttachment = (index) => {
     setAttachments(attachments.filter((_, i) => i !== index));
+  };
+
+  // Direct Post (no payment)
+  const handleDirectPost = async () => {
+    try {
+      setPosting(true);
+      setPosted(false);
+
+      const formData = new FormData();
+      formData.append("title", title);
+      formData.append("category", "Sponsorship");
+      formData.append("description", description);
+      if (logo) formData.append("logo", logo);
+
+      const allEvents = [...eventTypes];
+      if (eventOther.trim()) allEvents.push(eventOther.trim());
+
+      const allReturns = [...expectedReturns];
+      if (returnsOther.trim()) allReturns.push(returnsOther.trim());
+
+      formData.append(
+        "metadata",
+        JSON.stringify({
+          budgetRange,
+          eventTypes: allEvents,
+          expectedReturns: allReturns,
+          tier: "basic", // default
+        })
+      );
+
+      attachments.forEach((file) => formData.append("attachments", file));
+
+      const res = await fetch(`${API_BASE}/api/tasks`, {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+
+      if (res.ok) {
+        setPosted(true);
+        setTimeout(() => navigate("/sponsorships"), 2000);
+      } else {
+        const errData = await res.json();
+        alert(`❌ Failed: ${errData.error || "Unknown error"}`);
+        setPosting(false);
+      }
+    } catch (e) {
+      console.error(e);
+      setPosting(false);
+      alert("❌ Failed to post sponsorship.");
+    }
   };
 
   // Handle Payment + Post
@@ -220,6 +280,31 @@ export default function SponsorshipPostTask() {
           Post a Sponsorship Listing
         </h1>
 
+        {/* Logo Upload */}
+        <label className="block mb-2 text-lg">Title Image</label>
+        <div
+          className="border-2 border-dashed border-gray-600 rounded-lg p-6 text-center bg-[#1f1f1f]/50 hover:border-purple-400 cursor-pointer mb-4"
+          onClick={() => document.getElementById("logoInput").click()}
+        >
+          <p className="text-gray-400">Click or drag an image here</p>
+          <p className="text-sm text-gray-500">1 file (PNG/JPG)</p>
+          <input
+            id="logoInput"
+            type="file"
+            accept="image/*"
+            onChange={(e) => setLogo(e.target.files[0])}
+            className="hidden"
+          />
+        </div>
+        {logo && (
+          <div className="flex items-center gap-2 mb-4 bg-[#1f1f1f]/80 px-3 py-2 rounded-lg border border-gray-700">
+            <span className="text-sm">{logo.name}</span>
+            <button onClick={() => setLogo(null)} className="text-red-400 hover:text-red-500">
+              ✕
+            </button>
+          </div>
+        )}
+
         {/* Title */}
         <label className="block mb-2 text-lg">Title</label>
         <input
@@ -314,32 +399,6 @@ export default function SponsorshipPostTask() {
           className="w-full p-3 mb-4 rounded-lg bg-[#1f1f1f]/80 border border-gray-700 focus:ring-2 focus:ring-purple-500"
         ></textarea>
 
-        {/* Logo Upload */}
-        <label className="block mb-2 text-lg">Sponsor Logo</label>
-        <div
-          className="border-2 border-dashed border-gray-600 rounded-lg p-6 text-center bg-[#1f1f1f]/50 hover:border-purple-400 cursor-pointer mb-4"
-          onClick={() => document.getElementById("logoInput").click()}
-        >
-          <p className="text-gray-400">Click or drag a logo here</p>
-          <p className="text-sm text-gray-500">1 file (PNG/JPG)</p>
-          <input
-            id="logoInput"
-            type="file"
-            accept="image/*"
-            onChange={(e) => setLogo(e.target.files[0])}
-            className="hidden"
-          />
-        </div>
-        {logo && (
-          <div className="flex items-center gap-2 mb-4 bg-[#1f1f1f]/80 px-3 py-2 rounded-lg border border-gray-700">
-            <span className="text-sm">{logo.name}</span>
-            <button onClick={() => setLogo(null)} className="text-red-400 hover:text-red-500">
-              ✕
-            </button>
-          </div>
-        )}
-
-
         {/* Attachments */}
         <label className="block mb-2 text-lg">Attachments</label>
         <div
@@ -375,6 +434,17 @@ export default function SponsorshipPostTask() {
 
         {/* Buttons */}
         <div className="flex gap-4">
+          {/* 🔥 New Plain Post Button */}
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.97 }}
+            transition={{ type: "spring", stiffness: 300 }}
+            className="flex-1 py-3 rounded-lg bg-gray-700 hover:bg-gray-600 shadow-md font-semibold"
+            onClick={handleDirectPost}
+            disabled={posting}
+          >
+            {posting ? "Posting..." : "Post (Free)"}
+          </motion.button>
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.97 }}
@@ -397,6 +467,62 @@ export default function SponsorshipPostTask() {
           </motion.button>
         </div>
       </motion.div>
+
+
+
+      {/* Success Overlay */}
+      {posted && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md">
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.5 }}
+            className="text-center"
+          >
+            {/* Success icon */}
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: "spring", stiffness: 200, delay: 0.2 }}
+              className="mx-auto mb-6 flex items-center justify-center w-24 h-24 rounded-full bg-green-500/20 border-4 border-green-400 shadow-[0_0_40px_rgba(34,197,94,0.6)]"
+            >
+              <span className="text-5xl">✅</span>
+            </motion.div>
+
+            <h2 className="text-2xl md:text-3xl font-extrabold text-green-400 mb-2">
+              Task Posted Successfully!
+            </h2>
+            <p className="text-gray-300 mb-6">
+              Redirecting you to Sponsorships...
+            </p>
+
+            {/* Subtle confetti effect */}
+            <motion.div
+              className="flex justify-center gap-2"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.6 }}
+            >
+              {Array.from({ length: 12 }).map((_, i) => (
+                <motion.span
+                  key={i}
+                  className="w-2 h-2 rounded-full"
+                  style={{
+                    backgroundColor: i % 2 === 0 ? "#22c55e" : "#4ade80",
+                  }}
+                  initial={{ y: 0 }}
+                  animate={{ y: [0, -20, 0] }}
+                  transition={{
+                    duration: 1 + i * 0.05,
+                    repeat: Infinity,
+                    delay: i * 0.1,
+                  }}
+                />
+              ))}
+            </motion.div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }

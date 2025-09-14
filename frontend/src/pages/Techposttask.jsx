@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import PostingOverlay from "../components/PostingOverlay";
 
 export default function PostTask() {
   const navigate = useNavigate();
@@ -26,7 +27,7 @@ export default function PostTask() {
   const [posting, setPosting] = useState(false);
   const [posted, setPosted] = useState(false);
   const [particles, setParticles] = useState([]);
-
+  const [logo, setLogo] = useState(null);
 
   useEffect(() => {
     const newParticles = Array.from({ length: 15 }).map(() => ({
@@ -65,86 +66,10 @@ export default function PostTask() {
     setAttachments(attachments.filter((_, i) => i !== index));
   };
 
-  const handlePayment = async () => {
-    try {
-      if (!price || Number(price) <= 0) {
-        alert("Please enter a valid price before continuing.");
-        return;
-      }
-
-      const API_BASE = import.meta.env?.VITE_API_BASE || "http://localhost:5000";
-
-      // 1) create Razorpay order
-      const orderRes = await axios.post(
-        `${API_BASE}/api/payment/create-order`,
-        { amount: Number(price) },
-        { withCredentials: true }
-      ); 
-      const order = orderRes.data;
-
-      // 2) open Razorpay checkout
-      const options = {
-        key: import.meta.env.VITE_RAZORPAY_KEY_ID,
-        amount: order.amount,
-        currency: order.currency,
-        name: "Cyphire",
-        description: "Task Payment",
-        order_id: order.id,
-        handler: async function (response) {
-          try {
-            // 3) on success -> verify + create task (multipart with attachments)
-            const fd = new FormData();
-            fd.append("razorpay_order_id", response.razorpay_order_id);
-            fd.append("razorpay_payment_id", response.razorpay_payment_id);
-            fd.append("razorpay_signature", response.razorpay_signature);
-
-            fd.append("title", title);
-            fd.append("description", description);
-            selectedCategories.forEach((c) => fd.append("categories[]", c));
-            fd.append("numberOfApplicants", numApplicants);
-            fd.append("price", price);
-            fd.append("deadline", deadline);
-            attachments.forEach((f) => fd.append("attachments", f));
-
-            setPosting(true);
-
-            const verifyRes = await axios.post(
-              `${API_BASE}/api/payment/verify-payment`,
-              fd,
-              {
-                headers: { "Content-Type": "multipart/form-data" },
-                withCredentials: true,
-              }
-            );
-
-            if (verifyRes.data?.success) {
-              setPosted(true);
-              setTimeout(() => navigate("/home"), 1500);
-            } else {
-              setPosting(false);
-              alert("Payment verified but task creation failed.");
-            }
-          } catch (e) {
-            setPosting(false);
-            console.error("Verify/payment error:", e);
-            alert("Payment verification failed. Task not posted.");
-          }
-        },
-        theme: { color: "#5A67D8" },
-      };
-
-      const rzp = new window.Razorpay(options);
-      rzp.open();
-    } catch (e) {
-      console.error("Payment init error:", e);
-      alert("Failed to start payment.");
-    }
-  };
-
   const handleSubmit = async () => {
     try {
-      setPosting(true);        // ⏳ Show overlay
-      setPosted(false);        // ✅ Reset posted state
+      setPosting(true);
+      setPosted(false);
 
       const formData = new FormData();
       formData.append("title", title);
@@ -153,24 +78,23 @@ export default function PostTask() {
       formData.append("numberOfApplicants", numApplicants);
       formData.append("price", price);
       formData.append("deadline", deadline);
-      formData.append("createdBy", "64b7e261fc13ae1fbd000001"); // Dummy user ID for now
+
+      if (logo) formData.append("logo", logo);
       attachments.forEach(file => formData.append("attachments", file));
 
       const API_BASE = import.meta.env?.VITE_API_BASE || "http://localhost:5000";
       const res = await fetch(`${API_BASE}/api/tasks`, {
         method: "POST",
-        credentials: "include",   // 👈 ADD THIS
+        credentials: "include",
         body: formData,
       });
 
       if (res.ok) {
-        setPosted(true); // ✅ Show success message on overlay
-        setTimeout(() => {
-          navigate("/home");
-        }, 2000); // ⏱️ Wait 2s before redirecting
+        setPosted(true);
+        setTimeout(() => navigate("/tasks"), 2000); // ✅ go to Tasks page
       } else {
         const errData = await res.json();
-        alert(`❌ Failed to post task: ${errData.message || "Unknown error"}`);
+        alert(`❌ Failed to post task: ${errData.error || "Unknown error"}`);
         setPosting(false);
       }
     } catch (error) {
@@ -179,9 +103,6 @@ export default function PostTask() {
       setPosting(false);
     }
   };
-
-
-
 
   return (
 
@@ -230,23 +151,37 @@ export default function PostTask() {
             onClick={() => navigate("/choose-category")}
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1f1f1f]/80 hover:bg-[#2a2a2a] border border-gray-700 hover:border-purple-400 transition-all"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-5 h-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 19l-7-7 7-7"
-              />
-            </svg>
-            <span>Back to Choose Category </span>
+            <span>⬅ Back </span>
           </motion.button>
         </div>
+
+        {/* Title Image Upload */}
+        <label className="block mb-2 text-lg">Title Image</label>
+        <div
+          className="border-2 border-dashed border-gray-600 rounded-lg p-6 text-center bg-[#1f1f1f]/50 hover:border-purple-400 cursor-pointer mb-4"
+          onClick={() => document.getElementById("logoInput").click()}
+        >
+          <p className="text-gray-400">Click or drag an image here</p>
+          <p className="text-sm text-gray-500">1 file (PNG/JPG)</p>
+          <input
+            id="logoInput"
+            type="file"
+            accept="image/*"
+            onChange={(e) => setLogo(e.target.files[0])}
+            className="hidden"
+          />
+        </div>
+        {logo && (
+          <div className="flex items-center gap-2 mb-4 bg-[#1f1f1f]/80 px-3 py-2 rounded-lg border border-gray-700">
+            <span className="text-sm truncate max-w-[200px]">{logo.name}</span>
+            <button
+              onClick={() => setLogo(null)}
+              className="text-red-400 hover:text-red-500"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {/* Title */}
         <label className="block mb-2 text-lg">Title</label>
@@ -363,34 +298,13 @@ export default function PostTask() {
           whileTap={{ scale: 0.97 }}
           transition={{ type: "spring", stiffness: 300 }}
           className="w-full py-3 rounded-lg bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 shadow-lg shadow-purple-500/30 font-semibold text-lg"
-          onClick={handlePayment}   // <-- new
+          onClick={handleSubmit}   // <-- new
         >
-          Continue to Payment      
+          Post Task
         </motion.button>
 
       </motion.div>
-      {posting && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80 backdrop-blur-md text-white text-lg font-semibold">
-          <div className="flex flex-col items-center gap-4">
-            {!posted ? (
-              <>
-                <svg className="animate-spin h-10 w-10 text-pink-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
-                </svg>
-                <span>Posting your task...</span>
-              </>
-            ) : (
-              <>
-                <svg className="h-10 w-10 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                </svg>
-                <span className="text-green-300">Task posted successfully!</span>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+      <PostingOverlay posting={posting} posted={posted} redirectTo="Tasks" />
 
 
       {/* Keyframes */}
