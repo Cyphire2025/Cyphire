@@ -6,6 +6,7 @@ import { ChevronDown, ChevronUp, Users, FolderOpen } from "lucide-react";
 
 const API_BASE = import.meta.env?.VITE_API_BASE || "http://localhost:5000";
 
+
 const GlassCard = ({ children, className = "" }) => (
   <div className={`rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl ${className}`}>
     {children}
@@ -15,6 +16,9 @@ const GlassCard = ({ children, className = "" }) => (
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
+  const [paymentTask, setPaymentTask] = useState(null);     // task being paid for
+  const [paymentApplicant, setPaymentApplicant] = useState(null); // applicant being paid for
+  const [showPaymentOverlay, setShowPaymentOverlay] = useState(false);
 
   // raw data
   const [me, setMe] = useState(null);
@@ -283,8 +287,12 @@ export default function DashboardPage() {
                       </a>
 
                       <button
-                        onClick={() => onSelectApplicant(task, a)}
-                        className="rounded-lg border border-emerald-400/40 bg-emerald-400/10 px-3 py-1 text-xs text-emerald-200 hover:bg-emerald-400/20"
+                        onClick={() => {
+                          setPaymentTask(task);
+                          setPaymentApplicant(a);
+                          setShowPaymentOverlay(true);
+                        }}
+                        className="rounded-lg border border-fuchsia-400/40 bg-fuchsia-400/10 px-3 py-1 text-xs text-fuchsia-200 hover:bg-fuchsia-400/20"
                       >
                         Select
                       </button>
@@ -301,6 +309,67 @@ export default function DashboardPage() {
       </GlassCard>
     );
   };
+
+  const handlePayment = async () => {
+    try {
+      const API_BASE = import.meta.env?.VITE_API_BASE || "http://localhost:5000";
+
+      // 1) create Razorpay order
+      const orderRes = await fetch(`${API_BASE}/api/payment/create-order`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ amount: Number(paymentTask.price) }),
+      });
+      const order = await orderRes.json();
+
+      // 2) open Razorpay checkout
+      const options = {
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+        amount: order.amount,
+        currency: order.currency,
+        name: "Cyphire",
+        description: `Payment for task: ${paymentTask.title}`,
+        order_id: order.id,
+        handler: async function (response) {
+          try {
+            // 3) verify payment with backend
+            const verifyRes = await fetch(`${API_BASE}/api/payment/verify-payment`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+              }),
+            });
+
+            const verifyData = await verifyRes.json();
+            if (verifyData.success) {
+              // 4) finally select applicant
+              await onSelectApplicant(paymentTask, paymentApplicant);
+              setShowPaymentOverlay(false);
+              alert("✅ Payment successful & applicant selected!");
+            } else {
+              alert("Payment verified but applicant selection failed.");
+            }
+          } catch (err) {
+            console.error(err);
+            alert("❌ Payment verification failed.");
+          }
+        },
+        theme: { color: "#8B5CF6" },
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.open();
+    } catch (e) {
+      console.error("Payment init error:", e);
+      alert("Failed to start payment.");
+    }
+  };
+
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#0a0a0f] via-[#0c0c14] to-[#000] text-gray-100">
@@ -389,6 +458,37 @@ export default function DashboardPage() {
           </div>
         )}
       </main>
+
+      {showPaymentOverlay && paymentTask && paymentApplicant && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-lg">
+          <div className="bg-[#141414]/95 border border-white/10 rounded-2xl p-8 max-w-md w-full shadow-2xl text-center animate-fadeIn">
+            <h2 className="text-2xl font-bold mb-4 bg-gradient-to-r from-pink-400 to-purple-400 bg-clip-text text-transparent">
+              Secure Your Task
+            </h2>
+            <p className="text-white/70 mb-6">
+              To confirm your selected applicant, please complete the upfront payment of{" "}
+              <span className="font-semibold text-white">₹{paymentTask.price}</span>.
+              This ensures your budget is held securely in escrow before work begins.
+            </p>
+
+            <div className="flex gap-4 justify-center">
+              <button
+                onClick={() => setShowPaymentOverlay(false)}
+                className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white/80"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handlePayment}
+                className="px-6 py-2 rounded-lg bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-semibold shadow-lg"
+              >
+                Continue to Payment
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
 
       <Footer />
     </div>

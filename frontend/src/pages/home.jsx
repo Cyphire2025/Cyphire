@@ -281,6 +281,41 @@ export default function Home() {
   const [page, setPage] = useState(1);
   const pageSize = 9;
 
+  // 🔒 Auth guard: only allow access if logged in & within 1 day
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/auth/me`, {
+          credentials: "include",
+        });
+        const loginTime = localStorage.getItem("loginTime");
+        const now = Date.now();
+        const oneDay = 24 * 60 * 60 * 1000;
+
+        if (!res.ok) {
+          // not authenticated at all
+          navigate("/signup");
+        } else {
+          // ✅ user is authenticated
+          if (!loginTime) {
+            // just logged in via Google redirect → set loginTime now
+            localStorage.setItem("loginTime", Date.now().toString());
+          } else if (now - Number(loginTime) >= oneDay) {
+            // login expired after 1 day
+            localStorage.removeItem("loginTime");
+            navigate("/signup");
+          }
+        }
+
+      } catch {
+        navigate("/signup");
+      }
+    };
+
+    checkAuth();
+  }, [navigate]);
+
+
   const filteredTasks = useMemo(() => {
     if (selectedCats.length === 0) return tasks;
     return tasks.filter((t) => {

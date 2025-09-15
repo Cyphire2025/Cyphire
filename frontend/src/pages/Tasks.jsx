@@ -46,7 +46,7 @@ export const NeonButton = ({ children, className = "", ...props }) => (
     <span className="absolute inset-0 rounded-xl bg-gradient-to-r from-violet-600 via-fuchsia-600 to-sky-600" />
     <span className="absolute -inset-[1px] rounded-xl 
       bg-gradient-to-r from-violet-400/40 via-fuchsia-400/30 to-sky-400/30 blur-md" />
-    <span className="relative">{children}</span>
+    <span className="relative inline-flex items-center gap-2">{children}</span>
   </button>
 );
 
@@ -161,11 +161,13 @@ export const TiltTaskCard = ({ task }) => {
         {/* CTA */}
         <div className="mt-4 flex items-center justify-between">
           <NeonButton
-            className="px-4 py-2 text-xs"
+            className="px-10 py-3 text-s"
             onClick={() => (window.location.href = `/task/${task._id || task.id}`)}
           >
             View Task <ArrowRight className="h-4 w-4" />
           </NeonButton>
+
+
           {/* Subtle pulse dot */}
           <div className="flex items-center gap-2">
             <span className={`h-2 w-2 rounded-full ${daysLeft > 0 ? "bg-emerald-400" : "bg-red-400"} animate-pulse`} />

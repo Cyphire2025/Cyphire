@@ -44,6 +44,7 @@ export default function Signup() {
         const store = remember ? localStorage : sessionStorage;
         store.setItem("token", token);
         if (user?.id) store.setItem("userId", user.id);
+        store.setItem("loginTime", Date.now().toString());  
         navigate("/home");
       }
     };
@@ -75,6 +76,7 @@ export default function Signup() {
         const store = remember ? localStorage : sessionStorage;
         if (data?.token) store.setItem("token", data.token);
         if (data?.user?.id) store.setItem("userId", data.user.id);
+        store.setItem("loginTime", Date.now().toString());  
 
         navigate("/home");
       } catch (e) {

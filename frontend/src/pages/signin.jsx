@@ -36,6 +36,7 @@ export default function Signin() {
         const store = remember ? localStorage : sessionStorage;
         store.setItem("token", token);
         if (user?.id) store.setItem("userId", user.id);
+        store.setItem("loginTime", Date.now().toString());
         navigate("/home");
       }
     };
@@ -64,6 +65,8 @@ export default function Signin() {
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.message || "Login failed");
 
+        const store = remember ? localStorage : sessionStorage;
+        store.setItem("loginTime", Date.now().toString());
         navigate("/home");
       } catch (e) {
         setErr(e.message || "Sign in failed");

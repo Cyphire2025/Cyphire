@@ -1,6 +1,6 @@
 // landing.jsx
 import React, { useState, useEffect, useMemo, useCallback, memo } from "react";
-
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   FaLock,
@@ -12,8 +12,34 @@ import {
   FaCheckCircle,
 } from "react-icons/fa";
 
+
 function LandingPage() {
   const [scrolled, setScrolled] = useState(false);
+  const navigate = useNavigate();
+  const handleJoinNow = async () => {
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE}/api/auth/me`, {
+        credentials: "include",   // sends cookie
+      });
+
+      const loginTime = localStorage.getItem("loginTime");
+      const now = Date.now();
+      const oneDay = 24 * 60 * 60 * 1000;
+
+      if (res.ok && loginTime && now - Number(loginTime) < oneDay) {
+        // ✅ Logged in & within 1 day
+        navigate("/home");
+      } else {
+        // ❌ No cookie OR expired 1 day
+        localStorage.removeItem("loginTime");
+        navigate("/signup");
+      }
+    } catch {
+      localStorage.removeItem("loginTime");
+      navigate("/signup");
+    }
+  };
+
 
   const debounce = (func, delay) => {
     let timeoutId;
@@ -112,17 +138,18 @@ function LandingPage() {
   const marqueeData = useMemo(() => ["Google", "Microsoft", "Tesla", "Amazon", "Facebook"], []);
 
   return (
+
     <div className="bg-gradient-to-b from-gray-900 via-gray-950 to-black text-white overflow-x-hidden">
+
       {/* Navbar */}
       <motion.nav
         initial={{ y: -80 }}
         animate={{ y: 0 }}
         transition={{ duration: 0.5 }}
-        className={`fixed w-full z-50 transition-all duration-300 ${
-          scrolled 
-            ? "bg-white/5 backdrop-blur-xl border-b border-white/10 shadow-lg" 
-            : "bg-transparent"
-        }`}
+        className={`fixed w-full z-50 transition-all duration-300 ${scrolled
+          ? "bg-white/5 backdrop-blur-xl border-b border-white/10 shadow-lg"
+          : "bg-transparent"
+          }`}
       >
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
           <div className="text-2xl font-bold text-purple-400">Cyphire</div>
@@ -146,12 +173,13 @@ function LandingPage() {
               FAQ
             </a>
           </div>
-          <a
-            href="/signup"
+          <button
+            onClick={handleJoinNow}
             className="px-4 py-2 bg-purple-500 hover:bg-purple-600 rounded-lg transition"
           >
             Join Now
-          </a>
+          </button>
+
         </div>
       </motion.nav>
 
@@ -474,7 +502,7 @@ function LandingPage() {
           </a>
         </div>
       </footer>
-      
+
 
     </div>
   );
