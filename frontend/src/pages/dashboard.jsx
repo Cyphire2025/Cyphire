@@ -19,6 +19,8 @@ export default function DashboardPage() {
   const [paymentTask, setPaymentTask] = useState(null);     // task being paid for
   const [paymentApplicant, setPaymentApplicant] = useState(null); // applicant being paid for
   const [showPaymentOverlay, setShowPaymentOverlay] = useState(false);
+  const [verifyingPayment, setVerifyingPayment] = useState(false);
+
 
   // raw data
   const [me, setMe] = useState(null);
@@ -333,7 +335,7 @@ export default function DashboardPage() {
         order_id: order.id,
         handler: async function (response) {
           try {
-            // 3) verify payment with backend
+            setVerifyingPayment(true);
             const verifyRes = await fetch(`${API_BASE}/api/payment/verify-and-select`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -349,16 +351,23 @@ export default function DashboardPage() {
 
             const verifyData = await verifyRes.json();
             if (verifyData.success) {
-              // 4) finally select applicant
-              await onSelectApplicant(paymentTask, paymentApplicant);
+              setTasks((prev) =>
+                prev.map((t) =>
+                  sameId(t._id, paymentTask._id)
+                    ? { ...t, selectedApplicant: paymentApplicant._id, workroomId: verifyData.task.workroomId }
+                    : t
+                )
+              );
+              setOpenTaskIdx(null);
               setShowPaymentOverlay(false);
-              alert("✅ Payment successful & applicant selected!");
             } else {
-              alert("Payment verified but applicant selection failed.");
+              alert(verifyData.error || "Payment verified but applicant selection failed.");
             }
           } catch (err) {
             console.error(err);
             alert("❌ Payment verification failed.");
+          } finally {
+            setVerifyingPayment(false);
           }
         },
         theme: { color: "#8B5CF6" },
@@ -462,27 +471,32 @@ export default function DashboardPage() {
       </main>
 
       {showPaymentOverlay && paymentTask && paymentApplicant && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-lg">
-          <div className="bg-[#141414]/95 border border-white/10 rounded-2xl p-8 max-w-md w-full shadow-2xl text-center animate-fadeIn">
-            <h2 className="text-2xl font-bold mb-4 bg-gradient-to-r from-pink-400 to-purple-400 bg-clip-text text-transparent">
-              Secure Your Task
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xl">
+          <div className="relative bg-gradient-to-b from-[#1a1a1f] to-[#0f0f13] border border-white/10 rounded-2xl p-8 max-w-md w-full shadow-2xl text-center animate-fadeIn">
+            <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-20 h-20 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 flex items-center justify-center shadow-lg">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11c0-1.657-1.343-3-3-3S6 9.343 6 11s1.343 3 3 3 3-1.343 3-3z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V7" />
+              </svg>
+            </div>
+            <h2 className="mt-12 text-2xl font-bold mb-4 bg-gradient-to-r from-pink-400 to-purple-400 bg-clip-text text-transparent">
+              Confirm Selection
             </h2>
             <p className="text-white/70 mb-6">
-              To confirm your selected applicant, please complete the upfront payment of{" "}
+              To confirm your chosen applicant, please make an upfront payment of{" "}
               <span className="font-semibold text-white">₹{paymentTask.price}</span>.
-              This ensures your budget is held securely in escrow before work begins.
+              This amount will be securely held in escrow until the task is completed.
             </p>
-
             <div className="flex gap-4 justify-center">
               <button
                 onClick={() => setShowPaymentOverlay(false)}
-                className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white/80"
+                className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white/80 transition"
               >
                 Cancel
               </button>
               <button
                 onClick={handlePayment}
-                className="px-6 py-2 rounded-lg bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-semibold shadow-lg"
+                className="px-6 py-2 rounded-lg bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-semibold shadow-lg transition"
               >
                 Continue to Payment
               </button>
@@ -491,6 +505,14 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {verifyingPayment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-lg">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-white/80 text-lg font-medium">Verifying your payment…</p>
+          </div>
+        </div>
+      )}
 
       <Footer />
     </div>
