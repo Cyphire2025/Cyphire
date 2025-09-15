@@ -133,3 +133,78 @@ export const verifyPaymentAndCreateTask = async (req, res) => {
     res.status(500).json({ success: false, message: "Server error posting task" });
   }
 };
+
+// --- POST /api/payment/verify-and-select ---
+// verifies Razorpay payment AND selects an applicant in one step
+export const verifyPaymentAndSelectApplicant = async (req, res) => {
+  try {
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, taskId, applicantId } = req.body;
+
+    // 1) Verify Razorpay signature
+    const sign = `${razorpay_order_id}|${razorpay_payment_id}`;
+    const expected = crypto
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .update(sign)
+      .digest("hex");
+
+    if (expected !== razorpay_signature) {
+      return res.status(400).json({ success: false, error: "Invalid payment signature" });
+    }
+
+    // 2) Find the task
+    const task = await Task.findById(taskId).populate("applicants", "_id name");
+    if (!task) return res.status(404).json({ success: false, error: "Task not found" });
+
+    // 3) Ensure requester is owner
+    if (String(task.createdBy) !== String(req.user._id)) {
+      return res.status(403).json({ success: false, error: "Only the task owner can select an applicant" });
+    }
+
+    // 4) Ensure applicant actually applied
+    const applied = (task.applicants || []).some(
+      (a) => String(a._id || a) === String(applicantId)
+    );
+    if (!applied) return res.status(400).json({ success: false, error: "This user has not applied" });
+
+    // 5) Prevent duplicate selection
+    if (task.selectedApplicant) {
+      return res.status(400).json({ success: false, error: "An applicant has already been selected" });
+    }
+
+    // 6) Select applicant + create workroomId
+    task.selectedApplicant = applicantId;
+    const { getNextWorkroomId } = await import("../utils/getNextWorkroomId.js");
+    task.workroomId = await getNextWorkroomId();
+    await task.save();
+
+    // 7) Notifications
+    const User = (await import("../models/userModel.js")).default;
+    const selectedId = String(applicantId);
+    const title = task.title || "your task";
+    const selectedMsg = `You’ve been selected for “${title}”.`;
+    const rejectedMsg = `Update on “${title}”: you weren’t selected this time.`;
+
+    await Promise.all(
+      (task.applicants || []).map((a) => {
+        const uid = String(a._id || a);
+        const payload = {
+          type: uid === selectedId ? "selection" : "rejection",
+          message: uid === selectedId ? selectedMsg : rejectedMsg,
+          link: "/dashboard?tab=myApplications",
+          read: false,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+        return User.updateOne(
+          { _id: uid },
+          { $push: { notifications: { $each: [payload], $position: 0 } } }
+        ).exec();
+      })
+    );
+
+    return res.json({ success: true, task });
+  } catch (err) {
+    console.error("verifyPaymentAndSelectApplicant error:", err);
+    res.status(500).json({ success: false, error: "Server error selecting applicant" });
+  }
+};

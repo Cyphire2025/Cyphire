@@ -334,7 +334,7 @@ export default function DashboardPage() {
         handler: async function (response) {
           try {
             // 3) verify payment with backend
-            const verifyRes = await fetch(`${API_BASE}/api/payment/verify-payment`, {
+            const verifyRes = await fetch(`${API_BASE}/api/payment/verify-and-select`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               credentials: "include",
@@ -342,6 +342,8 @@ export default function DashboardPage() {
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_signature: response.razorpay_signature,
+                taskId: paymentTask._id,
+                applicantId: paymentApplicant._id,
               }),
             });
 

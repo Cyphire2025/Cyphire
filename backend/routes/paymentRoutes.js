@@ -3,6 +3,7 @@ import express from "express";
 import { protect } from "../middlewares/authMiddleware.js";
 import { upload } from "../middlewares/uploadMiddleware.js";
 import { createOrder, verifyPaymentAndCreateTask } from "../controllers/paymentController.js";
+import { verifyPaymentAndSelectApplicant } from "../controllers/paymentController.js";
 
 const router = express.Router();
 
@@ -16,5 +17,8 @@ router.post(
   upload.array("attachments", 20),   // adjust max files as you like
   verifyPaymentAndCreateTask
 );
+
+// verify + select applicant
+router.post("/verify-and-select", protect, verifyPaymentAndSelectApplicant);
 
 export default router;
