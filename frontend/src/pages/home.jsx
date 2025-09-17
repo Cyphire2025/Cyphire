@@ -129,39 +129,39 @@ const Particles = () => (
 const features = [
   {
     icon: <BadgeCheck className="h-6 w-6" />,
-    title: "Escrow-secured payments",
-    desc: "Funds are locked safely until the job is approved. Zero anxiety, full control.",
+    title: "Payments you can trust",
+    desc: "Funds stay locked safely until the work is approved. No Risks , no delays.",
     badge: "Trust First",
   },
   {
     icon: <Bolt className="h-6 w-6" />,
-    title: "Precision talent search",
-    desc: "Smart filters + reputation graph to surface the right executors within seconds.",
+    title: "Smarter talent matching",
+    desc: "AI filters reputation graphs surface the best freelancers in seconds.",
     badge: "AI-boosted",
   },
   {
     icon: <Layers className="h-6 w-6" />,
-    title: "1‑click contract & kickoff",
-    desc: "Use templates, milestones, and NDAs to start instantly—no back-and-forth.",
+    title: "Instant Contracts",
+    desc: "Start with templates, milestones, and NDAs -Zero back-and-forth.",
     badge: "Frictionless",
   },
   {
     icon: <Compass className="h-6 w-6" />,
-    title: "Composable task packs",
-    desc: "Bundle repeatable tasks into sharable packs your team can reuse and remix.",
+    title: "Scalable workflows",
+    desc: "Bundle repeatable tasks into packs your team can reuse anytime.",
     badge: "Reusable",
   },
 ];
 
-const categories = [
-  { name: "Design", icon: <Flame className="h-4 w-4" /> },
-  { name: "Development", icon: <Bolt className="h-4 w-4" /> },
-  { name: "Marketing", icon: <Trophy className="h-4 w-4" /> },
-  { name: "Writing", icon: <Briefcase className="h-4 w-4" /> },
-  { name: "Data", icon: <Layers className="h-4 w-4" /> },
-  { name: "AI", icon: <Bolt className="h-4 w-4" /> },
-  { name: "DevOps", icon: <Compass className="h-4 w-4" /> },
-];
+// const categories = [
+//   { name: "Design", icon: <Flame className="h-4 w-4" /> },
+//   { name: "Development", icon: <Bolt className="h-4 w-4" /> },
+//   { name: "Marketing", icon: <Trophy className="h-4 w-4" /> },
+//   { name: "Writing", icon: <Briefcase className="h-4 w-4" /> },
+//   { name: "Data", icon: <Layers className="h-4 w-4" /> },
+//   { name: "AI", icon: <Bolt className="h-4 w-4" /> },
+//   { name: "DevOps", icon: <Compass className="h-4 w-4" /> },
+// ];
 
 /* ========== Task Card (3D tilt + shine, with requested fields) ========== */
 export const TiltTaskCard = ({ task }) => {
@@ -424,12 +424,15 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Simple marquee */}
+          {/* Smooth marquee */}
           <div className="relative overflow-hidden py-6">
+            {/* Fades on edges */}
             <div className="pointer-events-none absolute inset-y-0 left-0 w-24 bg-gradient-to-r from-[#0a0a0f] to-transparent" />
             <div className="pointer-events-none absolute inset-y-0 right-0 w-24 bg-gradient-to-l from-[#0a0a0f] to-transparent" />
-            <div className="flex animate-[marquee_22s_linear_infinite] gap-10 opacity-80">
-              {["React", "Tailwind", "Node", "Stripe", "Postgres", "Docker", "AWS", "Framer"].concat(["React", "Tailwind", "Node", "Stripe", "Postgres", "Docker", "AWS", "Framer"]).map((name, i) => (
+
+            {/* Track */}
+            <div className="flex w-max animate-marquee gap-10 opacity-80">
+              {["Technology", "Education", "Events", "Healthcare", "Architecture", "Home and Safety"].map((name, i) => (
                 <div
                   key={i}
                   className="flex min-w-[10rem] items-center justify-center rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-sm text-white/80 backdrop-blur-md"
@@ -437,9 +440,28 @@ export default function Home() {
                   <BadgeCheck className="mr-2 h-4 w-4" /> {name}
                 </div>
               ))}
+              {/* duplicate once for seamless loop */}
+              {["Technology", "Education", "Events", "Healthcare", "Architecture", "Home and Safety"].map((name, i) => (
+                <div
+                  key={`dup-${i}`}
+                  className="flex min-w-[10rem] items-center justify-center rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-sm text-white/80 backdrop-blur-md"
+                >
+                  <BadgeCheck className="mr-2 h-4 w-4" /> {name}
+                </div>
+              ))}
             </div>
-            <style>{`@keyframes marquee { 0% { transform: translateX(0)} 100% { transform: translateX(-50%) } }`}</style>
+
+            <style>{`
+    @keyframes marquee {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
+    .animate-marquee {
+      animation: marquee 22s linear infinite;
+    }
+  `}</style>
           </div>
+
         </section>
 
         {/* FEATURES */}
@@ -469,15 +491,15 @@ export default function Home() {
         </section>
 
         {/* CATEGORIES + TASKS */}
-        <section id="browse-section" className="mx-auto max-w-7xl px-6 py-14">
+        {/* <section id="browse-section" className="mx-auto max-w-7xl px-6 py-14">
           <SectionHeader
             eyebrow="Browse by craft"
             title="Find exactly what you need"
             subtitle="Tight filters, human signals, and living portfolios make discovery effortless."
-          />
+          /> */}
 
           {/* Categories filter buttons */}
-          <div className="mb-8 flex flex-wrap items-center gap-3">
+          {/* <div className="mb-8 flex flex-wrap items-center gap-3">
             {categories.map((c, i) => {
               const active = selectedCats.includes(c.name);
               return (
@@ -495,10 +517,10 @@ export default function Home() {
                 </button>
               );
             })}
-          </div>
+          </div> */}
 
           {/* Tasks grid */}
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {/* <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {loading ? (
               <p className="text-gray-400">Loading tasks...</p>
             ) : pagedTasks.length > 0 ? (
@@ -506,10 +528,10 @@ export default function Home() {
             ) : (
               <p className="text-gray-400">No tasks available yet.</p>
             )}
-          </div>
+          </div> */}
 
           {/* Pagination */}
-          {totalPages > 1 && (
+          {/* {totalPages > 1 && (
             <div className="mt-10 flex justify-center gap-2">
               {Array.from({ length: totalPages }).map((_, i) => (
                 <button
@@ -526,7 +548,7 @@ export default function Home() {
               ))}
             </div>
           )}
-        </section>
+        </section> */}
 
 
         {/* SIGNAL */}

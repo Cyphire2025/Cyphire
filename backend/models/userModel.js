@@ -49,6 +49,10 @@ const userSchema = new mongoose.Schema(
     plan: { type: String, enum: ["free", "plus", "ultra"], default: "free" },
     planStartedAt: { type: Date },
     planExpiresAt: { type: Date },
+    upiId: { type: String },
+    accountNumber: { type: String },
+    ifsc: { type: String },
+
     projects: [
       new mongoose.Schema(
         {

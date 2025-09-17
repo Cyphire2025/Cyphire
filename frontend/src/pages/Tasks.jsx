@@ -255,10 +255,9 @@ export default function Tasks() {
 
       <div className="mx-auto max-w-7xl px-4 py-20 flex gap-8">
         {/* Sidebar Filters */}
-        <aside className="w-72 hidden md:block space-y-8 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-2xl p-6 h-fit sticky top-24 shadow-xl relative overflow-hidden">
-          {/* Neon edge glow */}
+        <aside className="w-72 hidden md:block space-y-8 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-2xl p-6 h-fit sticky top-24 relative overflow-hidden shadow-[0_0_25px_rgba(236,72,153,0.5)]">
+          {/* Keep subtle border overlay */}
           <div className="absolute inset-0 rounded-2xl border border-fuchsia-500/40 pointer-events-none" />
-
           <h2 className="flex items-center gap-2 text-xl font-semibold mb-4">
             <Filter className="h-5 w-5 text-fuchsia-400" />
             <GradientText>Filters</GradientText>

@@ -24,6 +24,8 @@ import workroomRoutes from "./routes/workroomRoutes.js";
 import workroomMessageRoutes from "./routes/workroomMessageRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
+import upiRoutes from "./routes/upiRoutes.js";
+import paymentLogRoutes from "./routes/paymentLogRoutes.js";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -114,7 +116,11 @@ app.use("/api/users", usersRoutes);
 app.use("/api/workrooms", workroomRoutes);
 app.use("/api/workrooms", workroomMessageRoutes);
 app.use("/api/admin", adminRoutes);
+
 app.use("/api/payment", paymentRoutes);
+app.use("/api/workrooms", upiRoutes);
+app.use("/api", paymentLogRoutes);
+
 app.use("/api/help", helpRoutes);
 app.use("/api/help/questions", helpQuestionRoutes);
 // ----- Start Server -----

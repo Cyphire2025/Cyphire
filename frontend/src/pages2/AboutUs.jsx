@@ -5,7 +5,7 @@
 import React, { Suspense, useMemo } from "react";
 import About1 from "../assets/about1.jpg"
 import About2 from "../assets/about2.jpg"
-import Navbar from "../components/navbar.jsx"; 
+import Navbar from "../components/navbar.jsx";
 import Footer from "../components/footer";
 import { motion, useMotionValue, useTransform } from "framer-motion";
 import {
@@ -113,22 +113,22 @@ const values = [
   {
     icon: <Target className="h-6 w-6" />,
     title: "Precision",
-    desc: "We obsess over clarity, speed, and excellence in every detail.",
+    desc: "We prioritize clarity, speed, and excellence so every project runs smoothly from start to end.",
   },
   {
     icon: <Users className="h-6 w-6" />,
     title: "Community",
-    desc: "Building trust and opportunity through a vibrant, global network.",
+    desc: "We're Building a trusted network where clients and freelancers grow together through opportunity and collaboration.",
   },
   {
     icon: <Heart className="h-6 w-6" />,
     title: "Integrity",
-    desc: "Escrow, transparency, and fairness at the core of our model.",
+    desc: "Escrow, transparency, and fairness aren't add-ons , they're built into the foundation of Cyphire",
   },
   {
     icon: <Globe className="h-6 w-6" />,
     title: "Impact",
-    desc: "Helping freelancers and clients succeed, everywhere.",
+    desc: "We measure success by helping freelancers and clients succeed, everywhere.",
   },
 ];
 
@@ -194,7 +194,7 @@ export default function About() {
     <div className="min-h-screen bg-gradient-to-b from-[#0a0a0f] via-[#0c0c14] to-[#000] text-gray-100 overflow-x-hidden">
       <main className="relative overflow-hidden">
         <Suspense fallback={<div className="text-center p-6">Loading...</div>}>
-          <Navbar/>
+          <Navbar />
           <Aurora />
           <Particles />
         </Suspense>
@@ -266,10 +266,10 @@ export default function About() {
               <GradientText>What drives us</GradientText>
             </h2>
           </header>
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4 auto-rows-fr">
             {values.map((v, i) => (
               <motion.div key={i} {...fadeUp(i * 0.1)} className="h-full">
-                <GlassCard className="p-6 transition hover:scale-[1.03]">
+                <GlassCard className="p-6 transition hover:scale-[1.03] h-full flex flex-col">
                   <div className="mb-4 text-fuchsia-200">{v.icon}</div>
                   <h3 className="text-lg font-semibold text-white">{v.title}</h3>
                   <p className="mt-2 text-sm text-white/70">{v.desc}</p>
@@ -277,6 +277,7 @@ export default function About() {
               </motion.div>
             ))}
           </div>
+
         </section>
 
         {/* VISION + MISSION */}

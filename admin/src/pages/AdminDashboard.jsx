@@ -13,10 +13,11 @@ import {
   Settings,
   Gavel,
   ChevronDown,
-   ChevronUp
+  ChevronUp
 } from "lucide-react";
 import UserView from "./usersview"
 import TasksView from "./tasksview";
+import PaymentsView from "./paymentsview";
 
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
@@ -53,6 +54,9 @@ export default function AdminDashboard() {
         return <TasksView />;
       case "workroom":
         return <WorkroomViewer />;
+      case "payments":
+        return <PaymentsView />;
+
       default:
         return null;
     }

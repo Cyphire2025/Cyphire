@@ -109,6 +109,30 @@ export default function WorkroomPage() {
   const bothFinalised =
     !!meta?.finalisedAt || (!!meta?.clientFinalised && !!meta?.workerFinalised);
 
+  const [upiId, setUpiId] = useState("");
+  const [showUpiModal, setShowUpiModal] = useState(false);
+  const handleProceed = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/workrooms/${workroomId}/payment-log`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ upiId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setShowUpiModal(false);
+        alert("✅ Your payment request has been recorded. It will be delivered in 2–3 business days.");
+      } else {
+        alert("❌ " + (data.error || "Failed to request payout"));
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Network error");
+    }
+  };
+
+
   /* ====== Fetch me + meta ====== */
   useEffect(() => {
     (async () => {
@@ -266,24 +290,115 @@ export default function WorkroomPage() {
             >
               <RefreshCcw className="h-4 w-4" /> Refresh
             </button>
-            {bothFinalised ? (
-              <div className="flex items-center gap-2 text-emerald-300">
+
+            {/* If not finalized yet, show role-specific finalize */}
+            {!bothFinalised && (
+              <>
+                {meta?.role === "client" && !meta?.clientFinalised && (
+                  <button
+                    onClick={async () => {
+                      await fetch(`${API_BASE}/api/workrooms/${workroomId}/finalise`, {
+                        method: "POST",
+                        credentials: "include",
+                      });
+                      fetchMessages();
+                    }}
+                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-sky-600 font-semibold"
+                  >
+                    Finalize (Client)
+                  </button>
+                )}
+                {meta?.role === "worker" && !meta?.workerFinalised && (
+                  <button
+                    onClick={async () => {
+                      await fetch(`${API_BASE}/api/workrooms/${workroomId}/finalise`, {
+                        method: "POST",
+                        credentials: "include",
+                      });
+                      fetchMessages();
+                    }}
+                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-sky-600 font-semibold"
+                  >
+                    Finalize (Freelancer)
+                  </button>
+                )}
+              </>
+            )}
+
+            {/* Show finalized badge for client once done */}
+            {bothFinalised && meta?.role === "client" && (
+              <div className="flex items-center gap-2 text-emerald-300 font-medium">
                 <CheckCircle2 className="h-5 w-5" /> Finalized
               </div>
-            ) : (
-              <button
-                onClick={async () =>
-                  await fetch(`${API_BASE}/api/workrooms/${workroomId}/finalise`, {
-                    method: "POST",
-                    credentials: "include",
-                  })
-                }
-                className="px-4 py-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-sky-600 font-semibold"
-              >
-                Finalize
-              </button>
             )}
+
+            {/* After both finalize, show Proceed only for freelancer */}
+            {bothFinalised && meta?.role === "worker" && (
+              <>
+                <button
+                  onClick={() => setShowUpiModal(true)}
+                  className="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 font-semibold"
+                >
+                  Proceed & Receive Payment
+                </button>
+
+                {/* Overlay modal for entering UPI */}
+                {showUpiModal && (
+                  <div className="fixed inset-0 flex items-center justify-center bg-black/60 z-50">
+                    <div className="bg-[#0f0f13] p-6 rounded-xl border border-white/10 w-full max-w-md">
+                      <h3 className="text-lg font-bold mb-3">Enter your UPI ID</h3>
+                      <input
+                        type="text"
+                        value={upiId}
+                        onChange={(e) => setUpiId(e.target.value)}
+                        placeholder="example@upi"
+                        className="w-full px-3 py-2 rounded-lg bg-white/10 text-white mb-4"
+                      />
+                      <div className="flex justify-end gap-3">
+                        <button
+                          onClick={() => setShowUpiModal(false)}
+                          className="px-4 py-2 bg-white/10 rounded-lg text-white"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={async () => {
+                            try {
+                              const res = await fetch(`${API_BASE}/api/workrooms/${workroomId}/payment-log`, {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                credentials: "include",
+                                body: JSON.stringify({ upiId }),
+                              });
+
+                              const data = await res.json();
+                              if (data.success) {
+                                setShowUpiModal(false);
+                                alert(
+                                  "✅ Your payment request has been recorded. It will be delivered in 2–3 business days."
+                                );
+                              } else {
+                                alert("❌ " + (data.error || "Failed to request payout"));
+                              }
+                            } catch (err) {
+                              console.error(err);
+                              alert("Network error");
+                            }
+                          }}
+                          className="px-4 py-2 bg-emerald-600 rounded-lg text-white"
+                        >
+                          Submit
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+
           </div>
+
         </div>
 
         {/* Chat */}
