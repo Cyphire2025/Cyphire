@@ -24,7 +24,6 @@ import workroomRoutes from "./routes/workroomRoutes.js";
 import workroomMessageRoutes from "./routes/workroomMessageRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
-import upiRoutes from "./routes/upiRoutes.js";
 import paymentLogRoutes from "./routes/paymentLogRoutes.js";
 
 const app = express();
@@ -118,7 +117,6 @@ app.use("/api/workrooms", workroomMessageRoutes);
 app.use("/api/admin", adminRoutes);
 
 app.use("/api/payment", paymentRoutes);
-app.use("/api/workrooms", upiRoutes);
 app.use("/api", paymentLogRoutes);
 
 app.use("/api/help", helpRoutes);

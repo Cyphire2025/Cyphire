@@ -1,5 +1,6 @@
 // src/pages/Workroom.jsx
 import React, { useEffect, useRef, useState, useCallback } from "react";
+import ReactDOM from "react-dom";
 import { useNavigate, useParams } from "react-router-dom";
 import io from "socket.io-client";
 import {
@@ -112,23 +113,29 @@ export default function WorkroomPage() {
   const [upiId, setUpiId] = useState("");
   const [showUpiModal, setShowUpiModal] = useState(false);
   const handleProceed = async () => {
+    const handle = upiId.trim();
+    if (!handle) {
+      alert("Please enter your UPI ID before submitting.");
+      return;
+    }
     try {
       const res = await fetch(`${API_BASE}/api/workrooms/${workroomId}/payment-log`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ upiId }),
+        body: JSON.stringify({ upiId: handle }),
       });
-      const data = await res.json();
-      if (data.success) {
+      const data = await parseJsonSafe(res);
+      if (res.ok && data.success) {
+        setUpiId(handle);
         setShowUpiModal(false);
-        alert("✅ Your payment request has been recorded. It will be delivered in 2–3 business days.");
+        alert("Success! Your payout request has been recorded. Expect an update within 2-3 business days.");
       } else {
-        alert("❌ " + (data.error || "Failed to request payout"));
+        alert("Heads up: " + (data.error || data.message || "Failed to request payout"));
       }
     } catch (err) {
       console.error(err);
-      alert("Network error");
+      alert("Network error. Please try again shortly.");
     }
   };
 
@@ -195,12 +202,6 @@ export default function WorkroomPage() {
 
   useEffect(() => {
     fetchMessages();
-  }, [fetchMessages]);
-
-  // Poll every 1s to reflect new messages
-  useEffect(() => {
-    const id = setInterval(fetchMessages, 1000);
-    return () => clearInterval(id);
   }, [fetchMessages]);
 
   /* ====== Send ====== */
@@ -272,18 +273,18 @@ export default function WorkroomPage() {
 
   /* ====== UI ====== */
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#08080d] via-[#0b0b13] to-black text-gray-100">
+    <div className="min-h-screen bg-gradient-to-b from-[#0a0a0f] via-[#0c0c14] to-black text-gray-100">
       <Aurora />
-      <main className="relative pt-24 pb-10 mx-auto max-w-6xl px-4">
+      <main className="relative mx-auto max-w-6xl px-4 pt-20 pb-10 sm:pt-24">
         {/* Header */}
-        <div className="mb-6 flex justify-between items-center rounded-2xl border border-white/10 bg-white/5 backdrop-blur-2xl p-5">
+        <div className="mb-6 flex flex-col gap-4 rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-2xl shadow-[0_30px_80px_-40px_rgba(139,92,246,0.6)] md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-2xl font-bold bg-gradient-to-r from-fuchsia-400 to-sky-400 bg-clip-text text-transparent">
               Workroom
             </h1>
             <p className="text-xs text-white/60">Room: {workroomId}</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex w-full flex-wrap items-center gap-2 sm:gap-3 md:w-auto md:justify-end">
             <button
               onClick={fetchMessages}
               className="px-3 py-2 text-sm rounded-xl bg-white/10 hover:bg-white/20 flex items-center gap-2"
@@ -291,7 +292,6 @@ export default function WorkroomPage() {
               <RefreshCcw className="h-4 w-4" /> Refresh
             </button>
 
-            {/* If not finalized yet, show role-specific finalize */}
             {!bothFinalised && (
               <>
                 {meta?.role === "client" && !meta?.clientFinalised && (
@@ -325,85 +325,99 @@ export default function WorkroomPage() {
               </>
             )}
 
-            {/* Show finalized badge for client once done */}
             {bothFinalised && meta?.role === "client" && (
               <div className="flex items-center gap-2 text-emerald-300 font-medium">
                 <CheckCircle2 className="h-5 w-5" /> Finalized
               </div>
             )}
 
-            {/* After both finalize, show Proceed only for freelancer */}
             {bothFinalised && meta?.role === "worker" && (
-              <>
-                <button
-                  onClick={() => setShowUpiModal(true)}
-                  className="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 font-semibold"
-                >
-                  Proceed & Receive Payment
-                </button>
-
-                {/* Overlay modal for entering UPI */}
-                {showUpiModal && (
-                  <div className="fixed inset-0 flex items-center justify-center bg-black/60 z-50">
-                    <div className="bg-[#0f0f13] p-6 rounded-xl border border-white/10 w-full max-w-md">
-                      <h3 className="text-lg font-bold mb-3">Enter your UPI ID</h3>
-                      <input
-                        type="text"
-                        value={upiId}
-                        onChange={(e) => setUpiId(e.target.value)}
-                        placeholder="example@upi"
-                        className="w-full px-3 py-2 rounded-lg bg-white/10 text-white mb-4"
-                      />
-                      <div className="flex justify-end gap-3">
-                        <button
-                          onClick={() => setShowUpiModal(false)}
-                          className="px-4 py-2 bg-white/10 rounded-lg text-white"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={async () => {
-                            try {
-                              const res = await fetch(`${API_BASE}/api/workrooms/${workroomId}/payment-log`, {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                credentials: "include",
-                                body: JSON.stringify({ upiId }),
-                              });
-
-                              const data = await res.json();
-                              if (data.success) {
-                                setShowUpiModal(false);
-                                alert(
-                                  "✅ Your payment request has been recorded. It will be delivered in 2–3 business days."
-                                );
-                              } else {
-                                alert("❌ " + (data.error || "Failed to request payout"));
-                              }
-                            } catch (err) {
-                              console.error(err);
-                              alert("Network error");
-                            }
-                          }}
-                          className="px-4 py-2 bg-emerald-600 rounded-lg text-white"
-                        >
-                          Submit
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </>
+              <button
+                onClick={() => setShowUpiModal(true)}
+                className="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 font-semibold"
+              >
+                Proceed & Receive Payment
+              </button>
             )}
-
-
           </div>
-
         </div>
 
+        {/* ====== UPI Modal ====== */}
+        <AnimatePresence>
+          {showUpiModal &&
+            ReactDOM.createPortal(
+              <motion.div
+                key="upi-modal"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 backdrop-blur-lg"
+                onClick={() => setShowUpiModal(false)}
+              >
+                <motion.div
+                  initial={{ opacity: 0, y: 24, scale: 0.96 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 16, scale: 0.96 }}
+                  transition={{ type: "spring", stiffness: 240, damping: 24 }}
+                  className="relative z-[100000] w-full max-w-md overflow-hidden rounded-3xl 
+                             border border-white/20 bg-gradient-to-br 
+                             from-[#11111a]/90 via-[#0f0f18]/90 to-[#0a0a12]/90 p-6 
+                             shadow-[0_40px_120px_-40px_rgba(58,16,143,0.9)]"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setShowUpiModal(false)}
+                    className="absolute right-4 top-4 rounded-full bg-white/10 p-1.5 text-white/70 hover:bg-white/20 hover:text-white"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+
+                  <div className="mb-5 flex items-start gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-fuchsia-500/40 to-sky-500/40 text-white">
+                      <Sparkles className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-semibold text-white">Enter your UPI ID</h3>
+                      <p className="text-xs text-white/60">We will nudge the payout as soon as it clears.</p>
+                    </div>
+                  </div>
+
+                  <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">
+                    UPI Handle
+                  </label>
+                  <input
+                    type="text"
+                    value={upiId}
+                    onChange={(e) => setUpiId(e.target.value)}
+                    placeholder="yourname@upi"
+                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/40 focus:border-fuchsia-400/50 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/30"
+                  />
+
+                  <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setShowUpiModal(false)}
+                      className="rounded-xl border border-white/10 px-5 py-2 text-sm text-white/80 hover:border-white/30 hover:text-white"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleProceed}
+                      className="rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-emerald-500/20 hover:scale-[1.02]"
+                    >
+                      Submit & Notify
+                    </button>
+                  </div>
+                </motion.div>
+              </motion.div>,
+              document.body
+            )}
+        </AnimatePresence>
         {/* Chat */}
         <div
-          className={`relative rounded-2xl border border-white/10 bg-white/5 backdrop-blur-2xl ${dragOver ? "ring-2 ring-fuchsia-400/50" : ""}`}
+          className={` rounded-3xl border border-white/10 bg-white/5 backdrop-blur-3xl shadow-[0_50px_120px_-60px_rgba(14,165,233,0.45)] transition ${dragOver ? "ring-2 ring-fuchsia-400/50" : ""}`}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
@@ -411,7 +425,7 @@ export default function WorkroomPage() {
           <div
             ref={listRef}
             onScroll={handleScroll}
-            className="h-[65vh] overflow-y-auto p-4 space-y-3"
+            className="h-[60vh] overflow-y-auto px-4 pb-6 pt-4 pr-2 space-y-3 scroll-smooth sm:h-[65vh] lg:h-[70vh]"
           >
             {loading ? (
               <div className="space-y-3 animate-pulse">
@@ -447,7 +461,7 @@ export default function WorkroomPage() {
                         {(() => {
                           const atts = normalizeAttachments(m);
                           return atts.length > 0 ? (
-                            <div className="mt-2 grid grid-cols-2 gap-2">
+                            <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
                               {atts.map((att, i) => (
                                 <div key={i} className="overflow-hidden rounded-xl border border-white/20 bg-black/20">
                                   {att.type === "image" ? (
@@ -526,14 +540,14 @@ export default function WorkroomPage() {
           )}
 
           {/* Composer */}
-          <div className="border-t border-white/10 p-3 space-y-2">
+          <div className="border-t border-white/10 px-4 py-4 space-y-3 sm:px-6">
             {files.length > 0 && (
               <div className="flex flex-wrap gap-2">
                 {files.map((f, i) => {
                   const t = guessType(f);
                   const url = URL.createObjectURL(f);
                   return (
-                    <div key={i} className="flex items-center gap-2 bg-white/10 border border-white/20 rounded-lg p-2">
+                    <div key={i} className="flex w-full items-center gap-2 rounded-xl border border-white/20 bg-white/10 p-2 sm:w-auto sm:min-w-[220px]">
                       {t === "image" ? (
                         <img src={url} alt={f.name} className="h-10 w-10 object-cover rounded" onLoad={() => URL.revokeObjectURL(url)} />
                       ) : t === "video" ? (
@@ -542,7 +556,11 @@ export default function WorkroomPage() {
                         <Paperclip className="h-4 w-4" />
                       )}
                       <span className="truncate max-w-[150px] text-xs" title={f.name}>{f.name}</span>
-                      <button onClick={() => setFiles((prev) => prev.filter((_, j) => j !== i))}>
+                      <button
+                        type="button"
+                        onClick={() => setFiles((prev) => prev.filter((_, j) => j !== i))}
+                        className="ml-auto rounded-full bg-white/10 p-1 text-white/70 transition hover:bg-white/20 hover:text-white"
+                      >
                         <X className="h-4 w-4" />
                       </button>
                     </div>
@@ -551,8 +569,8 @@ export default function WorkroomPage() {
               </div>
             )}
 
-            <div className="flex items-end gap-2">
-              <label className="px-3 py-2 bg-white/10 border border-white/20 rounded-lg cursor-pointer hover:bg-white/20 flex items-center gap-2">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:gap-3">
+              <label className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-sm font-medium transition hover:bg-white/15 sm:w-auto">
                 <Paperclip className="h-4 w-4" />
                 <input
                   type="file"
@@ -570,8 +588,8 @@ export default function WorkroomPage() {
                   setText(e.target.value);
                   onTyping();
                 }}
-                placeholder="Type a message…"
-                className="flex-1 resize-none rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm placeholder:text-white/40 focus:outline-none"
+                placeholder="Type a message..."
+                className="w-full flex-1 resize-none rounded-2xl border border-white/20 bg-white/10 px-4 py-3 text-sm leading-6 text-white placeholder:text-white/40 focus:border-fuchsia-400/50 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/30"
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault(); // prevent newline
@@ -583,18 +601,23 @@ export default function WorkroomPage() {
               <button
                 onClick={onSend}
                 disabled={sending}
-                className="px-5 py-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-sky-600 hover:scale-105 transition disabled:opacity-50 flex items-center gap-2"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-sky-600 px-5 py-3 text-sm font-semibold transition hover:scale-105 disabled:opacity-50 sm:w-auto sm:px-6 sm:py-2"
               >
                 {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 Send
               </button>
             </div>
             {typing && (
-              <div className="text-xs text-white/60 pl-2 animate-pulse">Typing…</div>
+              <div className="pl-2 text-xs text-white/60 animate-pulse">Typing...</div>
             )}
+
           </div>
+          
         </div>
       </main>
     </div>
   );
 }
+
+
+
