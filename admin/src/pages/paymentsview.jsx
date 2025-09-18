@@ -60,8 +60,10 @@ export default function PaymentsView() {
     (p) =>
       p.freelancer?.name?.toLowerCase().includes(search.toLowerCase()) ||
       p.freelancer?.email?.toLowerCase().includes(search.toLowerCase()) ||
-      p.upiId?.toLowerCase().includes(search.toLowerCase())
+      p.upiId?.toLowerCase().includes(search.toLowerCase()) ||
+      p.workroomId?.toLowerCase().includes(search.toLowerCase()) // ✅ added
   );
+
 
   const totalPages = Math.ceil(filtered.length / LOGS_PER_PAGE);
   const visible = filtered.slice(
@@ -72,10 +74,9 @@ export default function PaymentsView() {
   return (
     <div>
       <h2 className="text-3xl font-bold mb-6">Payment Logs</h2>
-
       <input
         type="text"
-        placeholder="Search by freelancer or UPI"
+        placeholder="Search by name, email, UPI or Workroom ID"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         className="w-full mb-6 px-4 py-2 rounded-md bg-white/10 border border-white/20 placeholder-white/40 text-white"
@@ -202,11 +203,10 @@ export default function PaymentsView() {
             <button
               key={i}
               onClick={() => setPage(i + 1)}
-              className={`px-3 py-1 rounded ${
-                page === i + 1
+              className={`px-3 py-1 rounded ${page === i + 1
                   ? "bg-fuchsia-600 text-white"
                   : "bg-white/10 text-white/60 hover:bg-white/20"
-              }`}
+                }`}
             >
               {i + 1}
             </button>
