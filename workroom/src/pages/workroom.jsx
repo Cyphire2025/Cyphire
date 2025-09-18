@@ -1,6 +1,6 @@
 // src/pages/Workroom.jsx
 import React, { useEffect, useRef, useState, useCallback } from "react";
-import ReactDOM from "react-dom";
+import { createPortal } from "react-dom";
 import { useNavigate, useParams } from "react-router-dom";
 import io from "socket.io-client";
 import {
@@ -43,18 +43,13 @@ const guessType = (att) => {
   return "file";
 };
 
-// Parse JSON only when response is JSON; otherwise surface text with status
 const parseJsonSafe = async (res) => {
   const ct = res.headers.get("content-type") || "";
-  if (ct.includes("application/json")) {
-    return await res.json();
-  }
+  if (ct.includes("application/json")) return await res.json();
   const txt = await res.text();
-  const snippet = txt.slice(0, 300);
-  throw new Error(`Unexpected ${res.status} ${res.statusText}. Non-JSON response: ${snippet}`);
+  throw new Error(`Unexpected ${res.status} ${res.statusText}: ${txt.slice(0, 200)}`);
 };
 
-// Safely extract common message fields regardless of backend naming
 const firstOf = (obj, keys) => {
   for (const k of keys) {
     if (obj && obj[k] !== undefined && obj[k] !== null && obj[k] !== "") return obj[k];
@@ -62,11 +57,18 @@ const firstOf = (obj, keys) => {
   return undefined;
 };
 
-const getSenderId = (m) => firstOf(m, ["senderId", "userId", "authorId"]) || m?.sender?._id || m?.user?._id || m?.author?._id;
-const getMessageText = (m) => firstOf(m, ["text", "content", "message", "body", "msg", "caption"]);
-const getTimestamp = (m) => firstOf(m, ["createdAt", "created_at", "timestamp", "time", "createdOn", "created_on", "date"]);
+const getSenderId = (m) =>
+  firstOf(m, ["senderId", "userId", "authorId"]) ||
+  m?.sender?._id ||
+  m?.user?._id ||
+  m?.author?._id;
 
-// Normalize attachments to array of { url, name, type }
+const getMessageText = (m) =>
+  firstOf(m, ["text", "content", "message", "body", "msg", "caption"]);
+
+const getTimestamp = (m) =>
+  firstOf(m, ["createdAt", "created_at", "timestamp", "time", "createdOn", "created_on", "date"]);
+
 const normalizeAttachments = (m) => {
   let atts = firstOf(m, ["attachments", "files", "media", "assets", "uploads"]) || [];
   if (!Array.isArray(atts)) atts = [atts];
@@ -90,18 +92,23 @@ export default function WorkroomPage() {
   const { workroomId } = useParams();
   const navigate = useNavigate();
 
+  const [upiVerified, setUpiVerified] = useState(false);
+  const [verifyingUpi, setVerifyingUpi] = useState(false);
+  const [taskCompleted, setTaskCompleted] = useState(false);
+
   const [me, setMe] = useState(null);
   const [meta, setMeta] = useState(null);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  const [reactions, setReactions] = useState({}); // key: messageId -> 'like' | 'heart' | 'fire'
-
+  const [reactions, setReactions] = useState({});
   const [text, setText] = useState("");
   const [files, setFiles] = useState([]);
   const [typing, setTyping] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [atBottom, setAtBottom] = useState(true);
+  const [upiId, setUpiId] = useState("");
+  const [showUpiModal, setShowUpiModal] = useState(false);
 
   const listRef = useRef(null);
   const socketRef = useRef(null);
@@ -110,8 +117,7 @@ export default function WorkroomPage() {
   const bothFinalised =
     !!meta?.finalisedAt || (!!meta?.clientFinalised && !!meta?.workerFinalised);
 
-  const [upiId, setUpiId] = useState("");
-  const [showUpiModal, setShowUpiModal] = useState(false);
+  /* ====== Payment Request ====== */
   const handleProceed = async () => {
     const handle = upiId.trim();
     if (!handle) {
@@ -129,26 +135,31 @@ export default function WorkroomPage() {
       if (res.ok && data.success) {
         setUpiId(handle);
         setShowUpiModal(false);
-        alert("Success! Your payout request has been recorded. Expect an update within 2-3 business days.");
+        setMeta((prev) => ({ ...prev, paymentRequested: true })); // add this line
+        alert("✅ Success! Your payout request has been recorded.");
       } else {
-        alert("Heads up: " + (data.error || data.message || "Failed to request payout"));
+        alert("⚠️ " + (data.error || data.message || "Failed to request payout"));
       }
+
     } catch (err) {
       console.error(err);
-      alert("Network error. Please try again shortly.");
+      alert("Network error. Please try again.");
     }
   };
-
 
   /* ====== Fetch me + meta ====== */
   useEffect(() => {
     (async () => {
-      const [r1, r2] = await Promise.all([
-        fetch(`${API_BASE}/api/auth/me`, { credentials: "include" }),
-        fetch(`${API_BASE}/api/workrooms/${workroomId}/meta`, { credentials: "include" }),
-      ]);
-      setMe((await r1.json())?.user || null);
-      setMeta(await r2.json());
+      try {
+        const [r1, r2] = await Promise.all([
+          fetch(`${API_BASE}/api/auth/me`, { credentials: "include" }),
+          fetch(`${API_BASE}/api/workrooms/${workroomId}/meta`, { credentials: "include" }),
+        ]);
+        setMe((await r1.json())?.user || null);
+        setMeta(await r2.json());
+      } catch (err) {
+        console.error("Meta fetch error", err);
+      }
     })();
   }, [workroomId]);
 
@@ -162,10 +173,11 @@ export default function WorkroomPage() {
       setItems((prev) => [...prev, msg]);
       if (atBottom) scrollToBottom();
     });
+
     s.on("typing", (d) => {
       if (d?.workroomId === workroomId && d?.userId !== meId) {
         setTyping(true);
-        setTimeout(() => setTyping(false), 2000);
+        setTimeout(() => setTyping(false), 1000);
       }
     });
 
@@ -177,6 +189,7 @@ export default function WorkroomPage() {
     requestAnimationFrame(() =>
       listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" })
     );
+
   const handleScroll = () => {
     const el = listRef.current;
     if (!el) return;
@@ -195,13 +208,13 @@ export default function WorkroomPage() {
       setLoading(false);
       if (atBottom) setTimeout(scrollToBottom, 10);
     } catch (e) {
-      // ignore network errors in polling, but log once in dev
-      if (import.meta.env?.DEV) console.warn("poll error", e);
+      console.warn("Message fetch error", e);
     }
   }, [workroomId, atBottom]);
 
   useEffect(() => {
-    fetchMessages();
+    const id = setInterval(fetchMessages, 2000);
+    return () => clearInterval(id);
   }, [fetchMessages]);
 
   /* ====== Send ====== */
@@ -210,33 +223,17 @@ export default function WorkroomPage() {
     if (!text.trim() && files.length === 0) return;
     setSending(true);
     try {
-
       const trimmed = text.trim();
       const form = new FormData();
-      if (trimmed) {
-        form.append("text", trimmed);   // keep only one text field
-      }
-      files.forEach((f) => {
-        form.append("attachments", f);  // keep only one attachments field
-      });
+      if (trimmed) form.append("text", trimmed);
+      files.forEach((f) => form.append("attachments", f));
 
       const r = await fetch(`${API_BASE}/api/workrooms/${workroomId}/messages`, {
         method: "POST",
         body: form,
         credentials: "include",
       });
-      // Better error surfacing for non-JSON or error pages
-      if (!r.ok) {
-        const ct = r.headers.get("content-type") || "";
-        const body = ct.includes("application/json") ? await r.json() : await r.text();
-        const msg = typeof body === "string" ? body.slice(0, 300) : (body?.error || body?.message || JSON.stringify(body).slice(0, 300));
-        let hint = "";
-        if (r.status === 413) hint = " (file too large)";
-        if (r.status === 401 || r.status === 403) hint = " (not authenticated/authorized)";
-        if (r.status === 404) hint = " (endpoint not found — check VITE_API_BASE)";
-        throw new Error(`Upload failed: ${r.status} ${r.statusText}${hint}. ${msg}`);
-      }
-
+      if (!r.ok) throw new Error(`Send failed: ${r.status} ${r.statusText}`);
       const d = await parseJsonSafe(r);
       const newMsg = d?.message || d?.item || d?.data || d?.msg;
       if (newMsg) {
@@ -246,8 +243,8 @@ export default function WorkroomPage() {
       setText("");
       setFiles([]);
     } catch (e) {
-      console.error("send error", e);
-      alert(e?.message || "Failed to send. See console for details.");
+      console.error("Send error", e);
+      alert("Failed to send message");
     } finally {
       setSending(false);
     }
@@ -272,12 +269,23 @@ export default function WorkroomPage() {
   };
 
   /* ====== UI ====== */
+  if (meta?.paymentRequested) {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-[#0a0a0f] via-[#0c0c14] to-black text-gray-100">
+      <div className="text-center p-10 rounded-3xl border border-emerald-400/30 bg-emerald-900/20 shadow-lg">
+        <CheckCircle2 className="h-16 w-16 text-emerald-400 mx-auto mb-4" />
+        <h1 className="text-3xl font-bold text-emerald-300">Task Completed</h1>
+        <p className="mt-2 text-white/70">This workroom has been closed. The payout request has been recorded.</p>
+      </div>
+    </div>
+  );
+}
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#0a0a0f] via-[#0c0c14] to-black text-gray-100">
       <Aurora />
       <main className="relative mx-auto max-w-6xl px-4 pt-20 pb-10 sm:pt-24">
         {/* Header */}
-        <div className="mb-6 flex flex-col gap-4 rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-2xl shadow-[0_30px_80px_-40px_rgba(139,92,246,0.6)] md:flex-row md:items-center md:justify-between">
+        <div className="mb-6 flex flex-col gap-4 rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-2xl shadow-lg md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-2xl font-bold bg-gradient-to-r from-fuchsia-400 to-sky-400 bg-clip-text text-transparent">
               Workroom
@@ -332,92 +340,163 @@ export default function WorkroomPage() {
             )}
 
             {bothFinalised && meta?.role === "worker" && (
-              <button
-                onClick={() => setShowUpiModal(true)}
-                className="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 font-semibold"
-              >
-                Proceed & Receive Payment
-              </button>
+              (taskCompleted || meta?.paymentRequested) ? (
+                <div className="flex items-center gap-2 text-emerald-300 font-medium">
+                  <CheckCircle2 className="h-5 w-5" /> Task Completed
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowUpiModal(true)}
+                  className="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 font-semibold"
+                >
+                  Proceed & Receive Payment
+                </button>
+              )
             )}
+
+
           </div>
         </div>
 
-        {/* ====== UPI Modal ====== */}
+        {/* ====== UPI Overlay with AnimatePresence ====== */}
         <AnimatePresence>
-          {showUpiModal &&
-            ReactDOM.createPortal(
+          {showUpiModal && (
+            <motion.div
+              key="upi-overlay"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xl"
+            >
               <motion.div
-                key="upi-modal"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 backdrop-blur-lg"
-                onClick={() => setShowUpiModal(false)}
+                initial={{ opacity: 0, y: 24, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 16, scale: 0.95 }}
+                transition={{ type: "spring", stiffness: 240, damping: 24 }}
+                className="relative bg-gradient-to-b from-[#1a1a1f] to-[#0f0f13] border border-fuchsia-500/30 rounded-2xl p-8 max-w-md w-full shadow-[0_0_40px_rgba(139,92,246,0.5)] text-center"
               >
-                <motion.div
-                  initial={{ opacity: 0, y: 24, scale: 0.96 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 16, scale: 0.96 }}
-                  transition={{ type: "spring", stiffness: 240, damping: 24 }}
-                  className="relative z-[100000] w-full max-w-md overflow-hidden rounded-3xl 
-                             border border-white/20 bg-gradient-to-br 
-                             from-[#11111a]/90 via-[#0f0f18]/90 to-[#0a0a12]/90 p-6 
-                             shadow-[0_40px_120px_-40px_rgba(58,16,143,0.9)]"
-                  onClick={(e) => e.stopPropagation()}
+                <button
+                  onClick={() => setShowUpiModal(false)}
+                  className="absolute right-4 top-4 rounded-full bg-white/10 p-1.5 text-white/70 hover:bg-white/20 hover:text-white"
                 >
+                  <X className="h-4 w-4" />
+                </button>
+
+                {/* Icon */}
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-r from-fuchsia-500 to-sky-500 shadow-lg shadow-fuchsia-500/40 mb-5">
+                  <Sparkles className="h-7 w-7 text-white" />
+                </div>
+
+                <h2 className="text-2xl font-bold mb-2 bg-gradient-to-r from-fuchsia-400 to-sky-400 bg-clip-text text-transparent">
+                  Enter your UPI ID
+                </h2>
+                <p className="text-sm text-white/60 mb-6">
+                  Your payout will be processed to this UPI handle after verification.
+                </p>
+
+                <input
+                  type="text"
+                  value={upiId}
+                  onChange={(e) => setUpiId(e.target.value)}
+                  placeholder="yourname@upi"
+                  className="w-full mb-6 rounded-xl border border-fuchsia-500/40 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/40 focus:border-fuchsia-400 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40"
+                />
+
+                <div className="flex gap-4 justify-center">
                   <button
-                    type="button"
                     onClick={() => setShowUpiModal(false)}
-                    className="absolute right-4 top-4 rounded-full bg-white/10 p-1.5 text-white/70 hover:bg-white/20 hover:text-white"
+                    className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white/80 transition"
                   >
-                    <X className="h-4 w-4" />
+                    Cancel
+                  </button>
+                  <button
+                    onClick={async () => {
+                      setShowUpiModal(false);
+                      setVerifyingUpi(true);
+                      await handleProceed();
+                      setUpiVerified(true);   // mark as verified
+                    }}
+
+                    className="px-6 py-2 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-semibold shadow-lg transition"
+                  >
+                    Submit & Notify
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ====== Verifying / Verified Overlay ====== */}
+        <AnimatePresence>
+          {verifyingUpi && (
+            <motion.div
+              key="verifying-overlay"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-lg"
+            >
+              {!upiVerified ? (
+                // While verifying
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.2 }}
+                  className="flex flex-col items-center gap-4"
+                >
+                  <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                  <p className="text-white/80 text-lg font-medium">Verifying your UPI…</p>
+                </motion.div>
+              ) : (
+                // After verified
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.2 }}
+                  className="flex flex-col items-center gap-4 text-center"
+                >
+                  <div className="flex items-center justify-center w-16 h-16 rounded-full bg-emerald-500/20 border border-emerald-500">
+                    <CheckCircle2 className="h-10 w-10 text-emerald-400" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-white">UPI Verified</h3>
+                  <p className="text-l text-white/70">
+                    Your payout will be sent within{" "}
+                    <span className="text-white font-medium">2–3 business days</span>.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setVerifyingUpi(false);
+                      setUpiVerified(false);
+                      setTaskCompleted(true); // mark task as completed
+
+                      // ✅ redirect based on environment
+                      if (import.meta.env.DEV) {
+                        // Localhost
+                        window.location.href = "http://localhost:5173/dashboard";
+                      } else {
+                        // Production
+                        window.location.href = "https://cyphire-frontend.vercel.app/dashboard";
+                      }
+                    }}
+                    className="mt-4 px-5 py-2 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold shadow-lg hover:scale-105 transition"
+                  >
+                    Done
                   </button>
 
-                  <div className="mb-5 flex items-start gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-fuchsia-500/40 to-sky-500/40 text-white">
-                      <Sparkles className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-semibold text-white">Enter your UPI ID</h3>
-                      <p className="text-xs text-white/60">We will nudge the payout as soon as it clears.</p>
-                    </div>
-                  </div>
 
-                  <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">
-                    UPI Handle
-                  </label>
-                  <input
-                    type="text"
-                    value={upiId}
-                    onChange={(e) => setUpiId(e.target.value)}
-                    placeholder="yourname@upi"
-                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/40 focus:border-fuchsia-400/50 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/30"
-                  />
-
-                  <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
-                    <button
-                      type="button"
-                      onClick={() => setShowUpiModal(false)}
-                      className="rounded-xl border border-white/10 px-5 py-2 text-sm text-white/80 hover:border-white/30 hover:text-white"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleProceed}
-                      className="rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-emerald-500/20 hover:scale-[1.02]"
-                    >
-                      Submit & Notify
-                    </button>
-                  </div>
                 </motion.div>
-              </motion.div>,
-              document.body
-            )}
+              )}
+            </motion.div>
+          )}
         </AnimatePresence>
-        {/* Chat */}
+
+
+        {/* ====== Chat Box ====== */}
         <div
-          className={` rounded-3xl border border-white/10 bg-white/5 backdrop-blur-3xl shadow-[0_50px_120px_-60px_rgba(14,165,233,0.45)] transition ${dragOver ? "ring-2 ring-fuchsia-400/50" : ""}`}
+          className={`rounded-3xl border border-white/10 bg-white/5 backdrop-blur-3xl shadow-lg transition ${dragOver ? "ring-2 ring-fuchsia-400/50" : ""}`}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
@@ -425,15 +504,12 @@ export default function WorkroomPage() {
           <div
             ref={listRef}
             onScroll={handleScroll}
-            className="h-[60vh] overflow-y-auto px-4 pb-6 pt-4 pr-2 space-y-3 scroll-smooth sm:h-[65vh] lg:h-[70vh]"
+            className="h-[60vh] overflow-y-auto px-4 pb-6 pt-4 space-y-3 scroll-smooth sm:h-[65vh] lg:h-[70vh]"
           >
             {loading ? (
               <div className="space-y-3 animate-pulse">
                 {[...Array(4)].map((_, i) => (
-                  <div
-                    key={i}
-                    className={`h-10 w-1/2 rounded-xl ${i % 2 ? "ml-auto bg-fuchsia-900/30" : "bg-white/10"}`}
-                  ></div>
+                  <div key={i} className={`h-10 w-1/2 rounded-xl ${i % 2 ? "ml-auto bg-fuchsia-900/30" : "bg-white/10"}`} />
                 ))}
               </div>
             ) : items.length === 0 ? (
@@ -516,8 +592,7 @@ export default function WorkroomPage() {
                         {(() => {
                           const ts = getTimestamp(m);
                           const d = ts ? new Date(ts) : null;
-                          const valid = d && !Number.isNaN(d.getTime());
-                          return valid ? (
+                          return d && !Number.isNaN(d.getTime()) ? (
                             <p className="text-[10px] text-white/40 mt-1">{d.toLocaleTimeString()}</p>
                           ) : null;
                         })()}
@@ -547,15 +622,25 @@ export default function WorkroomPage() {
                   const t = guessType(f);
                   const url = URL.createObjectURL(f);
                   return (
-                    <div key={i} className="flex w-full items-center gap-2 rounded-xl border border-white/20 bg-white/10 p-2 sm:w-auto sm:min-w-[220px]">
+                    <div
+                      key={i}
+                      className="flex w-full items-center gap-2 rounded-xl border border-white/20 bg-white/10 p-2 sm:w-auto sm:min-w-[220px]"
+                    >
                       {t === "image" ? (
-                        <img src={url} alt={f.name} className="h-10 w-10 object-cover rounded" onLoad={() => URL.revokeObjectURL(url)} />
+                        <img
+                          src={url}
+                          alt={f.name}
+                          className="h-10 w-10 object-cover rounded"
+                          onLoad={() => URL.revokeObjectURL(url)}
+                        />
                       ) : t === "video" ? (
                         <video src={url} className="h-10 w-10 rounded" onLoadedData={() => URL.revokeObjectURL(url)} />
                       ) : (
                         <Paperclip className="h-4 w-4" />
                       )}
-                      <span className="truncate max-w-[150px] text-xs" title={f.name}>{f.name}</span>
+                      <span className="truncate max-w-[150px] text-xs" title={f.name}>
+                        {f.name}
+                      </span>
                       <button
                         type="button"
                         onClick={() => setFiles((prev) => prev.filter((_, j) => j !== i))}
@@ -576,9 +661,7 @@ export default function WorkroomPage() {
                   type="file"
                   className="hidden"
                   multiple
-                  onChange={(e) =>
-                    setFiles((prev) => [...prev, ...Array.from(e.target.files)])
-                  }
+                  onChange={(e) => setFiles((prev) => [...prev, ...Array.from(e.target.files)])}
                 />
               </label>
               <textarea
@@ -592,8 +675,8 @@ export default function WorkroomPage() {
                 className="w-full flex-1 resize-none rounded-2xl border border-white/20 bg-white/10 px-4 py-3 text-sm leading-6 text-white placeholder:text-white/40 focus:border-fuchsia-400/50 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/30"
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault(); // prevent newline
-                    onSend();           // send message
+                    e.preventDefault();
+                    onSend();
                   }
                 }}
               />
@@ -607,17 +690,10 @@ export default function WorkroomPage() {
                 Send
               </button>
             </div>
-            {typing && (
-              <div className="pl-2 text-xs text-white/60 animate-pulse">Typing...</div>
-            )}
-
+            {typing && <div className="pl-2 text-xs text-white/60 animate-pulse">Typing...</div>}
           </div>
-          
         </div>
       </main>
     </div>
   );
 }
-
-
-

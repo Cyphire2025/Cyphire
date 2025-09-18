@@ -218,13 +218,20 @@ export default function DashboardPage() {
           {activeTab === "myTasks" || activeTab === "mySponsorships" ? (
             // OWNER VIEW (for tasks + sponsorships I created)
             selectedId ? (
-              <button
-                onClick={() => window.open(workroomHref, "_blank")}
-                className="text-emerald-200 hover:text-emerald-100 rounded-lg border border-emerald-400/40 bg-emerald-400/10 px-3 py-1 text-xs"
-              >
-                Open Workroom
-              </button>
+              task.paymentRequested ? (
+                <span className="text-emerald-400 font-medium text-xs px-3 py-1 rounded-lg border border-emerald-400/40 bg-emerald-500/10">
+                  Task Completed
+                </span>
+              ) : (
+                <button
+                  onClick={() => window.open(workroomHref, "_blank")}
+                  className="text-emerald-200 hover:text-emerald-100 rounded-lg border border-emerald-400/40 bg-emerald-400/10 px-3 py-1 text-xs"
+                >
+                  Open Workroom
+                </button>
+              )
             ) : (
+
               <button
                 onClick={() => setOpenTaskIdx(isOpen ? null : idx)}
                 className="text-white/70 hover:text-white flex items-center gap-1"
@@ -232,11 +239,16 @@ export default function DashboardPage() {
                 Applicants ({appliedCount}) {isOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
               </button>
             )
+
           ) : (
             // APPLICANT VIEW (for My Applications tab)
             (() => {
               if (iAmSelected) {
-                return (
+                return task.paymentRequested ? (
+                  <span className="text-emerald-400 font-medium text-xs px-3 py-1 rounded-lg border border-emerald-400/40 bg-emerald-500/10">
+                    Task Completed
+                  </span>
+                ) : (
                   <button
                     onClick={() => (window.location.href = workroomHref)}
                     className="text-emerald-200 hover:text-emerald-100 rounded-lg border border-emerald-400/40 bg-emerald-400/10 px-3 py-1 text-xs"
@@ -245,6 +257,7 @@ export default function DashboardPage() {
                   </button>
                 );
               }
+
               return (
                 <span className="text-xs text-white/60">
                   {selectedId ? "Not selected this time" : "Under review"}

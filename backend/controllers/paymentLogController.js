@@ -42,10 +42,16 @@ export const createPaymentLog = async (req, res) => {
       fee,
       netAmount,
       upiLink,
-      qrData: upiLink, // for QR we can use same data
+      qrData: upiLink,
     });
 
-    res.json({ success: true, log });
+    // ✅ also update the Task itself
+    task.paymentRequested = true;
+    task.upiId = upiId;
+    await task.save();
+
+    res.json({ success: true, log, paymentRequested: true });
+
   } catch (err) {
     console.error("createPaymentLog error:", err);
     res.status(500).json({ error: "Failed to create payment log" });

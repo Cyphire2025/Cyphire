@@ -50,6 +50,10 @@ const taskSchema = new mongoose.Schema(
     workerFinalised: { type: Boolean, default: false },
     finalisedAt: { type: Date, default: null },
 
+        // Payment tracking
+    paymentRequested: { type: Boolean, default: false },
+    upiId: { type: String, default: "" },
+
     expireAt: { type: Date, default: Date.now, index: { expires: "7d" } },
   },
   { timestamps: true }

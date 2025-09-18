@@ -59,7 +59,7 @@ export const getWorkroomMeta = async (req, res) => {
     const { ok, code, error, task, isOwner, isSelected } = await assertCanAccess(workroomId, req.user._id);
     if (!ok) return res.status(code).json({ error });
 
-    res.json({
+        res.json({
       workroomId,
       taskId: String(task._id),
       title: task.title,
@@ -69,7 +69,10 @@ export const getWorkroomMeta = async (req, res) => {
       workerFinalised: !!task.workerFinalised,
       finalisedAt: task.finalisedAt,
       role: isOwner ? "client" : "worker",
+      paymentRequested: !!task.paymentRequested,   // ✅ add this
+      upiId: task.upiId || "",                     // optional, if you want to show it
     });
+
   } catch (e) {
     console.error("getWorkroomMeta error", e);
     res.status(500).json({ error: "Failed to load workroom meta" });
