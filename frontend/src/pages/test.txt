@@ -1,0 +1,812 @@
+// Enhanced LandingPage.jsx
+// -----------------------------------------------------------------------------
+// Cyphire Premium Landing Page - Billion Dollar Design
+// -----------------------------------------------------------------------------
+
+import React, {
+  Suspense,
+  useRef,
+  useMemo,
+  useState,
+  useEffect,
+  useCallback,
+} from "react";
+import { Canvas, useFrame } from "@react-three/fiber";
+import {
+  useGLTF,
+  ScrollControls,
+  useScroll,
+  Float,
+  MeshDistortMaterial,
+} from "@react-three/drei";
+import {
+  EffectComposer,
+  Bloom,
+  Vignette,
+  DepthOfField,
+  ChromaticAberration,
+} from "@react-three/postprocessing";
+import * as THREE from "three";
+import { motion, AnimatePresence, useMotionValue, useSpring } from "framer-motion";
+import { create } from "zustand";
+
+// -----------------------------------------------------------------------------
+// STORE
+// -----------------------------------------------------------------------------
+const useLandingStore = create((set) => ({
+  activeIndex: 0,
+  setActiveIndex: (i) => set({ activeIndex: i }),
+  isLoading: true,
+  setIsLoading: (loading) => set({ isLoading: loading }),
+}));
+
+// -----------------------------------------------------------------------------
+// CONFIGURATION
+// -----------------------------------------------------------------------------
+const CONFIG = {
+  CAMERA: {
+    fov: 60,
+    distance: 15,
+    tilt: 0.45,
+    rotations: 4,
+    smoothing: 0.08,
+  },
+  LIGHTS: {
+    ambient: 0.5, // Increased for brighter scene
+    point: [
+      { position: [8, 8, 8], color: "#a855f7", intensity: 2.0 },
+      { position: [-8, 6, -8], color: "#60a5fa", intensity: 1.8 },
+      { position: [0, -6, 8], color: "#22d3ee", intensity: 1.4 },
+      { position: [10, 0, 0], color: "#ffffff", intensity: 0.8 }, // Extra white light
+    ],
+    dir: {
+      position: [0, 12, 0],
+      color: "#d946ef",
+      intensity: 1.0, // Increased
+    },
+  },
+  BREAKPOINTS: {
+    mobile: 640,
+    tablet: 1024,
+    desktop: 1440,
+  },
+  STARS: {
+    count: 2000,
+    spread: 300,
+  },
+  MODEL: {
+    emissiveIntensity: 1.2, // Control model glow
+    metalness: 0.7,
+    roughness: 0.2,
+    envMapIntensity: 2.0,
+  }
+};
+
+// -----------------------------------------------------------------------------
+// UTILITY HOOKS
+// -----------------------------------------------------------------------------
+function useWindowSize() {
+  const [size, setSize] = useState({ width: window.innerWidth, height: window.innerHeight });
+
+  useEffect(() => {
+    const onResize = () => setSize({ width: window.innerWidth, height: window.innerHeight });
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  return size;
+}
+
+// -----------------------------------------------------------------------------
+// ANIMATED BACKGROUND GRADIENT
+// -----------------------------------------------------------------------------
+function AnimatedGradient() {
+  return (
+    <div className="absolute inset-0 -z-20">
+      <div className="absolute inset-0 bg-black" />
+      <motion.div
+        className="absolute inset-0 opacity-30"
+        animate={{
+          background: [
+            "radial-gradient(circle at 20% 50%, #a855f7 0%, transparent 50%)",
+            "radial-gradient(circle at 80% 50%, #60a5fa 0%, transparent 50%)",
+            "radial-gradient(circle at 50% 80%, #22d3ee 0%, transparent 50%)",
+            "radial-gradient(circle at 20% 50%, #a855f7 0%, transparent 50%)",
+          ],
+        }}
+        transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+      />
+    </div>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// ENHANCED STARFIELD
+// -----------------------------------------------------------------------------
+function EnhancedStarfield() {
+  const points = useMemo(() => {
+    const vertices = [];
+    const colors = [];
+    for (let i = 0; i < CONFIG.STARS.count; i++) {
+      const x = (Math.random() - 0.5) * CONFIG.STARS.spread;
+      const y = (Math.random() - 0.5) * CONFIG.STARS.spread;
+      const z = (Math.random() - 0.5) * CONFIG.STARS.spread;
+      vertices.push(x, y, z);
+
+      // Random colors for stars
+      const color = new THREE.Color();
+      color.setHSL(Math.random() * 0.2 + 0.75, 0.8, 0.8);
+      colors.push(color.r, color.g, color.b);
+    }
+    return { vertices: new Float32Array(vertices), colors: new Float32Array(colors) };
+  }, []);
+
+  const ref = useRef();
+  useFrame(({ clock }) => {
+    ref.current.rotation.y = clock.getElapsedTime() * 0.005;
+    ref.current.rotation.x = Math.sin(clock.getElapsedTime() * 0.003) * 0.05;
+  });
+
+  return (
+    <points ref={ref}>
+      <bufferGeometry>
+        <bufferAttribute
+          attach="attributes-position"
+          count={points.vertices.length / 3}
+          array={points.vertices}
+          itemSize={3}
+        />
+        <bufferAttribute
+          attach="attributes-color"
+          count={points.colors.length / 3}
+          array={points.colors}
+          itemSize={3}
+        />
+      </bufferGeometry>
+      <pointsMaterial
+        size={0.5}
+        sizeAttenuation
+        transparent
+        opacity={0.8}
+        vertexColors
+      />
+    </points>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// FLOATING ORBS (New ambient element)
+// -----------------------------------------------------------------------------
+function FloatingOrb({ position, color, scale = 1 }) {
+  const mesh = useRef();
+
+  useFrame(({ clock }) => {
+    mesh.current.position.y = position[1] + Math.sin(clock.getElapsedTime()) * 0.5;
+    mesh.current.rotation.x = clock.getElapsedTime() * 0.2;
+    mesh.current.rotation.y = clock.getElapsedTime() * 0.3;
+  });
+
+  return (
+    <Float speed={2} rotationIntensity={0.5} floatIntensity={1}>
+      <mesh ref={mesh} position={position} scale={scale}>
+        <sphereGeometry args={[1, 32, 32]} />
+        <MeshDistortMaterial
+          color={color}
+          emissive={color}
+          emissiveIntensity={0.5}
+          roughness={0.1}
+          metalness={0.8}
+          distort={0.3}
+          speed={2}
+          transparent
+          opacity={0.6}
+        />
+      </mesh>
+    </Float>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// ENHANCED CYTADEL MODEL
+// -----------------------------------------------------------------------------
+function EnhancedCytadelModel() {
+  const { scene } = useGLTF("/models/cytadel.glb");
+  const ref = useRef();
+   const scroll = useScroll(); 
+
+  useMemo(() => {
+    scene.traverse((child) => {
+      if (child.isMesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+
+        if (child.material) {
+          child.material.envMapIntensity = CONFIG.MODEL.envMapIntensity * 1.5; // brighter reflections
+          child.material.emissive = new THREE.Color(0.4, 0.2, 0.6);           // brighter purple glow
+          child.material.emissiveIntensity = CONFIG.MODEL.emissiveIntensity * 2;
+
+        }
+      }
+    });
+  }, [scene]);
+
+  useFrame(({ clock }) => {
+    if (ref.current) {
+      const scrollRotation = scroll.offset * Math.PI * 2; // rotate based on scroll
+      ref.current.rotation.y = scrollRotation + clock.getElapsedTime() * 0.02;
+    }
+  });
+
+  return (
+    <group ref={ref}>
+      <primitive object={scene} scale={1.2} />
+    </group>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// ENHANCED CAMERA CONTROLLER
+// -----------------------------------------------------------------------------
+function EnhancedCameraController() {
+  const scroll = useScroll();
+  const prevRot = useRef(0);
+
+  useFrame(({ camera, clock }) => {
+    const { distance, tilt, rotations, smoothing } = CONFIG.CAMERA;
+    const scrollProgress = scroll.offset;
+    const targetRot = scrollProgress * Math.PI * 2 * rotations;
+
+    const smoothedRot = THREE.MathUtils.lerp(prevRot.current, targetRot, smoothing);
+    prevRot.current = smoothedRot;
+
+    // Add subtle floating motion
+    const floatY = Math.sin(clock.getElapsedTime() * 0.5) * 0.2;
+
+    camera.position.x = Math.sin(smoothedRot) * distance;
+    camera.position.z = Math.cos(smoothedRot) * distance;
+    camera.position.y = distance * tilt + floatY;
+    camera.lookAt(0, 0, 0);
+  });
+
+  return null;
+}
+
+// -----------------------------------------------------------------------------
+// HOLOGRAM CARDS DATA
+// -----------------------------------------------------------------------------
+const HOLOGRAM_CARDS = [
+  {
+    id: 0,
+    title: "Secure Your Work",
+    desc: "Every project on Cyphire starts with escrow protection.",
+    icon: "🔐",
+    gradient: "from-purple-500 to-pink-500",
+  },
+  {
+    id: 1,
+    title: "Escrow By Default",
+    desc: "Funds locked safely until milestones are met.",
+    icon: "💎",
+    gradient: "from-blue-500 to-cyan-500",
+  },
+  {
+    id: 2,
+    title: "Trust Without Compromise",
+    desc: "Full transparency and peace of mind.",
+    icon: "🤝",
+    gradient: "from-green-500 to-emerald-500",
+  },
+  {
+    id: 3,
+    title: "Instant Matching",
+    desc: "Connected to top freelancers within minutes.",
+    icon: "⚡",
+    gradient: "from-yellow-500 to-orange-500",
+  },
+  {
+    id: 4,
+    title: "One-Click Payouts",
+    desc: "Seamless and instant freelancer payouts.",
+    icon: "💸",
+    gradient: "from-indigo-500 to-purple-500",
+  },
+];
+
+// -----------------------------------------------------------------------------
+// ENHANCED HOLOGRAM CARD
+// -----------------------------------------------------------------------------
+function EnhancedHologramCard({ card, isActive, index }) {
+  const { width } = useWindowSize();
+  const isMobile = width < CONFIG.BREAKPOINTS.mobile;
+  const isTablet = width < CONFIG.BREAKPOINTS.tablet;
+
+  return (
+    <AnimatePresence mode="wait">
+      {isActive && (
+        <motion.div
+          key={card.id}
+          className={`
+            ${isMobile ? "w-[85vw] max-w-sm" : isTablet ? "w-[60vw] max-w-lg" : "w-[28vw] max-w-xl"}
+            aspect-[4/3] flex flex-col items-center justify-center text-center
+            rounded-3xl backdrop-blur-2xl border shadow-2xl
+            bg-gradient-to-br ${card.gradient} bg-opacity-10
+            relative overflow-hidden
+          `}
+          style={{
+            background: `linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05))`,
+            borderColor: "rgba(255,255,255,0.2)",
+            boxShadow: `
+              0 0 40px rgba(168,85,247,0.3),
+              0 0 80px rgba(168,85,247,0.2),
+              inset 0 0 40px rgba(168,85,247,0.1)
+            `,
+          }}
+          initial={{ opacity: 0, scale: 0.8, rotateY: -30 }}
+          animate={{ opacity: 1, scale: 1, rotateY: 0 }}
+          exit={{ opacity: 0, scale: 0.8, rotateY: 30 }}
+          transition={{ duration: 0.8, ease: "easeInOut" }}
+        >
+          {/* Animated background pattern */}
+          <motion.div
+            className="absolute inset-0 opacity-20"
+            animate={{
+              backgroundPosition: ["0% 0%", "100% 100%"],
+            }}
+            transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+            style={{
+              backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%239C92AC' fill-opacity='0.1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+              backgroundSize: "60px 60px",
+            }}
+          />
+
+          {/* Content */}
+          <motion.div
+            className="relative z-10"
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.2, duration: 0.6 }}
+          >
+            <motion.div
+              className="text-6xl mb-4"
+              animate={{ rotate: [0, 10, -10, 0] }}
+              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+            >
+              {card.icon}
+            </motion.div>
+            <h2 className={`
+              font-bold mb-3
+              ${isMobile ? "text-2xl" : isTablet ? "text-3xl" : "text-4xl"}
+              bg-gradient-to-r ${card.gradient} bg-clip-text text-transparent
+            `}>
+              {card.title}
+            </h2>
+            <p className={`
+              text-gray-200
+              ${isMobile ? "text-sm px-4" : isTablet ? "text-base px-6" : "text-lg px-8"}
+            `}>
+              {card.desc}
+            </p>
+          </motion.div>
+
+          {/* Glowing orb effect */}
+          <motion.div
+            className="absolute -bottom-20 -right-20 w-40 h-40 rounded-full"
+            style={{
+              background: `radial-gradient(circle, rgba(168,85,247,0.4), transparent)`,
+              filter: "blur(40px)",
+            }}
+            animate={{
+              scale: [1, 1.2, 1],
+              opacity: [0.5, 0.8, 0.5],
+            }}
+            transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+          />
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// HERO SECTION (Left side content)
+// -----------------------------------------------------------------------------
+function HeroSection() {
+  const { width } = useWindowSize();
+  const isMobile = width < CONFIG.BREAKPOINTS.mobile;
+  const isTablet = width < CONFIG.BREAKPOINTS.tablet;
+
+  return (
+    <motion.div
+      className={`
+        ${isMobile ? "w-full px-6 text-center" : isTablet ? "w-1/2 pl-12" : "w-1/3 pl-20"}
+        space-y-6 relative z-20
+      `}
+      initial={{ opacity: 0, x: -50 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 1, delay: 0.5 }}
+    >
+      {/* Animated title */}
+      <div className="overflow-hidden">
+        <motion.h1
+          className={`
+            font-extrabold leading-tight
+            ${isMobile ? "text-4xl" : isTablet ? "text-5xl" : "text-7xl"}
+          `}
+          initial={{ y: 100 }}
+          animate={{ y: 0 }}
+          transition={{ duration: 0.8, delay: 0.6 }}
+        >
+          <span className="bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent">
+            Welcome to
+          </span>
+          <br />
+          <span className="text-white">Cyphire</span>
+        </motion.h1>
+      </div>
+
+      {/* Animated subtitle */}
+      <motion.p
+        className={`
+          text-gray-300
+          ${isMobile ? "text-base" : isTablet ? "text-lg" : "text-xl"}
+        `}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.8, delay: 0.8 }}
+      >
+        The next-gen freelancing platform with escrow by default, instant payouts, and trusted professionals worldwide.
+      </motion.p>
+
+      {/* Stats */}
+      <motion.div
+        className={`
+          grid gap-4
+          ${isMobile ? "grid-cols-2" : "grid-cols-3"}
+        `}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8, delay: 1 }}
+      >
+        {[
+          { value: "10K+", label: "Freelancers" },
+          { value: "500K+", label: "Projects" },
+          { value: "99.9%", label: "Uptime" },
+        ].map((stat, i) => (
+          <motion.div
+            key={i}
+            className="text-left"
+            whileHover={{ scale: 1.05 }}
+          >
+            <div className="text-2xl font-bold text-purple-400">{stat.value}</div>
+            <div className="text-xs text-gray-400 uppercase tracking-wider">{stat.label}</div>
+          </motion.div>
+        ))}
+      </motion.div>
+
+      {/* CTA Buttons */}
+      <motion.div
+        className={`
+          flex gap-4
+          ${isMobile ? "flex-col" : "flex-row"}
+        `}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8, delay: 1.2 }}
+      >
+        <motion.button
+          whileHover={{ scale: 1.05, boxShadow: "0 0 30px rgba(168,85,247,0.6)" }}
+          whileTap={{ scale: 0.95 }}
+          className={`
+            ${isMobile ? "w-full" : ""}
+            px-8 py-4 rounded-2xl font-bold text-white
+            bg-gradient-to-r from-purple-600 to-pink-600
+            shadow-lg hover:shadow-xl transition-all
+          `}
+          onClick={() => window.location.href = "/signup"}
+        >
+          Get Started
+        </motion.button>
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          className={`
+            ${isMobile ? "w-full" : ""}
+            px-8 py-4 rounded-2xl font-bold text-white
+            border-2 border-white/20 backdrop-blur-sm
+            hover:bg-white/10 transition-all
+          `}
+        >
+          Watch Demo
+        </motion.button>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// CARDS CONTAINER
+// -----------------------------------------------------------------------------
+function CardsContainer() {
+  const { width } = useWindowSize();
+  const isMobile = width < CONFIG.BREAKPOINTS.mobile;
+  const isTablet = width < CONFIG.BREAKPOINTS.tablet;
+  const activeIndex = useLandingStore((s) => s.activeIndex);
+
+  return (
+    <div className={`
+      ${isMobile ? "w-full mt-8" : isTablet ? "w-1/2" : "w-2/3"}
+      h-full flex items-center justify-center relative
+    `}>
+      {HOLOGRAM_CARDS.map((card, idx) => (
+        <div
+          key={card.id}
+          className="absolute inset-0 flex items-center justify-center"
+        >
+          <EnhancedHologramCard
+            card={card}
+            isActive={idx === activeIndex}
+            index={idx}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// SCROLL WATCHER
+// -----------------------------------------------------------------------------
+function ScrollWatcher() {
+  const scroll = useScroll();
+  const setActiveIndex = useLandingStore((s) => s.setActiveIndex);
+
+  useFrame(() => {
+    const numCards = HOLOGRAM_CARDS.length;
+    const progress = scroll.offset;
+    const index = Math.min(Math.floor(progress * numCards), numCards - 1);
+    setActiveIndex(index);
+  });
+
+  return null;
+}
+
+// -----------------------------------------------------------------------------
+// PROGRESS INDICATOR
+// -----------------------------------------------------------------------------
+function ProgressIndicator() {
+  const activeIndex = useLandingStore((s) => s.activeIndex);
+  const { width } = useWindowSize();
+  const isMobile = width < CONFIG.BREAKPOINTS.mobile;
+
+  if (isMobile) {
+    return (
+      <div className="fixed bottom-20 left-1/2 -translate-x-1/2 flex gap-2 z-50">
+        {HOLOGRAM_CARDS.map((_, idx) => (
+          <motion.div
+            key={idx}
+            className="w-2 h-2 rounded-full"
+            style={{
+              backgroundColor: idx === activeIndex ? "#a855f7" : "rgba(255,255,255,0.2)",
+            }}
+            animate={{
+              scale: idx === activeIndex ? 1.5 : 1,
+            }}
+            transition={{ duration: 0.3 }}
+          />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed right-8 top-1/2 -translate-y-1/2 flex flex-col gap-4 z-50">
+      {HOLOGRAM_CARDS.map((_, idx) => (
+        <motion.div
+          key={idx}
+          className="relative"
+          whileHover={{ scale: 1.2 }}
+        >
+          <motion.div
+            className="w-3 h-3 rounded-full cursor-pointer"
+            style={{
+              backgroundColor: idx === activeIndex ? "#a855f7" : "rgba(255,255,255,0.2)",
+            }}
+            animate={{
+              scale: idx === activeIndex ? 1.3 : 1,
+              boxShadow: idx === activeIndex
+                ? "0 0 20px rgba(168,85,247,0.8)"
+                : "none",
+            }}
+            transition={{ duration: 0.3 }}
+            onClick={() => useLandingStore.getState().setActiveIndex(idx)}
+          />
+          {idx === activeIndex && (
+            <motion.div
+              className="absolute inset-0 w-3 h-3 rounded-full border border-purple-400"
+              initial={{ scale: 1, opacity: 1 }}
+              animate={{ scale: 2, opacity: 0 }}
+              transition={{ duration: 1, repeat: Infinity }}
+            />
+          )}
+        </motion.div>
+      ))}
+    </div>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// LOADING SCREEN
+// -----------------------------------------------------------------------------
+function LoadingScreen() {
+  const setIsLoading = useLandingStore((s) => s.setIsLoading);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoading(false), 2000);
+    return () => clearTimeout(timer);
+  }, [setIsLoading]);
+
+  return (
+    <motion.div
+      className="fixed inset-0 bg-black z-[200] flex items-center justify-center"
+      initial={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.5 }}
+    >
+      <div className="relative">
+        <motion.div
+          className="w-20 h-20 border-4 border-purple-500 rounded-full"
+          animate={{
+            rotate: 360,
+            borderColor: ["#a855f7", "#60a5fa", "#22d3ee", "#a855f7"],
+          }}
+          transition={{
+            rotate: { duration: 2, repeat: Infinity, ease: "linear" },
+            borderColor: { duration: 3, repeat: Infinity },
+          }}
+        />
+        <motion.div
+          className="absolute inset-0 w-20 h-20 border-4 border-transparent border-t-pink-500 rounded-full"
+          animate={{ rotate: -360 }}
+          transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+        />
+        <motion.p
+          className="absolute -bottom-12 left-1/2 -translate-x-1/2 text-purple-400 font-bold whitespace-nowrap"
+          animate={{ opacity: [0.5, 1, 0.5] }}
+          transition={{ duration: 1.5, repeat: Infinity }}
+        >
+          INITIALIZING CYPHIRE
+        </motion.p>
+      </div>
+    </motion.div>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// MAIN LANDING PAGE
+// -----------------------------------------------------------------------------
+function LandingPage() {
+  const isLoading = useLandingStore((s) => s.isLoading);
+  const { width } = useWindowSize();
+  const isMobile = width < CONFIG.BREAKPOINTS.mobile;
+
+  return (
+    <div className="relative w-screen h-screen bg-black text-white overflow-hidden">
+      <AnimatePresence>
+        {isLoading && <LoadingScreen />}
+      </AnimatePresence>
+
+      {/* Animated Background */}
+      <AnimatedGradient />
+
+      {/* 3D Scene */}
+      <div className="absolute inset-0">
+        <Canvas
+          shadows
+          dpr={[1, 2]}
+          camera={{ position: [0, 2, 15], fov: CONFIG.CAMERA.fov }}
+        >
+          <Suspense fallback={null}>
+            <ScrollControls pages={HOLOGRAM_CARDS.length} damping={0.1}>
+              {/* Scene Elements */}
+              <EnhancedStarfield />
+              <EnhancedCytadelModel />
+              <EnhancedCameraController />
+              <ScrollWatcher />
+
+              {/* Floating Orbs */}
+              <FloatingOrb position={[-8, 3, -5]} color="#a855f7" scale={0.5} />
+              <FloatingOrb position={[8, -2, -5]} color="#60a5fa" scale={0.7} />
+              <FloatingOrb position={[0, 5, -8]} color="#22d3ee" scale={0.4} />
+
+              {/* Enhanced Lighting */}
+              <ambientLight intensity={CONFIG.LIGHTS.ambient} />
+              {CONFIG.LIGHTS.point.map((light, i) => (
+                <pointLight
+                  key={i}
+                  position={light.position}
+                  color={light.color}
+                  intensity={light.intensity}
+                  distance={50}
+                />
+              ))}
+              <directionalLight
+                position={CONFIG.LIGHTS.dir.position}
+                color={CONFIG.LIGHTS.dir.color}
+                intensity={CONFIG.LIGHTS.dir.intensity}
+                castShadow
+              />
+
+              {/* Post-processing */}
+              <EffectComposer>
+                <Bloom
+                  intensity={1.5}
+                  luminanceThreshold={0.2}
+                  luminanceSmoothing={0.9}
+                  height={400}
+                />
+                <ChromaticAberration offset={[0.002, 0.002]} />
+                <Vignette eskil={false} offset={0.1} darkness={0.8} />
+                <DepthOfField
+                  focusDistance={0.01}
+                  focalLength={0.02}
+                  bokehScale={3}
+                />
+              </EffectComposer>
+            </ScrollControls>
+          </Suspense>
+        </Canvas>
+      </div>
+
+      {/* UI Overlay */}
+      <div className={`
+        absolute inset-0 pointer-events-none
+        ${isMobile ? "flex flex-col justify-center px-4" : "flex items-center"}
+      `}>
+        <div className={`
+          pointer-events-auto w-full
+          ${isMobile ? "" : "flex items-center justify-between px-8 lg:px-16"}
+        `}>
+          <HeroSection />
+          <CardsContainer />
+        </div>
+      </div>
+
+      {/* Progress Indicator */}
+      <ProgressIndicator />
+
+      {/* Navigation Hint */}
+      <motion.div
+        className="absolute bottom-8 left-1/2 -translate-x-1/2 text-center pointer-events-none"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 2, duration: 0.8 }}
+      >
+        <motion.div
+          animate={{ y: [0, 10, 0] }}
+          transition={{ duration: 2, repeat: Infinity }}
+        >
+          <p className="text-gray-400 text-sm mb-2">Scroll to explore</p>
+          <svg
+            className="w-6 h-6 mx-auto text-gray-400"
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="2"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path d="M19 14l-7 7m0 0l-7-7m7 7V3"></path>
+          </svg>
+        </motion.div>
+      </motion.div>
+
+      {/* Footer */}
+      <div className="absolute bottom-2 w-full text-center text-xs text-gray-600 pointer-events-none">
+        <p>© 2024 Cyphire · Built with trust · Escrow by default</p>
+      </div>
+    </div>
+  )
+}
+
+export default LandingPage;
+

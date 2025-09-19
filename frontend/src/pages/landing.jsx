@@ -47,11 +47,11 @@ const CONFIG = {
     fov: 60,
     distance: 15,
     tilt: 0.45,
-    rotations: 4, // allow >360° rotations
-    smoothing: 0.1,
+    rotations: 2.5, // allow >360° rotations
+    smoothing: 0.12,
   },
   LIGHTS: {
-    ambient: 0.3,
+    ambient: 0.1,
     point: [
       { position: [6, 6, 6], color: "#a855f7", intensity: 1.4 },
       { position: [-6, 4, -6], color: "#60a5fa", intensity: 1.2 },
@@ -153,15 +153,24 @@ function CytadelModel() {
         child.receiveShadow = true;
 
         if (child.material) {
-          child.material.metalness = 0.6;
-          child.material.roughness = 0.3;
+          child.material.metalness = 25;
+          child.material.roughness = 0.03;
           child.material.envMapIntensity = 1.2;
+
+          // Default emissive
           child.material.emissive = new THREE.Color(0.05, 0.05, 0.1);
-          child.material.emissiveIntensity = 0.5;
+          child.material.emissiveIntensity = 80;
+
+          // 👉 Specifically boost glow for "Glow_Core" mesh
+          if (child.name === "Glow_Core" || child.name.includes("core")) {
+            child.material.emissive = new THREE.Color(1, 0.2, 0.8); // neon pink
+            child.material.emissiveIntensity = 1;
+          }
         }
       }
     });
   }, [scene]);
+
 
   return <primitive object={scene} scale={1.1} />;
 }
@@ -307,42 +316,51 @@ const HOLOGRAM_CARDS = [
 
 function HologramCard({ card, isActive, isMobile }) {
   return (
-    <AnimatePresence mode="wait">
-      {isActive && (
-        <motion.div
-          key={card.id}
-          className={`pointer-events-none ${isMobile ? "w-[90%] h-[60%]" : "w-[35%] h-[50%]"
-            } flex flex-col items-center justify-center text-center
-          rounded-2xl backdrop-blur-xl border shadow-lg`}
-          style={{
-            background: "rgba(255, 255, 255, 0.06)",
-            borderColor: "rgba(168, 85, 247, 0.4)",
-            boxShadow:
-              "0 0 30px rgba(168,85,247,0.4), 0 0 60px rgba(168,85,247,0.2)",
-          }}
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 1.05 }}
-          transition={{ duration: 1.2, ease: "easeInOut" }}
-        >
-          <h2
-            className={`font-extrabold mb-4 ${isMobile ? "text-2xl" : "text-4xl"
-              } text-purple-300`}
+    <div
+      className={`absolute z-10 inset-0 flex items-center ${isMobile ? "justify-center" : "justify-end"
+        } px-6`}
+    >
+      <AnimatePresence mode="wait">
+        {isActive && (
+          <motion.div
+            layout
+            key={card.id}
+            className={`pointer-events-none ${isMobile ? "w-[90%] h-[60%]" : "w-[35%] h-[50%] mr-[5%]"
+              } flex flex-col items-center justify-center text-center rounded-2xl backdrop-blur-xl border shadow-lg`}
+            style={{
+              background: "rgba(255, 255, 255, 0.06)",
+              borderColor: "rgba(168, 85, 247, 0.4)",
+              boxShadow:
+                "0 0 30px rgba(168,85,247,0.4), 0 0 60px rgba(168,85,247,0.2)",
+            }}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 1.05 }}
+            transition={{
+              layout: { duration: 0.4 },
+              opacity: { duration: 0.8 },
+              scale: { duration: 0.8 },
+              ease: "easeInOut",
+            }}
           >
-            {card.title}
-          </h2>
-          <p
-            className={`text-gray-200 ${isMobile ? "text-base px-4" : "text-lg px-12"
-              }`}
-          >
-            {card.desc}
-          </p>
-        </motion.div>
-      )}
-    </AnimatePresence>
+            <h2
+              className={`font-extrabold mb-4 ${isMobile ? "text-2xl" : "text-4xl"
+                } text-purple-300`}
+            >
+              {card.title}
+            </h2>
+            <p
+              className={`text-gray-200 ${isMobile ? "text-base px-4" : "text-lg px-12"
+                }`}
+            >
+              {card.desc}
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
-
 function OverlayWrapper({ children }) {
   const width = useWindowSize();
   const isMobile = width < CONFIG.BREAKPOINTS.mobile;
@@ -479,28 +497,30 @@ function HologramOverlayManager() {
         </motion.button>
       </div>
 
-      {/* RIGHT SIDE CYCLING HOLOGRAMS */}
-      <div className="absolute inset-0 flex items-center justify-end pr-24">
-        {HOLOGRAM_CARDS.map((card, idx) =>
-          idx === HOLOGRAM_CARDS.length - 1 ? (
-            <CTAHologram
-              key={card.id}
-              isActive={idx === activeIndex}
-              isMobile={isMobile}
-            />
-          ) : (
-            <HologramCard
-              key={card.id}
-              card={card}
-              isActive={idx === activeIndex}
-              isMobile={isMobile}
-            />
-          )
-        )}
-      </div>
+      {/* RIGHT SIDE CYCLING HOLOGRAMS (only show on desktop) */}
+      {!isMobile && (
+        <div className="absolute inset-0 flex items-center justify-end pr-24">
+          {HOLOGRAM_CARDS.map((card, idx) =>
+            idx === HOLOGRAM_CARDS.length - 1 ? (
+              <CTAHologram
+                key={card.id}
+                isActive={idx === activeIndex}
+                isMobile={false}
+              />
+            ) : (
+              <HologramCard
+                key={card.id}
+                card={card}
+                isActive={idx === activeIndex}
+                isMobile={false}
+              />
+            )
+          )}
+        </div>
+      )}
 
       {/* Scroll dots */}
-      <ProgressIndicator activeIndex={activeIndex} />
+      {!isMobile && <ProgressIndicator activeIndex={activeIndex} />}
     </div>
   );
 }
@@ -597,7 +617,7 @@ function LandingPage() {
           camera={{ position: [0, 2, 15], fov: CONFIG.CAMERA.fov }}
         >
           <Suspense fallback={null}>
-            <ScrollControls pages={HOLOGRAM_CARDS.length} damping={0.15}>
+            <ScrollControls pages={HOLOGRAM_CARDS.length} damping={.2}>
               <Starfield />
               <CytadelModel />
               <CameraController />
@@ -605,12 +625,12 @@ function LandingPage() {
               <ScrollWatcher />
               <EffectComposer>
                 <Bloom
-                  intensity={1.0}
-                  luminanceThreshold={0.25}
-                  luminanceSmoothing={0.9}
-                  height={300}
+                  intensity={1}
+                  luminanceThreshold={0.3}
+                  luminanceSmoothing={1}
+                  height={400}
                 />
-                <Vignette eskil={false} offset={0.2} darkness={0.9} />
+                <Vignette eskil={false} offset={0.2} darkness={0.2} />
                 <DepthOfField
                   focusDistance={0.02}
                   focalLength={0.02}
