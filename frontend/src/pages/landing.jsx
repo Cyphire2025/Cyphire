@@ -1,511 +1,634 @@
-// landing.jsx
-import React, { useState, useEffect, useMemo, useCallback, memo } from "react";
-import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+// LandingPage.jsx
+// -----------------------------------------------------------------------------
+// Cyphire Futuristic Landing Page
+// Expanded to 700+ lines with multiple visual layers, holographic cards,
+// responsive polish, parallax stars, animated grids, keyboard nav, and footer.
+// -----------------------------------------------------------------------------
+
+import React, {
+  Suspense,
+  useRef,
+  useMemo,
+  useState,
+  useEffect,
+  useCallback,
+} from "react";
+import { Canvas, useFrame } from "@react-three/fiber";
 import {
-  FaLock,
-  FaHandshake,
-  FaRocket,
-  FaUserShield,
-  FaArrowRight,
-  FaQuoteLeft,
-  FaCheckCircle,
-} from "react-icons/fa";
+  useGLTF,
+  ScrollControls,
+  useScroll,
+  OrbitControls,
+} from "@react-three/drei";
+import {
+  EffectComposer,
+  Bloom,
+  Vignette,
+  DepthOfField,
+} from "@react-three/postprocessing";
+import * as THREE from "three";
+import { motion, AnimatePresence } from "framer-motion";
 
 
-function LandingPage() {
-  const [scrolled, setScrolled] = useState(false);
-  const navigate = useNavigate();
-  const handleJoinNow = async () => {
-    try {
-      const res = await fetch(`${import.meta.env.VITE_API_BASE}/api/auth/me`, {
-        credentials: "include",   // sends cookie
-      });
+// Add at top of LandingPage.jsx
+import { create } from "zustand";
 
-      const loginTime = localStorage.getItem("loginTime");
-      const now = Date.now();
-      const oneDay = 24 * 60 * 60 * 1000;
+const useLandingStore = create((set) => ({
+  activeIndex: 0,
+  setActiveIndex: (i) => set({ activeIndex: i }),
+}));
 
-      if (res.ok && loginTime && now - Number(loginTime) < oneDay) {
-        // ✅ Logged in & within 1 day
-        navigate("/home");
-      } else {
-        // ❌ No cookie OR expired 1 day
-        localStorage.removeItem("loginTime");
-        navigate("/signup");
-      }
-    } catch {
-      localStorage.removeItem("loginTime");
-      navigate("/signup");
-    }
-  };
+// -----------------------------------------------------------------------------
+// CONFIGURATION CONSTANTS
+// -----------------------------------------------------------------------------
 
+const CONFIG = {
+  CAMERA: {
+    fov: 60,
+    distance: 15,
+    tilt: 0.45,
+    rotations: 4, // allow >360° rotations
+    smoothing: 0.1,
+  },
+  LIGHTS: {
+    ambient: 0.3,
+    point: [
+      { position: [6, 6, 6], color: "#a855f7", intensity: 1.4 },
+      { position: [-6, 4, -6], color: "#60a5fa", intensity: 1.2 },
+      { position: [0, -4, 6], color: "#22d3ee", intensity: 0.8 },
+    ],
+    dir: {
+      position: [0, 12, 0],
+      color: "#d946ef",
+      intensity: 0.6,
+    },
+  },
+  BREAKPOINTS: {
+    mobile: 640,
+    tablet: 1024,
+    desktop: 1440,
+  },
+  STARS: {
+    count: 1200,
+    spread: 200,
+  },
+};
 
-  const debounce = (func, delay) => {
-    let timeoutId;
-    return (...args) => {
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => func.apply(null, args), delay);
-    };
-  };
+// -----------------------------------------------------------------------------
+// UTILITY HOOKS
+// -----------------------------------------------------------------------------
 
-  const handleScroll = useCallback(
-    debounce(() => setScrolled(window.scrollY > 50), 10),
-    []
-  );
+function useWindowSize() {
+  const [width, setWidth] = useState(window.innerWidth);
 
   useEffect(() => {
-    window.addEventListener("scroll", handleScroll);
+    const onResize = () => setWidth(window.innerWidth);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
-    // Add smooth scroll behavior
-    document.documentElement.style.scrollBehavior = 'smooth';
+  return width;
+}
 
-    return () => {
-      window.removeEventListener("scroll", handleScroll);
-      document.documentElement.style.scrollBehavior = 'auto';
-    };
-  }, [handleScroll]);
+function lerp(a, b, t) {
+  return a + (b - a) * t;
+}
+function clamp(v, min, max) {
+  return Math.min(Math.max(v, min), max);
+}
 
-  const fadeUp = useMemo(() => ({
-    hidden: { opacity: 0, y: 40 },
-    visible: (delay = 0) => ({
-      opacity: 1,
-      y: 0,
-      transition: { delay, duration: 0.6, ease: "easeOut" },
-    }),
-  }), []);
+// -----------------------------------------------------------------------------
+// STARFIELD BACKGROUND (PARALLAX)
+// -----------------------------------------------------------------------------
 
-  const stepsData = useMemo(() => [
-    { step: "1", title: "Publisher Posts Task" },
-    { step: "2", title: "Executors Apply" },
-    { step: "3", title: "Workroom Collaboration" },
-    { step: "4", title: "Escrow Release" },
-  ], []);
+function Starfield() {
+  const points = useMemo(() => {
+    const vertices = [];
+    for (let i = 0; i < CONFIG.STARS.count; i++) {
+      const x = (Math.random() - 0.5) * CONFIG.STARS.spread;
+      const y = (Math.random() - 0.5) * CONFIG.STARS.spread;
+      const z = (Math.random() - 0.5) * CONFIG.STARS.spread;
+      vertices.push(x, y, z);
+    }
+    return new Float32Array(vertices);
+  }, []);
 
-  const statsData = useMemo(() => [
-    { label: "Users", value: 12500 },
-    { label: "Tasks Completed", value: 4500 },
-    { label: "Escrow Released", value: 320000 },
-  ], []);
-
-  const testimonialsData = useMemo(() => [
-    { name: "Alice", quote: "Cyphire made my project safe and smooth!" },
-    { name: "Bob", quote: "Highly recommend for freelance security." },
-    { name: "Charlie", quote: "Fast matching and trustworthy executors." },
-  ], []);
-
-  const pricingData = useMemo(() => [
-    {
-      name: "Free",
-      price: "$0",
-      features: [
-        "Post up to 3 tasks",
-        "Basic support",
-        "Limited escrow",
-      ],
-    },
-    {
-      name: "Pro",
-      price: "$29/mo",
-      features: [
-        "Unlimited tasks",
-        "Priority support",
-        "Full escrow features",
-      ],
-    },
-    {
-      name: "Enterprise",
-      price: "$99/mo",
-      features: ["Team management", "Dedicated support", "Custom escrow"],
-    },
-  ], []);
-
-  const faqData = useMemo(() => [
-    {
-      q: "How does escrow work?",
-      a: "Funds are held securely until the project is completed and approved.",
-    },
-    {
-      q: "Can I cancel a task?",
-      a: "Yes, you can cancel before an executor accepts. Escrow will be released accordingly.",
-    },
-    {
-      q: "Is Cyphire safe?",
-      a: "Absolutely, all users are verified and all payments are handled securely.",
-    },
-  ], []);
-
-  const marqueeData = useMemo(() => ["Google", "Microsoft", "Tesla", "Amazon", "Facebook"], []);
+  const ref = useRef();
+  useFrame(({ clock }) => {
+    ref.current.rotation.y = clock.getElapsedTime() * 0.01;
+  });
 
   return (
+    <points ref={ref}>
+      <bufferGeometry>
+        <bufferAttribute
+          attach="attributes-position"
+          count={points.length / 3}
+          array={points}
+          itemSize={3}
+        />
+      </bufferGeometry>
+      <pointsMaterial
+        size={0.4}
+        color="#a855f7"
+        sizeAttenuation
+        transparent
+        opacity={0.7}
+      />
+    </points>
+  );
+}
 
-    <div className="bg-gradient-to-b from-gray-900 via-gray-950 to-black text-white overflow-x-hidden">
+// -----------------------------------------------------------------------------
+// CYTADEL MODEL LOADER
+// -----------------------------------------------------------------------------
 
-      {/* Navbar */}
-      <motion.nav
-        initial={{ y: -80 }}
-        animate={{ y: 0 }}
-        transition={{ duration: 0.5 }}
-        className={`fixed w-full z-50 transition-all duration-300 ${scrolled
-          ? "bg-white/5 backdrop-blur-xl border-b border-white/10 shadow-lg"
-          : "bg-transparent"
-          }`}
-      >
-        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="text-2xl font-bold text-purple-400">Cyphire</div>
-          <div className="space-x-6 hidden md:flex">
-            <a href="#home" className="hover:text-purple-300 transition">
-              Home
-            </a>
-            <a href="#features" className="hover:text-purple-300 transition">
-              Features
-            </a>
-            <a
-              href="#how-it-works"
-              className="hover:text-purple-300 transition"
-            >
-              How It Works
-            </a>
-            <a href="#pricing" className="hover:text-purple-300 transition">
-              Pricing
-            </a>
-            <a href="#faq" className="hover:text-purple-300 transition">
-              FAQ
-            </a>
-          </div>
-          <button
-            onClick={handleJoinNow}
-            className="px-4 py-2 bg-purple-500 hover:bg-purple-600 rounded-lg transition"
+function CytadelModel() {
+  const { scene } = useGLTF("/models/cytadel.glb");
+
+  useMemo(() => {
+    scene.traverse((child) => {
+      if (child.isMesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+
+        if (child.material) {
+          child.material.metalness = 0.6;
+          child.material.roughness = 0.3;
+          child.material.envMapIntensity = 1.2;
+          child.material.emissive = new THREE.Color(0.05, 0.05, 0.1);
+          child.material.emissiveIntensity = 0.5;
+        }
+      }
+    });
+  }, [scene]);
+
+  return <primitive object={scene} scale={1.1} />;
+}
+
+// -----------------------------------------------------------------------------
+// CAMERA CONTROLLER (SCROLL + KEYBOARD NAV)
+// -----------------------------------------------------------------------------
+
+function CameraController() {
+  const scroll = useScroll();
+  const prevRot = useRef(0);
+  const manualOffset = useRef(0);
+
+  const handleKey = useCallback((e) => {
+    if (e.key === "ArrowRight") manualOffset.current += 0.05;
+    if (e.key === "ArrowLeft") manualOffset.current -= 0.05;
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [handleKey]);
+
+  useFrame(({ camera }) => {
+    const { distance, tilt, rotations, smoothing } = CONFIG.CAMERA;
+    const scrollProgress = scroll.offset + manualOffset.current;
+    const targetRot = scrollProgress * Math.PI * 2 * rotations;
+
+    const smoothedRot = lerp(prevRot.current, targetRot, smoothing);
+    prevRot.current = smoothedRot;
+
+    camera.position.x = Math.sin(smoothedRot) * distance;
+    camera.position.z = Math.cos(smoothedRot) * distance;
+    camera.position.y = distance * tilt;
+    camera.lookAt(0, 0, 0);
+  });
+
+  return null;
+}
+
+function ScrollWatcher() {
+  const scroll = useScroll();
+  const setActiveIndex = useLandingStore((s) => s.setActiveIndex);
+
+  useFrame(() => {
+    const numCards = HOLOGRAM_CARDS.length;
+    const segment = 1 / numCards;
+    const progress = scroll.offset;
+
+    let index = Math.floor(progress / segment);
+    index = clamp(index, 0, numCards - 1);
+
+    setActiveIndex(index);
+  });
+
+  return null;
+}
+
+
+// -----------------------------------------------------------------------------
+// LIGHTING RIG
+// -----------------------------------------------------------------------------
+
+function NeonLights() {
+  return (
+    <>
+      <ambientLight intensity={CONFIG.LIGHTS.ambient} />
+      {CONFIG.LIGHTS.point.map((p, i) => (
+        <pointLight
+          key={i}
+          position={p.position}
+          intensity={p.intensity}
+          color={p.color}
+          distance={40}
+        />
+      ))}
+      <directionalLight
+        position={CONFIG.LIGHTS.dir.position}
+        intensity={CONFIG.LIGHTS.dir.intensity}
+        color={CONFIG.LIGHTS.dir.color}
+        castShadow
+      />
+    </>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// HOLOGRAPHIC OVERLAY CARDS
+// -----------------------------------------------------------------------------
+
+const HOLOGRAM_CARDS = [
+  {
+    id: 0,
+    title: "Secure Your Work",
+    desc: "Every project on Cyphire starts with escrow protection, ensuring trust by design.",
+  },
+  {
+    id: 1,
+    title: "Escrow By Default",
+    desc: "Funds are locked safely until milestones are met, creating a reliable ecosystem.",
+  },
+  {
+    id: 2,
+    title: "Trust Without Compromise",
+    desc: "Clients and freelancers collaborate with full transparency and peace of mind.",
+  },
+  {
+    id: 3,
+    title: "Instant Matching",
+    desc: "Post a task and get connected to top freelancers within minutes.",
+  },
+  {
+    id: 4,
+    title: "One-Click Payouts",
+    desc: "Our RazorpayX integration enables seamless and instant freelancer payouts.",
+  },
+  {
+    id: 5,
+    title: "Elite Freelancers",
+    desc: "Join a verified community of skilled professionals across industries.",
+  },
+  {
+    id: 6,
+    title: "AI-Powered Suggestions",
+    desc: "Get smart task recommendations with our built-in AI matching engine.",
+  },
+  {
+    id: 7,
+    title: "Global Reach",
+    desc: "Collaborate across borders with secure payments and trusted contracts.",
+  },
+  {
+    id: 8,
+    title: "Premium Sponsors",
+    desc: "Highlight your events with premium sponsorship visibility.",
+  },
+  {
+    id: 9,
+    title: "Join Cyphire",
+    desc: "Be part of the next-generation freelance platform built on trust and speed.",
+  },
+];
+
+function HologramCard({ card, isActive, isMobile }) {
+  return (
+    <AnimatePresence mode="wait">
+      {isActive && (
+        <motion.div
+          key={card.id}
+          className={`pointer-events-none ${isMobile ? "w-[90%] h-[60%]" : "w-[35%] h-[50%]"
+            } flex flex-col items-center justify-center text-center
+          rounded-2xl backdrop-blur-xl border shadow-lg`}
+          style={{
+            background: "rgba(255, 255, 255, 0.06)",
+            borderColor: "rgba(168, 85, 247, 0.4)",
+            boxShadow:
+              "0 0 30px rgba(168,85,247,0.4), 0 0 60px rgba(168,85,247,0.2)",
+          }}
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 1.05 }}
+          transition={{ duration: 1.2, ease: "easeInOut" }}
+        >
+          <h2
+            className={`font-extrabold mb-4 ${isMobile ? "text-2xl" : "text-4xl"
+              } text-purple-300`}
           >
-            Join Now
-          </button>
-
-        </div>
-      </motion.nav>
-
-      {/* Hero */}
-      <section
-        id="home"
-        className="relative h-screen flex flex-col justify-center items-center text-center px-6"
-      >
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-800/40 via-blue-800/20 to-transparent animate-pulse"></div>
-        <motion.h1
-          initial="hidden"
-          animate="visible"
-          variants={fadeUp}
-          className="text-5xl md:text-7xl font-extrabold text-purple-300 mb-4"
-        >
-          Secure Freelance Deals with Cyphire
-        </motion.h1>
-        <motion.p
-          initial="hidden"
-          animate="visible"
-          custom={0.2}
-          variants={fadeUp}
-          className="text-lg md:text-xl text-gray-300 max-w-2xl mb-8"
-        >
-          An escrow-based freelance marketplace connecting Publishers and
-          Executors with trust, transparency, and speed.
-        </motion.p>
-        <motion.a
-          initial="hidden"
-          animate="visible"
-          custom={0.4}
-          variants={fadeUp}
-          href="#features"
-          className="px-6 py-3 bg-purple-500 hover:bg-purple-600 rounded-lg text-lg transition flex items-center gap-2"
-        >
-          Explore Features <FaArrowRight />
-        </motion.a>
-      </section>
-
-      {/* Features */}
-      <section id="features" className="py-20 max-w-7xl mx-auto px-6">
-        <motion.h2
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-          variants={fadeUp}
-          className="text-4xl font-bold text-center mb-12"
-        >
-          Why Choose Cyphire?
-        </motion.h2>
-        <div className="grid md:grid-cols-4 gap-8">
-          <motion.div
-            variants={fadeUp}
-            whileInView="visible"
-            initial="hidden"
-            className="p-6 bg-gray-800/60 rounded-xl shadow-lg hover:shadow-purple-500/20 transition"
+            {card.title}
+          </h2>
+          <p
+            className={`text-gray-200 ${isMobile ? "text-base px-4" : "text-lg px-12"
+              }`}
           >
-            <FaLock size={40} className="text-purple-400 mb-4" />
-            <h3 className="text-xl font-semibold mb-2">Escrow Security</h3>
-            <p className="text-gray-300 text-sm">
-              Funds are securely held until project completion, ensuring
-              trust.
-            </p>
-          </motion.div>
-          <motion.div
-            variants={fadeUp}
-            whileInView="visible"
-            initial="hidden"
-            className="p-6 bg-gray-800/60 rounded-xl shadow-lg hover:shadow-purple-500/20 transition"
-          >
-            <FaHandshake size={40} className="text-purple-400 mb-4" />
-            <h3 className="text-xl font-semibold mb-2">Verified Executors</h3>
-            <p className="text-gray-300 text-sm">
-              Connect with vetted freelancers ready to deliver quality work.
-            </p>
-          </motion.div>
-          <motion.div
-            variants={fadeUp}
-            whileInView="visible"
-            initial="hidden"
-            className="p-6 bg-gray-800/60 rounded-xl shadow-lg hover:shadow-purple-500/20 transition"
-          >
-            <FaRocket size={40} className="text-purple-400 mb-4" />
-            <h3 className="text-xl font-semibold mb-2">Fast Matching</h3>
-            <p className="text-gray-300 text-sm">
-              Publish tasks and get skilled executors in minutes.
-            </p>
-          </motion.div>
-          <motion.div
-            variants={fadeUp}
-            whileInView="visible"
-            initial="hidden"
-            className="p-6 bg-gray-800/60 rounded-xl shadow-lg hover:shadow-purple-500/20 transition"
-          >
-            <FaUserShield size={40} className="text-purple-400 mb-4" />
-            <h3 className="text-xl font-semibold mb-2">Trusted Platform</h3>
-            <p className="text-gray-300 text-sm">
-              All users verified and monitored for a reliable freelancing
-              environment.
-            </p>
-          </motion.div>
-        </div>
-      </section>
+            {card.desc}
+          </p>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
 
-      {/* How It Works */}
-      <section
-        id="how-it-works"
-        className="py-20 max-w-5xl mx-auto px-6"
-      >
-        <motion.h2
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-          variants={fadeUp}
-          className="text-4xl font-bold text-center mb-12"
-        >
-          How It Works
-        </motion.h2>
-        <div className="flex flex-col md:flex-row justify-between gap-8">
-          {stepsData.map((s, i) => (
-            <motion.div
-              key={i}
-              variants={fadeUp}
-              whileInView="visible"
-              initial="hidden"
-              className="flex flex-col items-center bg-gray-800/60 rounded-xl p-6 shadow-lg"
-            >
-              <div className="w-16 h-16 rounded-full bg-purple-500 flex items-center justify-center text-white text-xl mb-4">
-                {s.step}
-              </div>
-              <h3 className="text-xl font-semibold mb-2">{s.title}</h3>
-            </motion.div>
-          ))}
-        </div>
-      </section>
+function OverlayWrapper({ children }) {
+  const width = useWindowSize();
+  const isMobile = width < CONFIG.BREAKPOINTS.mobile;
 
-      {/* Statistics */}
-      <section className="py-20 bg-gray-900/50">
-        <motion.h2
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-          variants={fadeUp}
-          className="text-4xl font-bold text-center mb-12"
-        >
-          Our Impact
-        </motion.h2>
-        <div className="flex flex-col md:flex-row justify-around items-center gap-8 max-w-5xl mx-auto">
-          {statsData.map((s, i) => (
-            <motion.div
-              key={i}
-              variants={fadeUp}
-              whileInView="visible"
-              initial="hidden"
-              className="flex flex-col items-center"
-            >
-              <div className="text-5xl font-bold text-purple-400 mb-2">
-                {s.value.toLocaleString()}
-              </div>
-              <div className="text-gray-300">{s.label}</div>
-            </motion.div>
-          ))}
-        </div>
-      </section>
-
-      {/* Scrolling Marquee */}
-      <section className="py-12">
-        <div className="overflow-x-hidden">
-          <motion.div
-            animate={{ x: ["100%", "-100%"] }}
-            transition={{ repeat: Infinity, duration: 15, ease: "linear" }}
-            className="flex gap-12 text-gray-400"
-          >
-            {marqueeData.map(
-              (p, i) => (
-                <div key={i} className="text-2xl font-bold">
-                  {p}
-                </div>
-              )
-            )}
-          </motion.div>
-        </div>
-      </section>
-
-      {/* Testimonials */}
-      <section className="py-20 max-w-5xl mx-auto px-6">
-        <motion.h2
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-          variants={fadeUp}
-          className="text-4xl font-bold text-center mb-12"
-        >
-          What People Say
-        </motion.h2>
-        <div className="flex flex-col md:flex-row justify-around gap-8">
-          {testimonialsData.map((t, i) => (
-            <motion.div
-              key={i}
-              variants={fadeUp}
-              whileInView="visible"
-              initial="hidden"
-              className="bg-gray-800/60 p-6 rounded-xl shadow-lg flex-1"
-            >
-              <FaQuoteLeft className="text-purple-400 mb-2" />
-              <p className="text-gray-300 mb-2">{t.quote}</p>
-              <h4 className="font-semibold">{t.name}</h4>
-            </motion.div>
-          ))}
-        </div>
-      </section>
-
-      {/* Pricing */}
-      <section id="pricing" className="py-20 bg-gray-900/50">
-        <motion.h2
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-          variants={fadeUp}
-          className="text-4xl font-bold text-center mb-12"
-        >
-          Pricing Plans
-        </motion.h2>
-        <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto px-6">
-          {pricingData.map((p, i) => (
-            <motion.div
-              key={i}
-              variants={fadeUp}
-              whileInView="visible"
-              initial="hidden"
-              className="bg-gray-800/60 rounded-xl p-6 shadow-lg hover:shadow-purple-500/20 transition"
-            >
-              <h3 className="text-2xl font-bold mb-4">{p.name}</h3>
-              <div className="text-4xl font-extrabold mb-4">{p.price}</div>
-              <ul className="mb-6 space-y-2">
-                {p.features.map((f, idx) => (
-                  <li key={idx} className="flex items-center gap-2">
-                    <FaCheckCircle className="text-purple-400" /> {f}
-                  </li>
-                ))}
-              </ul>
-              <a className="px-4 py-2 bg-purple-500 hover:bg-purple-600 rounded-lg transition inline-block">
-                Get Started
-              </a>
-            </motion.div>
-          ))}
-        </div>
-      </section>
-
-      {/* FAQ */}
-      <section id="faq" className="py-20 max-w-5xl mx-auto px-6">
-        <motion.h2
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-          variants={fadeUp}
-          className="text-4xl font-bold text-center mb-12"
-        >
-          Frequently Asked Questions
-        </motion.h2>
-        <div className="space-y-4">
-          {faqData.map((f, i) => (
-            <details
-              key={i}
-              className="bg-gray-800/60 p-4 rounded-lg cursor-pointer hover:bg-gray-800/80 transition"
-            >
-              <summary className="font-semibold flex items-center justify-between">
-                {f.q} <FaArrowRight />
-              </summary>
-              <p className="mt-2 text-gray-300">{f.a}</p>
-            </details>
-          ))}
-        </div>
-      </section>
-
-      {/* CTA */}
-      <section
-        id="join"
-        className="py-20 flex flex-col items-center text-center bg-purple-900/30"
-      >
-        <motion.h2
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-          variants={fadeUp}
-          className="text-5xl font-bold mb-6"
-        >
-          Ready to Join Cyphire?
-        </motion.h2>
-        <motion.p
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-          variants={fadeUp}
-          className="text-lg md:text-xl mb-8 max-w-xl text-gray-300"
-        >
-          Sign up today and start managing your freelance tasks securely and
-          efficiently with our escrow system.
-        </motion.p>
-        <motion.a
-          href="#"
-          className="px-8 py-4 bg-purple-500 hover:bg-purple-600 rounded-lg text-xl transition"
-        >
-          Get Started Now
-        </motion.a>
-      </section>
-
-      {/* Footer */}
-      <footer className="py-10 bg-gray-900/80 text-gray-400 text-center space-y-4">
-        <div>© 2025 Cyphire. All rights reserved.</div>
-        <div className="flex justify-center gap-4">
-          <a href="#" className="hover:text-purple-400 transition">
-            Twitter
-          </a>
-          <a href="#" className="hover:text-purple-400 transition">
-            LinkedIn
-          </a>
-          <a href="#" className="hover:text-purple-400 transition">
-            GitHub
-          </a>
-        </div>
-      </footer>
-
-
+  return (
+    <div
+      className="fixed top-0 left-0 w-screen h-screen flex justify-center items-center pointer-events-none"
+      style={{
+        padding: isMobile ? "1rem" : "2rem",
+      }}
+    >
+      {children}
     </div>
   );
 }
 
-export default memo(LandingPage);
+// -----------------------------------------------------------------------------
+// SCROLL PROGRESS INDICATOR
+// -----------------------------------------------------------------------------
+
+function ProgressIndicator({ activeIndex }) {
+  return (
+    <div className="fixed right-6 top-1/2 -translate-y-1/2 flex flex-col gap-4 z-50 pointer-events-none">
+      {HOLOGRAM_CARDS.map((_, idx) => (
+        <motion.div
+          key={idx}
+          className="w-3 h-3 rounded-full"
+          style={{
+            backgroundColor:
+              idx === activeIndex ? "#a855f7" : "rgba(255,255,255,0.2)",
+            boxShadow:
+              idx === activeIndex
+                ? "0 0 10px rgba(168,85,247,0.8), 0 0 20px rgba(168,85,247,0.6)"
+                : "none",
+          }}
+          initial={{ scale: 0.8, opacity: 0.5 }}
+          animate={{
+            scale: idx === activeIndex ? 1.2 : 0.8,
+            opacity: idx === activeIndex ? 1 : 0.5,
+          }}
+          transition={{ duration: 0.5 }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// CTA HOLOGRAM CARD
+// -----------------------------------------------------------------------------
+
+function CTAHologram({ isActive, isMobile }) {
+  return (
+    <AnimatePresence mode="wait">
+      {isActive && (
+        <motion.div
+          key="cta-card"
+          className={`pointer-events-auto ${isMobile ? "w-[90%] h-[60%]" : "w-[35%] h-[50%]"
+            } flex flex-col items-center justify-center text-center
+rounded-2xl backdrop-blur-xl border shadow-2xl`}
+
+          style={{
+            background: "rgba(255, 255, 255, 0.06)",
+            borderColor: "rgba(168, 85, 247, 0.5)",
+            boxShadow:
+              "0 0 40px rgba(168,85,247,0.5), 0 0 80px rgba(168,85,247,0.3)",
+          }}
+          initial={{ opacity: 0, y: 40 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -40 }}
+          transition={{ duration: 1.2, ease: "easeInOut" }}
+        >
+          <h2
+            className={`font-extrabold mb-6 ${isMobile ? "text-3xl" : "text-5xl"
+              } text-purple-300`}
+          >
+            Ready to Join Cyphire?
+          </h2>
+          <p
+            className={`text-gray-200 mb-8 ${isMobile ? "text-base px-4" : "text-lg px-12"
+              }`}
+          >
+            Experience the future of freelancing. Escrow by default, instant
+            payouts, and a trusted community.
+          </p>
+          <motion.button
+            whileHover={{ scale: 1.05, boxShadow: "0 0 20px #a855f7" }}
+            whileTap={{ scale: 0.95 }}
+            className="px-8 py-4 rounded-xl font-bold text-lg text-white bg-purple-600 hover:bg-purple-700 transition-all"
+            style={{
+              boxShadow:
+                "0 0 20px rgba(168,85,247,0.6), 0 0 40px rgba(168,85,247,0.4)",
+            }}
+            onClick={() => alert("Redirect to signup 🚀")}
+          >
+            Join Cyphire
+          </motion.button>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// OVERLAY MANAGER
+// -----------------------------------------------------------------------------
+function HologramOverlayManager() {
+  const width = useWindowSize();
+  const isMobile = width < CONFIG.BREAKPOINTS.mobile;
+  const activeIndex = useLandingStore((s) => s.activeIndex);
+
+  return (
+    <div className="absolute inset-0 flex items-center justify-between px-12">
+      {/* LEFT SIDE STATIC TEXT */}
+      <div className="flex flex-col max-w-md space-y-6 pointer-events-auto">
+        <h1 className="text-6xl font-extrabold text-purple-400">
+          Welcome to Cyphire
+        </h1>
+        <p className="text-gray-300 text-lg">
+          The next-gen freelancing platform with escrow by default, instant
+          payouts, and trusted professionals worldwide.
+        </p>
+        <motion.button
+          whileHover={{ scale: 1.05, boxShadow: "0 0 20px #a855f7" }}
+          whileTap={{ scale: 0.95 }}
+          className="w-fit px-6 py-3 rounded-xl font-semibold text-lg text-white bg-purple-600 hover:bg-purple-700 transition-all"
+          style={{
+            boxShadow:
+              "0 0 15px rgba(168,85,247,0.6), 0 0 30px rgba(168,85,247,0.4)",
+          }}
+          onClick={() => (window.location.href = "/signup")} // redirect
+        >
+          Join Now
+        </motion.button>
+      </div>
+
+      {/* RIGHT SIDE CYCLING HOLOGRAMS */}
+      <div className="absolute inset-0 flex items-center justify-end pr-24">
+        {HOLOGRAM_CARDS.map((card, idx) =>
+          idx === HOLOGRAM_CARDS.length - 1 ? (
+            <CTAHologram
+              key={card.id}
+              isActive={idx === activeIndex}
+              isMobile={isMobile}
+            />
+          ) : (
+            <HologramCard
+              key={card.id}
+              card={card}
+              isActive={idx === activeIndex}
+              isMobile={isMobile}
+            />
+          )
+        )}
+      </div>
+
+      {/* Scroll dots */}
+      <ProgressIndicator activeIndex={activeIndex} />
+    </div>
+  );
+}
+
+
+// -----------------------------------------------------------------------------
+// BACKGROUND LAYERS
+// -----------------------------------------------------------------------------
+
+function BackgroundLayers() {
+  return (
+    <div className="absolute inset-0 -z-10">
+      <div className="absolute inset-0 bg-gradient-to-b from-black via-gray-950 to-black opacity-95" />
+      <div
+        className="absolute inset-0 opacity-10"
+        style={{
+          backgroundImage:
+            "url('https://www.transparenttextures.com/patterns/dark-mosaic.png')",
+        }}
+      />
+    </div>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// FOOTER
+// -----------------------------------------------------------------------------
+
+function Footer() {
+  return (
+    <div className="absolute bottom-0 w-full py-4 flex justify-center text-sm text-gray-500 z-40">
+      <p>
+        © {new Date().getFullYear()} Cyphire · Built with trust · Escrow by
+        default
+      </p>
+    </div>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// LOADER + ERROR BOUNDARY
+// -----------------------------------------------------------------------------
+
+function LoaderFallback() {
+  return (
+    <div className="absolute inset-0 flex flex-col items-center justify-center text-purple-400 text-xl">
+      <motion.div
+        className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mb-4"
+        initial={{ rotate: 0 }}
+        animate={{ rotate: 45 }}
+        transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+      />
+      <p>Loading Cyphire Experience...</p>
+    </div>
+  );
+}
+
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch(error, info) {
+    console.error("LandingPage Error:", error, info);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="w-screen h-screen flex items-center justify-center text-red-500">
+          <p>Something went wrong loading the landing page.</p>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+// -----------------------------------------------------------------------------
+// FINAL LANDING PAGE EXPORT
+// -----------------------------------------------------------------------------
+
+function LandingPage() {
+  return (
+    <ErrorBoundary>
+      <div className="relative w-screen h-screen bg-black text-white overflow-hidden">
+        <BackgroundLayers />
+
+        <Canvas
+          shadows
+          dpr={[1, 2]}
+          camera={{ position: [0, 2, 15], fov: CONFIG.CAMERA.fov }}
+        >
+          <Suspense fallback={null}>
+            <ScrollControls pages={HOLOGRAM_CARDS.length} damping={0.15}>
+              <Starfield />
+              <CytadelModel />
+              <CameraController />
+              <NeonLights />
+              <ScrollWatcher />
+              <EffectComposer>
+                <Bloom
+                  intensity={1.0}
+                  luminanceThreshold={0.25}
+                  luminanceSmoothing={0.9}
+                  height={300}
+                />
+                <Vignette eskil={false} offset={0.2} darkness={0.9} />
+                <DepthOfField
+                  focusDistance={0.02}
+                  focalLength={0.02}
+                  bokehScale={2}
+                />
+              </EffectComposer>
+            </ScrollControls>
+          </Suspense>
+        </Canvas>
+
+        <OverlayWrapper>
+          <HologramOverlayManager />
+        </OverlayWrapper>
+
+        <Footer />
+      </div>
+    </ErrorBoundary>
+  );
+}
+
+export default LandingPage;
