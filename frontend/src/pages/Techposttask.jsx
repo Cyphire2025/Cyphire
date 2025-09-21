@@ -1,8 +1,24 @@
-import React, { useState, useEffect } from "react";
-import { motion } from "framer-motion";
-import axios from "axios";
+import React, { useEffect, useRef, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
+
+import {
+  ArrowLeft,
+  UploadCloud,
+  Sparkles,
+  Users,
+  Wallet,
+  CalendarDays,
+  XCircle,
+  CheckCircle,
+  CircleDashed,
+  Lightbulb,
+  ArrowUpRight,
+} from "lucide-react";
 import PostingOverlay from "../components/PostingOverlay";
+
+const MAX_CATEGORIES = 3;
+const MAX_ATTACHMENTS = 5;
 
 export default function PostTask() {
   const navigate = useNavigate();
@@ -28,25 +44,41 @@ export default function PostTask() {
   const [posted, setPosted] = useState(false);
   const [particles, setParticles] = useState([]);
   const [logo, setLogo] = useState(null);
+  const [logoPreview, setLogoPreview] = useState("");
+
+  const logoInputRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const deadlineInputRef = useRef(null);
 
   useEffect(() => {
-    const newParticles = Array.from({ length: 15 }).map(() => ({
+    const newParticles = Array.from({ length: 12 }).map(() => ({
       left: `${Math.random() * 100}%`,
       top: `${Math.random() * 100}%`,
       size: `${Math.random() * 6 + 4}px`,
-      duration: `${Math.random() * 8 + 4}s`,
+      duration: `${Math.random() * 8 + 6}s`,
     }));
     setParticles(newParticles);
   }, []);
 
-  // Limit to max 3 categories
+  useEffect(() => {
+    if (!logo) {
+      setLogoPreview("");
+      return undefined;
+    }
+
+    const objectUrl = URL.createObjectURL(logo);
+    setLogoPreview(objectUrl);
+
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [logo]);
+
   const handleCategoryClick = (category) => {
     setSelectedCategories((prev) => {
       if (prev.includes(category)) {
         return prev.filter((c) => c !== category);
       }
-      if (prev.length >= 3) {
-        alert("You can select up to 3 categories.");
+      if (prev.length >= MAX_CATEGORIES) {
+        alert(`You can select up to ${MAX_CATEGORIES} categories.`);
         return prev;
       }
       return [...prev, category];
@@ -55,15 +87,15 @@ export default function PostTask() {
 
   const handleAttachmentChange = (e) => {
     const files = Array.from(e.target.files);
-    if (attachments.length + files.length <= 5) {
-      setAttachments([...attachments, ...files]);
+    if (attachments.length + files.length <= MAX_ATTACHMENTS) {
+      setAttachments((prev) => [...prev, ...files]);
     } else {
-      alert("You can only upload up to 5 attachments.");
+      alert(`You can upload up to ${MAX_ATTACHMENTS} attachments.`);
     }
   };
 
   const removeAttachment = (index) => {
-    setAttachments(attachments.filter((_, i) => i !== index));
+    setAttachments((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async () => {
@@ -74,13 +106,15 @@ export default function PostTask() {
       const formData = new FormData();
       formData.append("title", title);
       formData.append("description", description);
-      selectedCategories.forEach(cat => formData.append("categories[]", cat));
+      selectedCategories.forEach((cat) => formData.append("categories[]", cat));
       formData.append("numberOfApplicants", numApplicants);
       formData.append("price", price);
       formData.append("deadline", deadline);
 
+
+
       if (logo) formData.append("logo", logo);
-      attachments.forEach(file => formData.append("attachments", file));
+      attachments.forEach((file) => formData.append("attachments", file));
 
       const API_BASE = import.meta.env?.VITE_API_BASE || "http://localhost:5000";
       const res = await fetch(`${API_BASE}/api/tasks`, {
@@ -91,30 +125,67 @@ export default function PostTask() {
 
       if (res.ok) {
         setPosted(true);
-        setTimeout(() => navigate("/tasks"), 2000); // ✅ go to Tasks page
+        setTimeout(() => navigate("/tasks"), 1600);
       } else {
         const errData = await res.json();
-        alert(`❌ Failed to post task: ${errData.error || "Unknown error"}`);
+        alert(`Failed to post task: ${errData.error || "Unknown error"}`);
         setPosting(false);
       }
     } catch (error) {
       console.error("Error posting task:", error);
-      alert("❌ An error occurred while posting the task.");
+      alert("An error occurred while posting the task.");
       setPosting(false);
     }
   };
 
+  const essentials = [
+    {
+      id: "title",
+      label: "Sharpen your title",
+      hint: "Aim for a crisp, outcome-focused headline.",
+      complete: Boolean(title.trim()),
+    },
+    {
+      id: "description",
+      label: "Describe the deliverable",
+      hint: "Spell out scope, tone, and success metrics.",
+      complete: description.trim().length > 0,
+    },
+    {
+      id: "categories",
+      label: "Tag specialties",
+      hint: "Pick up to three to route talent instantly.",
+      complete: selectedCategories.length > 0,
+    },
+    {
+      id: "logistics",
+      label: "Lock budget & deadline",
+      hint: "Transparent expectations speed replies.",
+      complete: Boolean(price) && Boolean(deadline),
+    },
+  ];
+
+  const readinessScore = essentials.length
+    ? Math.round((essentials.filter((item) => item.complete).length / essentials.length) * 100)
+    : 0;
+
+  const categoriesSummary = selectedCategories.length
+    ? selectedCategories.join(", ")
+    : "No categories selected yet";
+
+  const attachmentsSummary = attachments.length
+    ? `${attachments.length} file${attachments.length > 1 ? "s" : ""} ready`
+    : "No attachments yet";
+
   return (
-
-    <div className="relative flex justify-center items-center min-h-screen text-white p-4 md:p-6 overflow-hidden">
-      {/* Animated Gradient Background */}
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10 text-white md:px-8">
       <div className="absolute inset-0 bg-gradient-to-br from-purple-900 via-black to-pink-900 animate-gradient" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_55%)]" />
 
-      {/* Floating Particles */}
       {particles.map((p, i) => (
         <div
           key={i}
-          className="absolute bg-purple-500/40 rounded-full blur-md animate-float"
+          className="hidden sm:block absolute rounded-full bg-purple-500/35 blur-md animate-float"
           style={{
             left: p.left,
             top: p.top,
@@ -125,189 +196,416 @@ export default function PostTask() {
         />
       ))}
 
-      {/* Main Card */}
-      <motion.div
-        initial={{ opacity: 0, y: 40 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="relative z-10 w-full max-w-2xl bg-[#141414]/90 backdrop-blur-xl rounded-2xl p-6 md:p-8 shadow-2xl border border-purple-500/30 shadow-purple-500/20"
-      >
-        {/* Header Row */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
-          <motion.h1
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-pink-500 to-purple-500 bg-clip-text text-transparent"
-          >
-            Post Tech Task
-          </motion.h1>
-
-          {/* Back Button */}
-          <motion.button
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.15 }}
-            onClick={() => navigate("/choose-category")}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1f1f1f]/80 hover:bg-[#2a2a2a] border border-gray-700 hover:border-purple-400 transition-all"
-          >
-            <span>⬅ Back </span>
-          </motion.button>
-        </div>
-
-        {/* Title Image Upload */}
-        <label className="block mb-2 text-lg">Title Image</label>
-        <div
-          className="border-2 border-dashed border-gray-600 rounded-lg p-6 text-center bg-[#1f1f1f]/50 hover:border-purple-400 cursor-pointer mb-4"
-          onClick={() => document.getElementById("logoInput").click()}
+      <div className="relative z-10 w-full max-w-5xl">
+        <motion.div
+          initial={{ opacity: 0, y: 36 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+          className="relative overflow-hidden rounded-3xl border border-white/10 bg-[#141414]/85 p-6 shadow-[0_35px_120px_rgba(129,17,188,0.35)] backdrop-blur-2xl sm:p-8 md:p-10"
         >
-          <p className="text-gray-400">Click or drag an image here</p>
-          <p className="text-sm text-gray-500">1 file (PNG/JPG)</p>
-          <input
-            id="logoInput"
-            type="file"
-            accept="image/*"
-            onChange={(e) => setLogo(e.target.files[0])}
-            className="hidden"
-          />
-        </div>
-        {logo && (
-          <div className="flex items-center gap-2 mb-4 bg-[#1f1f1f]/80 px-3 py-2 rounded-lg border border-gray-700">
-            <span className="text-sm truncate max-w-[200px]">{logo.name}</span>
-            <button
-              onClick={() => setLogo(null)}
-              className="text-red-400 hover:text-red-500"
-            >
-              ✕
-            </button>
+          <div className="absolute -right-20 top-0 h-64 w-64 rounded-full bg-purple-500/20 blur-3xl" />
+          <div className="absolute -bottom-16 -left-16 h-56 w-56 rounded-full bg-pink-500/10 blur-3xl" />
+
+          <div className="relative grid gap-10 md:grid-cols-[minmax(0,1.25fr)_minmax(0,0.9fr)]">
+            <section className="space-y-8">
+              <div className="flex flex-col-reverse gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <motion.h1
+                    initial={{ opacity: 0, y: -12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.15, duration: 0.45 }}
+                    className="bg-gradient-to-r from-pink-400 via-purple-300 to-purple-100 bg-clip-text text-3xl font-semibold text-transparent sm:text-4xl"
+                  >
+                    Post Tech Task
+                  </motion.h1>
+                  <p className="mt-3 text-sm text-gray-200/80 sm:text-base">
+                    Submit a world-class brief and we will surface the perfect talent in hours.
+                  </p>
+                  <p className="mt-5 text-xs uppercase tracking-[0.35em] text-purple-200/70">
+                    Step 1 of 3 | Task Details
+                  </p>
+                </div>
+
+                <motion.button
+                  initial={{ opacity: 0, x: 16 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.2, duration: 0.4 }}
+                  onClick={() => navigate("/choose-category")}
+                  className="group flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-sm font-medium text-white/90 transition hover:border-purple-300/60 hover:bg-white/10"
+                >
+                  <ArrowLeft className="h-4 w-4 transition group-hover:-translate-x-0.5" />
+                  Back
+                </motion.button>
+              </div>
+
+              <div>
+                <p className="mb-2 text-sm font-medium text-gray-200">Hero Image</p>
+                <motion.div
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.99 }}
+                  onClick={() => logoInputRef.current?.click()}
+                  className="group relative flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-white/15 bg-white/5 px-6 py-8 text-center transition focus-within:border-purple-400/60 focus-within:bg-white/10 hover:border-purple-300/70 hover:bg-white/10"
+                >
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-purple-500/20 text-purple-100 group-hover:bg-purple-500/30">
+                    <UploadCloud className="h-6 w-6" />
+                  </div>
+                  <p className="mt-4 text-sm font-medium text-white">Upload a cover image</p>
+                  <p className="mt-1 text-xs text-gray-400">PNG or JPG | Up to 5MB</p>
+                  <input
+                    ref={logoInputRef}
+                    id="logoInput"
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setLogo(e.target.files?.[0] ?? null)}
+                    className="hidden"
+                  />
+                </motion.div>
+                {logoPreview && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mt-4 flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 p-4"
+                  >
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={logoPreview}
+                        alt="Selected cover"
+                        className="h-12 w-12 rounded-xl object-cover ring-2 ring-white/10"
+                      />
+                      <div>
+                        <p className="text-sm font-medium text-white/90">{logo?.name}</p>
+                        <p className="text-xs text-gray-400">Ready to make an impression</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setLogo(null)}
+                      className="text-white/60 transition hover:text-red-300"
+                    >
+                      <XCircle className="h-5 w-5" />
+                    </button>
+                  </motion.div>
+                )}
+              </div>
+
+              <div className="space-y-6">
+                <div className="relative">
+                  <input
+                    id="taskTitle"
+                    type="text"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="Your task title"
+                    className="peer block w-full rounded-2xl border border-white/12 bg-white/5 px-5 pt-7 pb-3 text-[15px] leading-relaxed text-white placeholder-transparent shadow-inner shadow-black/10 transition focus:border-pink-300/70 focus:bg-white/10 focus:outline-none focus:ring-4 focus:ring-purple-500/30"
+                  />
+                  <label
+                    htmlFor="taskTitle"
+                    className="pointer-events-none absolute left-5 top-3 text-[11px] font-medium uppercase tracking-[0.18em] text-purple-200 transition-all duration-200 peer-placeholder-shown:top-1/2 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:text-sm peer-placeholder-shown:text-gray-400 peer-focus:top-3 peer-focus:-translate-y-0 peer-focus:text-[11px] peer-focus:text-purple-100"
+                  >
+                    Title
+                  </label>
+                  <p className="mt-2 text-xs text-gray-400">Capture the project in one punchy sentence.</p>
+                </div>
+
+                <div className="relative">
+                  <textarea
+                    id="taskDescription"
+                    rows={5}
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Describe the deliverables, tone, tech stack, success metrics..."
+                    className="peer block w-full resize-none rounded-2xl border border-white/12 bg-white/5 px-5 pt-7 pb-3 text-[15px] leading-relaxed text-white placeholder-transparent shadow-inner shadow-black/10 transition focus:border-pink-300/70 focus:bg-white/10 focus:outline-none focus:ring-4 focus:ring-purple-500/30"
+                  />
+                  <label
+                    htmlFor="taskDescription"
+                    className="pointer-events-none absolute left-5 top-3 text-[11px] font-medium uppercase tracking-[0.18em] text-purple-200 transition-all duration-200 peer-placeholder-shown:top-6 peer-placeholder-shown:text-sm peer-placeholder-shown:text-gray-400 peer-focus:top-3 peer-focus:text-[11px] peer-focus:text-purple-100"
+                  >
+                    Description
+                  </label>
+                  <p className="mt-2 text-xs text-gray-400">Outline deliverables, context, and what success looks like.</p>
+                </div>
+              </div>
+
+              <div>
+                <p className="mb-3 text-sm font-medium text-gray-200">Sub Categories</p>
+                <div className="flex flex-wrap gap-3">
+                  {categories.map((cat) => {
+                    const selected = selectedCategories.includes(cat);
+                    const disabled = !selected && selectedCategories.length >= MAX_CATEGORIES;
+                    const chipClasses = [
+                      "relative flex select-none items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition",
+                      selected
+                        ? "border-transparent bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/40"
+                        : "border-white/15 bg-white/5 text-gray-200/90 hover:border-purple-300/60 hover:bg-white/10",
+                      disabled ? "cursor-not-allowed opacity-40" : "cursor-pointer",
+                    ].join(" ");
+
+                    return (
+                      <motion.button
+                        key={cat}
+                        type="button"
+                        layout
+                        disabled={disabled}
+                        aria-pressed={selected}
+                        whileTap={!disabled ? { scale: 0.95 } : undefined}
+                        whileHover={!disabled ? { scale: 1.03 } : undefined}
+                        transition={{ type: "spring", stiffness: 400, damping: 28 }}
+                        onClick={() => !disabled && handleCategoryClick(cat)}
+                        className={chipClasses}
+                      >
+                        <Sparkles className="h-4 w-4 opacity-70" />
+                        {cat}
+                      </motion.button>
+                    );
+                  })}
+                </div>
+                <p className="mt-3 text-xs text-gray-400">
+                  Choose up to {MAX_CATEGORIES} specialties to help pros find your brief.
+                </p>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+                {/* Applicants */}
+                <div className="relative min-w-[170px]">
+                  <Users className="pointer-events-none absolute left-5 top-1/2 h-4 w-4 -translate-y-1/2 text-purple-200/70" />
+                  <input
+                    id="applicants"
+                    type="number"
+                    inputMode="numeric"
+                    min="1"
+                    value={numApplicants}
+                    onChange={(e) => setNumApplicants(e.target.value)}
+                    placeholder="0"
+                    className="peer block w-full rounded-2xl border border-white/12 bg-white/5 
+               px-12 pr-14 pt-8 pb-3 text-[15px] leading-relaxed text-white 
+               placeholder-transparent transition focus:border-pink-300/70 
+               focus:bg-white/10 focus:outline-none focus:ring-4 
+               focus:ring-purple-500/30 [appearance:textfield] 
+               [&::-webkit-outer-spin-button]:appearance-none 
+               [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                  <label
+                    htmlFor="applicants"
+                    className="pointer-events-none absolute left-12 top-3 text-[11px] font-medium uppercase 
+               tracking-[0.18em] text-purple-200 transition-all duration-200 
+               peer-placeholder-shown:left-12 peer-placeholder-shown:top-1/2 
+               peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:text-xs 
+               peer-placeholder-shown:text-gray-400 peer-focus:top-3 
+               peer-focus:text-[11px] peer-focus:text-purple-100"
+                  >
+                    Applicants
+                  </label>
+                </div>
+
+                {/* Budget */}
+                <div className="relative min-w-[170px]">
+                  <Wallet className="pointer-events-none absolute left-5 top-1/2 h-4 w-4 -translate-y-1/2 text-purple-200/70" />
+                  <input
+                    id="price"
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    value={price}
+                    onChange={(e) => setPrice(e.target.value)}
+                    placeholder="0"
+                    className="peer block w-full rounded-2xl border border-white/12 bg-white/5 
+               px-12 pr-14 pt-8 pb-3 text-[15px] leading-relaxed text-white 
+               placeholder-transparent transition focus:border-pink-300/70 
+               focus:bg-white/10 focus:outline-none focus:ring-4 
+               focus:ring-purple-500/30 [appearance:textfield] 
+               [&::-webkit-outer-spin-button]:appearance-none 
+               [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                  <label
+                    htmlFor="price"
+                    className="pointer-events-none absolute left-12 top-3 text-[11px] font-medium uppercase 
+               tracking-[0.18em] text-purple-200 transition-all duration-200 
+               peer-placeholder-shown:left-12 peer-placeholder-shown:top-1/2 
+               peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:text-xs 
+               peer-placeholder-shown:text-gray-400 peer-focus:top-3 
+               peer-focus:text-[11px] peer-focus:text-purple-100"
+                  >
+                    Budget ($)
+                  </label>
+                </div>
+
+                {/* Deadline */}
+<div className="relative min-w-[170px]">
+  <CalendarDays className="pointer-events-none absolute left-5 top-1/2 h-4 w-4 
+    -translate-y-1/2 text-purple-200/70" />
+  <input
+    id="deadline"
+    type="date"
+    value={deadline || ""}
+    onChange={(e) => setDeadline(e.target.value)}
+    placeholder=" "
+    className="peer block w-full rounded-2xl border border-white/12 bg-white/5 
+      px-12 pr-14 pt-8 pb-3 text-[15px] leading-relaxed text-white 
+      placeholder-transparent transition focus:border-pink-300/70 
+      focus:bg-white/10 focus:outline-none focus:ring-4 
+      focus:ring-purple-500/30 [appearance:textfield] 
+      [&::-webkit-calendar-picker-indicator]:opacity-0"
+  />
+  <label
+    htmlFor="deadline"
+    className="pointer-events-none absolute left-12 top-3 text-[11px] font-medium uppercase 
+      tracking-[0.18em] text-purple-200 transition-all duration-200 
+      peer-placeholder-shown:left-12 peer-placeholder-shown:top-1/2 
+      peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:text-xs 
+      peer-placeholder-shown:text-gray-400 peer-focus:top-3 
+      peer-focus:text-[11px] peer-focus:text-purple-100"
+  >
+    Deadline
+  </label>
+</div>
+
+
+              </div>
+
+              <div>
+                <p className="mb-3 text-sm font-medium text-gray-200">
+                  Attachments <span className="text-xs text-gray-400">(Optional)</span>
+                </p>
+                <motion.div
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.99 }}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="group flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-white/15 bg-white/5 px-6 py-8 text-center transition focus-within:border-purple-400/60 focus-within:bg-white/10 hover:border-purple-300/70 hover:bg-white/10"
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-500/20 text-purple-100 group-hover:bg-purple-500/30">
+                    <UploadCloud className="h-5 w-5" />
+                  </div>
+                  <p className="mt-3 text-sm font-medium text-white">Drop files or click to browse</p>
+                  <p className="mt-1 text-xs text-gray-400">Up to {MAX_ATTACHMENTS} files � PDF, ZIP, Figma, Docs</p>
+                  <input
+                    ref={fileInputRef}
+                    id="fileInput"
+                    type="file"
+                    multiple
+                    onChange={handleAttachmentChange}
+                    className="hidden"
+                  />
+                </motion.div>
+                <AnimatePresence>
+                  {attachments.length > 0 && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 12 }}
+                      className="mt-4 flex flex-wrap gap-3"
+                    >
+                      {attachments.map((file, index) => (
+                        <motion.div
+                          key={`${file.name}-${index}`}
+                          layout
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -8 }}
+                          className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/90"
+                        >
+                          <span className="max-w-[150px] truncate">{file.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => removeAttachment(index)}
+                            className="text-white/60 transition hover:text-red-300"
+                          >
+                            <XCircle className="h-4 w-4" />
+                          </button>
+                        </motion.div>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                transition={{ type: "spring", stiffness: 260, damping: 18 }}
+                className="sticky bottom-4 w-full rounded-2xl bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 px-6 py-3 text-lg font-semibold shadow-[0_20px_60px_rgba(129,17,188,0.35)] transition hover:shadow-[0_25px_70px_rgba(129,17,188,0.45)] focus:outline-none focus:ring-4 focus:ring-purple-400/40"
+                onClick={handleSubmit}
+              >
+                Post Task
+              </motion.button>
+            </section>
+
+            <aside className="relative mt-2 space-y-6 rounded-3xl border border-white/10 bg-white/5 px-6 py-8 shadow-[0_25px_80px_rgba(15,15,35,0.45)] backdrop-blur-xl sm:px-7 sm:py-10">
+              <div className="absolute -top-20 right-4 h-40 w-40 rounded-full bg-gradient-to-tr from-purple-500/35 via-pink-400/25 to-transparent blur-3xl" />
+              <div className="relative space-y-6 text-sm text-white/90">
+                <div className="rounded-2xl border border-white/10 bg-black/30 p-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.3em] text-purple-200/80">Snapshot</p>
+                    </div>
+                    <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-purple-100">
+                      {readinessScore}% ready
+                    </span>
+                  </div>
+                  <dl className="mt-4 space-y-3 text-sm">
+                    <div>
+                      <dt className="text-xs uppercase tracking-[0.2em] text-gray-400">Title</dt>
+                      <dd className="text-white/90">{title.trim() || "Title coming soon"}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs uppercase tracking-[0.2em] text-gray-400">Categories</dt>
+                      <dd className="text-white/90">{categoriesSummary}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs uppercase tracking-[0.2em] text-gray-400">Attachments</dt>
+                      <dd className="text-white/90">{attachmentsSummary}</dd>
+                    </div>
+                  </dl>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-black/25 p-5">
+                  <p className="text-xs uppercase tracking-[0.3em] text-purple-200/80">Launch checklist</p>
+                  <ul className="mt-4 space-y-3 text-sm">
+                    {essentials.map((item) => (
+                      <li key={item.id} className="flex items-start gap-3">
+                        {item.complete ? (
+                          <CheckCircle className="mt-0.5 h-4 w-4 text-emerald-300" />
+                        ) : (
+                          <CircleDashed className="mt-0.5 h-4 w-4 text-purple-200/70" />
+                        )}
+                        <div>
+                          <p className="font-medium text-white/90">{item.label}</p>
+                          <p className="text-xs text-gray-400">{item.hint}</p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 via-white/5 to-transparent p-5">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-full bg-white/10 p-2">
+                      <Lightbulb className="h-5 w-5 text-purple-100" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-white">Pro tip</p>
+                      <p className="text-xs text-gray-300">
+                        Give examples of past work or inspiration links so applicants can mirror your style.
+                      </p>
+                    </div>
+                  </div>
+                  <a
+                    href="https://help.withbriefs.com/sample-task"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-5 inline-flex items-center gap-2 rounded-full border border-white/20 px-3 py-2 text-xs font-semibold text-white transition hover:border-purple-300/60 hover:bg-white/10"
+                  >
+                    View sample brief
+                    <ArrowUpRight className="h-4 w-4" />
+                  </a>
+                </div>
+              </div>
+            </aside>
           </div>
-        )}
+        </motion.div>
+      </div>
 
-        {/* Title */}
-        <label className="block mb-2 text-lg">Title</label>
-        <input
-          type="text"
-          placeholder="Enter task title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          className="w-full p-3 mb-4 rounded-lg bg-[#1f1f1f]/80 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
-        />
-
-        {/* Description */}
-        <textarea
-          placeholder="Enter task description"
-          rows="4"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          className="w-full p-3 mb-4 rounded-lg bg-[#1f1f1f]/80 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
-        ></textarea>
-
-
-
-        {/* Category */}
-        <label className="block mb-2 text-lg">Sub Category</label>
-        <div className="flex flex-wrap gap-2 mb-4">
-          {categories.map((cat) => {
-            const selected = selectedCategories.includes(cat);
-            const disabled = !selected && selectedCategories.length >= 3;
-            return (
-              <motion.div
-                whileTap={!disabled ? { scale: 0.95 } : undefined}
-                whileHover={!disabled ? { scale: 1.05 } : undefined}
-                key={cat}
-                onClick={() => !disabled && handleCategoryClick(cat)}
-                className={`px-4 py-2 rounded-full cursor-${disabled ? "not-allowed" : "pointer"} transition-all text-sm md:text-base
-        ${selected
-                    ? "bg-purple-600 border border-purple-400 shadow-lg shadow-purple-500/40"
-                    : `bg-[#1f1f1f]/80 border ${disabled ? "border-gray-800 opacity-50" : "border-gray-700 hover:border-purple-400"}`}
-      `}
-              >
-                {cat}
-              </motion.div>
-            );
-          })}
-
-        </div>
-
-        {/* Number of Applicants */}
-        <label className="block mb-2 text-lg">Number of Applicants</label>
-        <input
-          type="number"
-          placeholder="Enter max applicants"
-          value={numApplicants}
-          onChange={(e) => setNumApplicants(e.target.value)}
-          className="w-full p-3 mb-4 rounded-lg bg-[#1f1f1f]/80 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
-        />
-
-        {/* Price */}
-        <label className="block mb-2 text-lg">Price</label>
-        <input
-          type="number"
-          placeholder="Enter price"
-          value={price}
-          onChange={(e) => setPrice(e.target.value)}
-          className="w-full p-3 mb-4 rounded-lg bg-[#1f1f1f]/80 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
-        />
-
-
-        {/* Deadline */}
-        <label className="block mb-2 text-lg">Deadline</label>
-        <input
-          type="date"
-          value={deadline} // ✅ bind state
-          onChange={(e) => setDeadline(e.target.value)} // ✅ update state
-          className="w-full p-3 mb-4 rounded-lg bg-[#1f1f1f]/80 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
-        />
-
-        {/* Attachments */}
-        <label className="block mb-2 text-lg">Attachments (Max 20)</label>
-        <div
-          className="border-2 border-dashed border-gray-600 rounded-lg p-6 text-center bg-[#1f1f1f]/50 hover:border-purple-400 transition-all cursor-pointer mb-4"
-          onClick={() => document.getElementById("fileInput").click()}
-        >
-          <p className="text-gray-400">Click or drag files here to upload</p>
-          <p className="text-sm text-gray-500">Max 20 files allowed</p>
-          <input
-            id="fileInput"
-            type="file"
-            multiple
-            onChange={handleAttachmentChange}
-            className="hidden"
-          />
-        </div>
-        <div className="flex flex-wrap gap-3 mb-4">
-          {attachments.map((file, index) => (
-            <div
-              key={index}
-              className="bg-[#1f1f1f]/80 px-3 py-2 rounded-lg flex items-center gap-2 border border-gray-700"
-            >
-              <span className="text-sm truncate max-w-[120px]">{file.name}</span>
-              <button
-                onClick={() => removeAttachment(index)}
-                className="text-red-400 hover:text-red-500"
-              >
-                ✕
-              </button>
-            </div>
-          ))}
-        </div>
-
-        {/* Submit */}
-        <motion.button
-          whileHover={{ scale: 1.03 }}
-          whileTap={{ scale: 0.97 }}
-          transition={{ type: "spring", stiffness: 300 }}
-          className="w-full py-3 rounded-lg bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 shadow-lg shadow-purple-500/30 font-semibold text-lg"
-          onClick={handleSubmit}   // <-- new
-        >
-          Post Task
-        </motion.button>
-
-      </motion.div>
       <PostingOverlay posting={posting} posted={posted} redirectTo="Tasks" />
 
-
-      {/* Keyframes */}
       <style>{`
         @keyframes gradient {
           0% { background-position: 0% 50%; }
@@ -315,18 +613,34 @@ export default function PostTask() {
           100% { background-position: 0% 50%; }
         }
         .animate-gradient {
-          background-size: 200% 200%;
-          animation: gradient 10s ease infinite;
+          background-size: 220% 220%;
+          animation: gradient 16s ease infinite;
         }
         @keyframes float {
           0% { transform: translateY(0px); }
-          50% { transform: translateY(-20px); }
+          50% { transform: translateY(-16px); }
           100% { transform: translateY(0px); }
         }
         .animate-float {
           animation: float infinite ease-in-out;
         }
-      `}</style>
+        .date-input {
+          -webkit-appearance: none;
+          appearance: none;
+        }
+        .date-input::-webkit-inner-spin-button,
+        .date-input::-webkit-clear-button,
+        .date-input::-webkit-calendar-picker-indicator {
+          display: none;
+        }
+        .date-input[data-has-value="false"]::-webkit-datetime-edit {
+          color: transparent;
+        }
+        .date-input[data-has-value="false"]::-moz-placeholder {
+          color: transparent;
+        }
+      `}
+      </style>
     </div>
   );
 }
