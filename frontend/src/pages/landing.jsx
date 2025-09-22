@@ -4,7 +4,7 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { useGLTF, ScrollControls, useScroll } from "@react-three/drei";
 import { EffectComposer, Bloom, Vignette, DepthOfField } from "@react-three/postprocessing";
 import * as THREE from "three";
-import {  AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { create } from "zustand";
 

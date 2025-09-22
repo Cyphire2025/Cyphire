@@ -2,7 +2,7 @@ import React, { Suspense, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/navbar";
 import Footer from "../components/footer";
-import { AnimatePresence, useMotionValue, useTransform } from "framer-motion";
+import {motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
 import {
   ArrowRight,
   ArrowUpRight,
