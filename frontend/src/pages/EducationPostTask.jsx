@@ -1,68 +1,107 @@
-import React, { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import React, { useEffect, useRef, useState } from "react";
+import { motion as Motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { AnimatedCalendar as Calendar } from "@/components/ui/Calendar"
+import { format } from "date-fns"
+import {
+  ArrowLeft,
+  UploadCloud,
+  Sparkles,
+  Users,
+  Wallet,
+  CalendarDays,
+  XCircle,
+  CheckCircle,
+  CircleDashed,
+  Lightbulb,
+  ArrowUpRight,
+} from "lucide-react";
 import PostingOverlay from "../components/PostingOverlay";
 
-
-const API_BASE = import.meta.env?.VITE_API_BASE || "http://localhost:5000";
+const MAX_CATEGORIES = 5;
+const MAX_ATTACHMENTS = 5;
 
 export default function EducationPostTask() {
   const navigate = useNavigate();
 
-  // Form states
+  const categories = [
+    "Assignment",
+    "Lecture Slides",
+    "Study Notes",
+    "Quiz",
+    "Project Brief",
+    "Curriculum Outline",
+  ];
+
+  const [selectedCategories, setSelectedCategories] = useState([]);
+  const [attachments, setAttachments] = useState([]);
   const [title, setTitle] = useState("");
   const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");
-  const [deadline, setDeadline] = useState("");
-  const [price, setPrice] = useState("");
   const [numApplicants, setNumApplicants] = useState("");
-  const [logo, setLogo] = useState(null);
-  const [attachments, setAttachments] = useState([]);
+  const [price, setPrice] = useState("");
+  const [deadline, setDeadline] = useState(null)
   const [posting, setPosting] = useState(false);
   const [posted, setPosted] = useState(false);
-  const [deliverableTypes, setDeliverableTypes] = useState([]);
-
-  const handleDeliverableClick = (type) => {
-    setDeliverableTypes((prev) => {
-      if (prev.includes(type)) {
-        return prev.filter((t) => t !== type);
-      }
-      if (prev.length >= 20) {
-        alert("You can select up to 20 deliverables.");
-        return prev;
-      }
-      return [...prev, type];
-    });
-  };
-
-
-
-  // Floating particles (background animation)
   const [particles, setParticles] = useState([]);
+  const [logo, setLogo] = useState(null);
+  const [logoPreview, setLogoPreview] = useState("");
+  const [openDeadline, setOpenDeadline] = useState(false);
+
+
+  const logoInputRef = useRef(null);
+  const fileInputRef = useRef(null);
+
+
   useEffect(() => {
-    const newParticles = Array.from({ length: 15 }).map(() => ({
+    const newParticles = Array.from({ length: 12 }).map(() => ({
       left: `${Math.random() * 100}%`,
       top: `${Math.random() * 100}%`,
       size: `${Math.random() * 6 + 4}px`,
-      duration: `${Math.random() * 8 + 4}s`,
+      duration: `${Math.random() * 8 + 6}s`,
     }));
     setParticles(newParticles);
   }, []);
 
-  // File upload
-  const handleAttachmentChange = (e) => {
-    const files = Array.from(e.target.files);
-    if (attachments.length + files.length <= 10) {
-      setAttachments([...attachments, ...files]);
-    } else {
-      alert("You can upload up to 10 attachments.");
+  useEffect(() => {
+    if (!logo) {
+      setLogoPreview("");
+      return undefined;
     }
-  };
-  const removeAttachment = (index) => {
-    setAttachments(attachments.filter((_, i) => i !== index));
+
+    const objectUrl = URL.createObjectURL(logo);
+    setLogoPreview(objectUrl);
+
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [logo]);
+
+  const handleCategoryClick = (category) => {
+    setSelectedCategories((prev) => {
+      if (prev.includes(category)) {
+        return prev.filter((c) => c !== category);
+      }
+      if (prev.length >= MAX_CATEGORIES) {
+        alert(`You can select up to ${MAX_CATEGORIES} deliverables.`);
+        return prev;
+      }
+      return [...prev, category];
+    });
   };
 
-  // Submit task
+  const handleAttachmentChange = (e) => {
+    const files = Array.from(e.target.files);
+    if (attachments.length + files.length <= MAX_ATTACHMENTS) {
+      setAttachments((prev) => [...prev, ...files]);
+    } else {
+      alert(`You can upload up to ${MAX_ATTACHMENTS} attachments.`);
+    }
+  };
+
+  const removeAttachment = (index) => {
+    setAttachments((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const handleSubmit = async () => {
     try {
       setPosting(true);
@@ -71,16 +110,17 @@ export default function EducationPostTask() {
       const formData = new FormData();
       formData.append("title", title);
       formData.append("description", description);
+      selectedCategories.forEach((cat) => formData.append("categories[]", cat));
       formData.append("category", "Education");
       formData.append("numberOfApplicants", numApplicants);
       formData.append("price", price);
-      formData.append("deadline", deadline);
-      formData.append("metadata", JSON.stringify({ subject, deliverables: deliverableTypes, }));
+      if (deadline) formData.append("deadline", deadline.toISOString());
+      formData.append("metadata", JSON.stringify({ subject, deliverables: selectedCategories }));
 
       if (logo) formData.append("logo", logo);
-
       attachments.forEach((file) => formData.append("attachments", file));
 
+      const API_BASE = import.meta.env?.VITE_API_BASE || "http://localhost:5000";
       const res = await fetch(`${API_BASE}/api/tasks`, {
         method: "POST",
         credentials: "include",
@@ -89,31 +129,73 @@ export default function EducationPostTask() {
 
       if (res.ok) {
         setPosted(true);
-        setTimeout(() => {
-          navigate("/tasks"); // go to marketplace after posting
-        }, 2000);
+        setTimeout(() => navigate("/tasks"), 1600);
       } else {
         const errData = await res.json();
-        alert(`❌ Failed to post task: ${errData.error || "Unknown error"}`);
+        alert(`Failed to post task: ${errData.error || "Unknown error"}`);
         setPosting(false);
       }
     } catch (error) {
       console.error("Error posting task:", error);
-      alert("❌ An error occurred while posting the task.");
+      alert("An error occurred while posting the task.");
       setPosting(false);
     }
   };
 
-  return (
-    <div className="relative flex justify-center items-center min-h-screen text-white p-4 md:p-6 overflow-hidden">
-      {/* Background gradient */}
-      <div className="absolute inset-0 bg-gradient-to-br from-purple-900 via-black to-pink-900 animate-gradient" />
+  const essentials = [
+    {
+      id: "title",
+      label: "Sharpen your title",
+      hint: "Aim for a crisp, outcome-focused headline.",
+      complete: Boolean(title.trim()),
+    },
+    {
+      id: "subject",
+      label: "Specify the subject",
+      hint: "Share the topic, grade level, or learning goal.",
+      complete: Boolean(subject.trim()),
+    },
+    {
+      id: "description",
+      label: "Describe the deliverable",
+      hint: "Spell out scope, length, and success metrics.",
+      complete: description.trim().length > 0,
+    },
+    {
+      id: "categories",
+      label: "Pick deliverables",
+      hint: "Select up to five outputs to include in the brief.",
+      complete: selectedCategories.length > 0,
+    },
+    {
+      id: "logistics",
+      label: "Lock budget & deadline",
+      hint: "Transparent expectations speed replies.",
+      complete: Boolean(price) && Boolean(deadline),
+    },
+  ];
 
-      {/* Floating particles */}
+  const readinessScore = essentials.length
+    ? Math.round((essentials.filter((item) => item.complete).length / essentials.length) * 100)
+    : 0;
+
+  const categoriesSummary = selectedCategories.length
+    ? selectedCategories.join(", ")
+    : "No deliverables selected yet";
+
+  const attachmentsSummary = attachments.length
+    ? `${attachments.length} file${attachments.length > 1 ? "s" : ""} ready`
+    : "No attachments yet";
+
+  return (
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10 text-white md:px-8">
+      <div className="absolute inset-0 bg-gradient-to-br from-purple-900 via-black to-pink-900 animate-gradient" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_55%)]" />
+
       {particles.map((p, i) => (
         <div
           key={i}
-          className="absolute bg-purple-500/40 rounded-full blur-md animate-float"
+          className="hidden sm:block absolute rounded-full bg-purple-500/35 blur-md animate-float"
           style={{
             left: p.left,
             top: p.top,
@@ -124,199 +206,527 @@ export default function EducationPostTask() {
         />
       ))}
 
-      {/* Main Card */}
-      <motion.div
-        initial={{ opacity: 0, y: 40 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="relative z-10 w-full max-w-2xl bg-[#141414]/90 backdrop-blur-xl rounded-2xl p-6 md:p-8 shadow-2xl border border-purple-500/30 shadow-purple-500/20"
-      >
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
-          <motion.h1
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-pink-500 to-purple-500 bg-clip-text text-transparent"
-          >
-            Post an Education Task
-          </motion.h1>
-
-          {/* Back Button */}
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => navigate("/choose-category")}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1f1f1f]/80 hover:bg-[#2a2a2a] border border-gray-700 hover:border-purple-400 transition-all"
-          >
-            ⬅ Back
-          </motion.button>
-        </div>
-
-        {/* Title Image Upload */}
-        <label className="block mb-2 text-lg">Title Image</label>
-        <div
-          className="border-2 border-dashed border-gray-600 rounded-lg p-6 text-center bg-[#1f1f1f]/50 hover:border-purple-400 cursor-pointer mb-4"
-          onClick={() => document.getElementById("logoInput").click()}
+      <div className="relative z-10 w-full max-w-6xl scale-[1.0]">
+        <Motion.div
+          initial={{ opacity: 0, y: 36 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+          className="relative overflow-hidden rounded-3xl border border-white/10 bg-[#141414]/85 p-6 shadow-[0_35px_120px_rgba(129,17,188,0.35)] backdrop-blur-2xl sm:p-8 md:p-10"
         >
-          <p className="text-gray-400">Click or drag an image here</p>
-          <p className="text-sm text-gray-500">1 file (PNG/JPG)</p>
-          <input
-            id="logoInput"
-            type="file"
-            accept="image/*"
-            onChange={(e) => setLogo(e.target.files[0])}
-            className="hidden"
-          />
-        </div>
-        {logo && (
-          <div className="flex items-center gap-2 mb-4 bg-[#1f1f1f]/80 px-3 py-2 rounded-lg border border-gray-700">
-            <span className="text-sm truncate max-w-[200px]">{logo.name}</span>
-            <button
-              onClick={() => setLogo(null)}
-              className="text-red-400 hover:text-red-500"
-            >
-              ✕
-            </button>
+          <div className="absolute -right-20 top-0 h-64 w-64 rounded-full bg-purple-500/20 blur-3xl" />
+          <div className="absolute -bottom-16 -left-16 h-56 w-56 rounded-full bg-pink-500/10 blur-3xl" />
+
+          <div className="relative grid gap-10 md:grid-cols-[minmax(0,1.25fr)_minmax(0,0.9fr)]">
+            <section className="space-y-8">
+              <div className="flex flex-col-reverse gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <Motion.h1
+                    initial={{ opacity: 0, y: -12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.15, duration: 0.45 }}
+                    className="bg-gradient-to-r from-pink-400 via-purple-300 to-purple-100 bg-clip-text text-3xl font-semibold text-transparent sm:text-4xl"
+                  >
+                    Post Education Task
+                  </Motion.h1>
+                  <p className="mt-3 text-sm text-gray-200/80 sm:text-base">
+                    Share a polished learning brief and match with top educators fast.
+                  </p>
+                  <p className="mt-5 text-xs uppercase tracking-[0.35em] text-purple-200/70">
+                    Step 1 of 3 | Learning Brief
+                  </p>
+                </div>
+
+                <Motion.button
+                  initial={{ opacity: 0, x: 16 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.2, duration: 0.4 }}
+                  onClick={() => navigate("/choose-category")}
+                  className="group flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-sm font-medium text-white/90 transition hover:border-purple-300/60 hover:bg-white/10"
+                >
+                  <ArrowLeft className="h-4 w-4 transition group-hover:-translate-x-0.5" />
+                  Back
+                </Motion.button>
+              </div>
+
+              <div>
+                <p className="mb-2 text-sm font-medium text-gray-200">Hero Image</p>
+                <Motion.div
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.99 }}
+                  onClick={() => logoInputRef.current?.click()}
+                  className="group relative flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-white/15 bg-white/5 px-6 py-8 text-center transition focus-within:border-purple-400/60 focus-within:bg-white/10 hover:border-purple-300/70 hover:bg-white/10"
+                >
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-purple-500/20 text-purple-100 group-hover:bg-purple-500/30">
+                    <UploadCloud className="h-6 w-6" />
+                  </div>
+                  <p className="mt-4 text-sm font-medium text-white">Upload a cover image</p>
+                  <p className="mt-1 text-xs text-gray-400">PNG or JPG | Up to 5MB</p>
+                  <input
+                    ref={logoInputRef}
+                    id="logoInput"
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setLogo(e.target.files?.[0] ?? null)}
+                    className="hidden"
+                  />
+                </Motion.div>
+                {logoPreview && (
+                  <Motion.div
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mt-4 flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 p-4"
+                  >
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={logoPreview}
+                        alt="Selected cover"
+                        className="h-12 w-12 rounded-xl object-cover ring-2 ring-white/10"
+                      />
+                      <div>
+                        <p className="text-sm font-medium text-white/90">{logo?.name}</p>
+                        <p className="text-xs text-gray-400">Ready to inspire learners</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setLogo(null)}
+                      className="text-white/60 transition hover:text-red-300"
+                    >
+                      <XCircle className="h-5 w-5" />
+                    </button>
+                  </Motion.div>
+                )}
+              </div>
+
+              <div className="space-y-6">
+                <div className="relative">
+                  <input
+                    id="taskTitle"
+                    type="text"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="Your task title"
+                    className="peer block w-full rounded-2xl border border-white/12 bg-white/5 px-5 pt-7 pb-3 text-[15px] leading-relaxed text-white placeholder-transparent shadow-inner shadow-black/10 transition focus:border-pink-300/70 focus:bg-white/10 focus:outline-none focus:ring-4 focus:ring-purple-500/30"
+                  />
+                  <label
+                    htmlFor="taskTitle"
+                    className="pointer-events-none absolute left-5 top-3 text-[11px] font-medium uppercase tracking-[0.18em] text-purple-200 transition-all duration-200 peer-placeholder-shown:top-6 peer-placeholder-shown:text-sm peer-placeholder-shown:text-gray-400 peer-focus:top-3 peer-focus:text-[11px] peer-focus:text-purple-100"
+                  >
+                    Title
+                  </label>
+                  <p className="mt-2 text-xs text-gray-400">Capture the project in one punchy sentence.</p>
+                </div>
+                <div className="relative">
+                  <input
+                    id="subject"
+                    type="text"
+                    value={subject}
+                    onChange={(e) => setSubject(e.target.value)}
+                    placeholder="Subject or focus area"
+                    className="peer block w-full rounded-2xl border border-white/12 bg-white/5 px-5 pt-7 pb-3 text-[15px] leading-relaxed text-white placeholder-transparent shadow-inner shadow-black/10 transition focus:border-pink-300/70 focus:bg-white/10 focus:outline-none focus:ring-4 focus:ring-purple-500/30"
+                  />
+                  <label
+                    htmlFor="subject"
+                   className="pointer-events-none absolute left-5 top-3 text-[11px] font-medium uppercase tracking-[0.18em] text-purple-200 transition-all duration-200 peer-placeholder-shown:top-6 peer-placeholder-shown:text-sm peer-placeholder-shown:text-gray-400 peer-focus:top-3 peer-focus:text-[11px] peer-focus:text-purple-100"
+                  >
+                    Subject
+                  </label>
+                  <p className="mt-2 text-xs text-gray-400">Call out the topic, level, or audience for this content.</p>
+                </div>
+
+
+                <div className="relative">
+                  <textarea
+                    id="taskDescription"
+                    rows={5}
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Describe the deliverables, tone, tech stack, success metrics..."
+                    className="peer block w-full resize-none rounded-2xl border border-white/12 bg-white/5 px-5 pt-7 pb-3 text-[15px] leading-relaxed text-white placeholder-transparent shadow-inner shadow-black/10 transition focus:border-pink-300/70 focus:bg-white/10 focus:outline-none focus:ring-4 focus:ring-purple-500/30"
+                  />
+                  <label
+                    htmlFor="taskDescription"
+                    className="pointer-events-none absolute left-5 top-3 text-[11px] font-medium uppercase tracking-[0.18em] text-purple-200 transition-all duration-200 peer-placeholder-shown:top-6 peer-placeholder-shown:text-sm peer-placeholder-shown:text-gray-400 peer-focus:top-3 peer-focus:text-[11px] peer-focus:text-purple-100"
+                  >
+                    Description
+                  </label>
+                  <p className="mt-2 text-xs text-gray-400">Outline deliverables, context, and what success looks like.</p>
+                </div>
+              </div>
+
+              <div>
+                <p className="mb-3 text-sm font-medium text-gray-200">Deliverables</p>
+                <div className="flex flex-wrap gap-3">
+                  {categories.map((cat) => {
+                    const selected = selectedCategories.includes(cat);
+                    const disabled = !selected && selectedCategories.length >= MAX_CATEGORIES;
+                    const chipClasses = [
+                      "relative flex select-none items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition",
+                      selected
+                        ? "border-transparent bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/40"
+                        : "border-white/15 bg-white/5 text-gray-200/90 hover:border-purple-300/60 hover:bg-white/10",
+                      disabled ? "cursor-not-allowed opacity-40" : "cursor-pointer",
+                    ].join(" ");
+
+                    return (
+                      <Motion.button
+                        key={cat}
+                        type="button"
+                        layout
+                        disabled={disabled}
+                        aria-pressed={selected}
+                        whileTap={!disabled ? { scale: 0.95 } : undefined}
+                        whileHover={!disabled ? { scale: 1.03 } : undefined}
+                        transition={{ type: "spring", stiffness: 400, damping: 28 }}
+                        onClick={() => !disabled && handleCategoryClick(cat)}
+                        className={chipClasses}
+                      >
+                        <Sparkles className="h-4 w-4 opacity-70" />
+                        {cat}
+                      </Motion.button>
+                    );
+                  })}
+                </div>
+                <p className="mt-3 text-xs text-gray-400">
+                  Select up to {MAX_CATEGORIES} deliverables to shape the engagement.
+                </p>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+                {/* Applicants */}
+                <div className="relative min-w-[170px] group">
+                  <Users className="pointer-events-none absolute left-5 top-1/2 h-4 w-4 
+    -translate-y-1/2 text-purple-200/70" />
+                  <input
+                    id="applicants"
+                    type="number"
+                    inputMode="numeric"
+                    min="1"
+                    value={numApplicants}
+                    onChange={(e) => setNumApplicants(e.target.value)}
+                    placeholder="0"
+                    className="peer block w-full rounded-2xl border border-white/12 bg-white/5 
+      px-12 pr-14 pt-8 pb-3 text-[15px] leading-relaxed text-white 
+      placeholder-transparent transition focus:border-pink-300/70 
+      focus:bg-white/10 focus:outline-none focus:ring-4 
+      focus:ring-purple-500/30 [appearance:textfield] 
+      [&::-webkit-outer-spin-button]:appearance-none 
+      [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                  <label
+                    htmlFor="applicants"
+                    className="pointer-events-none absolute left-12 top-3 text-[11px] font-medium uppercase 
+      tracking-[0.18em] text-purple-200 transition-all duration-200 
+      peer-placeholder-shown:left-12 peer-placeholder-shown:top-1/2 
+      peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:text-xs 
+      peer-placeholder-shown:text-gray-400 peer-focus:top-3 
+      peer-focus:text-[11px] peer-focus:text-purple-100"
+                  >
+                    Applicants
+                  </label>
+
+                  {/* Tooltip on hover */}
+                  <div className="absolute -bottom-16 left-1/2 -translate-x-1/2 
+                  opacity-0 group-hover:opacity-100 transition-all duration-300 
+                  pointer-events-none">
+                    <p className="text-sm font-medium text-purple-100 
+                  bg-[#141414]/90 backdrop-blur-md 
+                  border border-purple-400/30 
+                  px-4 py-2 rounded-xl shadow-[0_0_15px_rgba(168,85,247,0.45)] 
+                  whitespace-nowrap">
+                      Enter the maximum number <br></br>of applicants allowed
+                    </p>
+                  </div>
+                </div>
+
+                {/* Budget */}
+                <div className="relative min-w-[170px] group">
+                  <Wallet className="pointer-events-none absolute left-5 top-1/2 h-4 w-4 
+    -translate-y-1/2 text-purple-200/70" />
+                  <input
+                    id="price"
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    value={price}
+                    onChange={(e) => setPrice(e.target.value)}
+                    placeholder="0"
+                    className="peer block w-full rounded-2xl border border-white/12 bg-white/5 
+      px-12 pr-14 pt-8 pb-3 text-[15px] leading-relaxed text-white 
+      placeholder-transparent transition focus:border-pink-300/70 
+      focus:bg-white/10 focus:outline-none focus:ring-4 
+      focus:ring-purple-500/30 [appearance:textfield] 
+      [&::-webkit-outer-spin-button]:appearance-none 
+      [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                  <label
+                    htmlFor="price"
+                    className="pointer-events-none absolute left-12 top-3 text-[11px] font-medium uppercase 
+      tracking-[0.18em] text-purple-200 transition-all duration-200 
+      peer-placeholder-shown:left-12 peer-placeholder-shown:top-1/2 
+      peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:text-xs 
+      peer-placeholder-shown:text-gray-400 peer-focus:top-3 
+      peer-focus:text-[11px] peer-focus:text-purple-100"
+                  >
+                    Budget ($)
+                  </label>
+
+                  {/* Tooltip on hover */}
+                  <div className="absolute -bottom-11 left-1/2 -translate-x-1/2 
+                  opacity-0 group-hover:opacity-100 transition-all duration-300 
+                  pointer-events-none">
+                    <p className="text-sm font-medium text-purple-100 
+                  bg-[#141414]/90 backdrop-blur-md 
+                  border border-purple-400/30 
+                  px-4 py-2 rounded-xl shadow-[0_0_15px_rgba(168,85,247,0.45)] 
+                  whitespace-nowrap">
+                      Enter your project budget
+                    </p>
+                  </div>
+                </div>
+
+                {/* Deadline */}
+                <div className="relative min-w-[170px] group">
+                  <Popover open={openDeadline} onOpenChange={setOpenDeadline}>
+                    <PopoverTrigger asChild>
+                      <div className="relative w-full">
+                        <CalendarDays className="pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 h-4 w-4 text-purple-200/70" />
+
+                        {/* Fake input styled like Applicants & Budget */}
+                        <div
+                          tabIndex={0}
+                          className="peer block w-full rounded-2xl border border-white/12 bg-white/5 
+    px-12 pr-14 pt-8 pb-3 text-[15px] leading-relaxed text-white 
+    transition focus:border-pink-300/70 focus:bg-white/10 focus:outline-none focus:ring-4 focus:ring-purple-500/30 cursor-pointer"
+                        >
+                          {deadline ? (
+                            <span className="text-white whitespace-nowrap">{format(deadline, "PP")}</span>
+                          ) : (
+                            <span className="text-transparent">-</span>
+                          )}
+                        </div>
+
+                        {/* Floating label */}
+                        <label
+                          className={`absolute left-12 text-[11px] font-medium uppercase tracking-[0.18em] transition-all duration-200
+    ${deadline
+                              ? "top-3 text-purple-200"
+                              : "top-1/2 -translate-y-1/2 text-xs text-gray-400 peer-focus:top-3 peer-focus:-translate-y-0 peer-focus:text-[11px] peer-focus:text-purple-100"
+                            }`}
+                        >
+                          Deadline
+                        </label>
+
+                      </div>
+                    </PopoverTrigger>
+
+                    <PopoverContent className="w-auto p-0 bg-[#141414] border border-white/10 rounded-xl shadow-xl">
+                      <Calendar
+                        mode="single"
+                        selected={deadline}
+                        onSelect={(date) => {
+                          setDeadline(date);
+                          setOpenDeadline(false); // 👈 closes the popover
+                        }}
+                        className="rounded-md border-none text-white"
+                      />
+
+                    </PopoverContent>
+                  </Popover>
+
+                  {/* Tooltip on hover */}
+                  <div className="absolute -bottom-11 left-1/2 -translate-x-1/2 
+                opacity-0 group-hover:opacity-100 transition-all duration-300 
+                pointer-events-none">
+                    <p className="text-sm font-medium text-purple-100 
+                bg-[#141414]/90 backdrop-blur-md 
+                border border-purple-400/30 
+                px-4 py-2 rounded-xl shadow-[0_0_15px_rgba(168,85,247,0.45)] 
+                whitespace-nowrap">
+                      Select the project deadline date
+                    </p>
+                  </div>
+
+                </div>
+
+
+              </div>
+
+              <div>
+                <p className="mb-3 text-sm font-medium text-gray-200">
+                  Attachments <span className="text-xs text-gray-400">(Optional)</span>
+                </p>
+                <Motion.div
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.99 }}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="group flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-white/15 bg-white/5 px-6 py-8 text-center transition focus-within:border-purple-400/60 focus-within:bg-white/10 hover:border-purple-300/70 hover:bg-white/10"
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-500/20 text-purple-100 group-hover:bg-purple-500/30">
+                    <UploadCloud className="h-5 w-5" />
+                  </div>
+                  <p className="mt-3 text-sm font-medium text-white">Drop files or click to browse</p>
+                  <p className="mt-1 text-xs text-gray-400">Up to {MAX_ATTACHMENTS} files � PDF, ZIP, Figma, Docs</p>
+                  <input
+                    ref={fileInputRef}
+                    id="fileInput"
+                    type="file"
+                    multiple
+                    onChange={handleAttachmentChange}
+                    className="hidden"
+                  />
+                </Motion.div>
+                <AnimatePresence>
+                  {attachments.length > 0 && (
+                    <Motion.div
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 12 }}
+                      className="mt-4 flex flex-wrap gap-3"
+                    >
+                      {attachments.map((file, index) => (
+                        <Motion.div
+                          key={`${file.name}-${index}`}
+                          layout
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -8 }}
+                          className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/90"
+                        >
+                          <span className="max-w-[150px] truncate">{file.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => removeAttachment(index)}
+                            className="text-white/60 transition hover:text-red-300"
+                          >
+                            <XCircle className="h-4 w-4" />
+                          </button>
+                        </Motion.div>
+                      ))}
+                    </Motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              <Motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                transition={{ type: "spring", stiffness: 260, damping: 18 }}
+                className="sticky bottom-4 w-full rounded-2xl bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 px-6 py-3 text-lg font-semibold shadow-[0_20px_60px_rgba(129,17,188,0.35)] transition hover:shadow-[0_25px_70px_rgba(129,17,188,0.45)] focus:outline-none focus:ring-4 focus:ring-purple-400/40"
+                onClick={handleSubmit}
+              >
+                Post Task
+              </Motion.button>
+            </section>
+
+            <aside className="relative mt-2 space-y-6 rounded-3xl border border-white/10 bg-white/5 px-6 py-8 shadow-[0_25px_80px_rgba(15,15,35,0.45)] backdrop-blur-xl sm:px-7 sm:py-10 w-fit h-fit">
+              <div className="absolute -top-20 right-4 h-40 w-40 rounded-full bg-gradient-to-tr from-purple-500/35 via-pink-400/25 to-transparent blur-3xl" />
+              <div className="relative space-y-6 text-sm text-white/90">
+                <div className="rounded-2xl border border-white/10 bg-black/30 p-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.3em] text-purple-200/80">Snapshot</p>
+                    </div>
+                    <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-purple-100">
+                      {readinessScore}% ready
+                    </span>
+                  </div>
+                  <dl className="mt-4 space-y-3 text-sm">
+                    <div>
+                      <dt className="text-xs uppercase tracking-[0.2em] text-gray-400">Title</dt>
+                      <dd className="text-white/90">{title.trim() || "Title coming soon"}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs uppercase tracking-[0.2em] text-gray-400">Subject</dt>
+                      <dd className="text-white/90">{subject.trim() || "Add subject focus"}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs uppercase tracking-[0.2em] text-gray-400">Deliverables</dt>
+                      <dd className="text-white/90">{categoriesSummary}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs uppercase tracking-[0.2em] text-gray-400">Attachments</dt>
+                      <dd className="text-white/90">{attachmentsSummary}</dd>
+                    </div>
+                  </dl>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-black/25 p-5">
+                  <p className="text-xs uppercase tracking-[0.3em] text-purple-200/80">Launch checklist</p>
+                  <ul className="mt-4 space-y-3 text-sm">
+                    {essentials.map((item) => (
+                      <li key={item.id} className="flex items-start gap-3">
+                        {item.complete ? (
+                          <CheckCircle className="mt-0.5 h-4 w-4 text-emerald-300" />
+                        ) : (
+                          <CircleDashed className="mt-0.5 h-4 w-4 text-purple-200/70" />
+                        )}
+                        <div>
+                          <p className="font-medium text-white/90">{item.label}</p>
+                          <p className="text-xs text-gray-400">{item.hint}</p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 via-white/5 to-transparent p-5">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-full bg-white/10 p-2">
+                      <Lightbulb className="h-5 w-5 text-purple-100" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-white">Pro tip</p>
+                      <p className="text-xs text-gray-300">
+                        Link rubrics, exemplar lessons, or resources so educators can align quickly.
+                      </p>
+                    </div>
+                  </div>
+                  <a
+                    href="https://help.withbriefs.com/sample-task"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-5 inline-flex items-center gap-2 rounded-full border border-white/20 px-3 py-2 text-xs font-semibold text-white transition hover:border-purple-300/60 hover:bg-white/10"
+                  >
+                    View sample brief
+                    <ArrowUpRight className="h-4 w-4" />
+                  </a>
+                </div>
+              </div>
+              {/* Visual Finishers */}
+              <div className="space-y-10 relative">
+                {/* Motivational Quote Card */}
+                <div className="relative rounded-2xl border border-purple-400/20 
+                  bg-gradient-to-br from-purple-900/30 via-[#1a1a1a]/80 to-pink-900/20 
+                  p-6 text-center shadow-[0_12px_40px_rgba(129,17,188,0.25)] 
+                  backdrop-blur-md">
+                  <p className="text-sm font-semibold text-purple-100 italic tracking-wide drop-shadow-[0_0_6px_rgba(168,85,247,0.35)]">
+                    “Great briefs attract great talent.”
+                  </p>
+                  {/* Thin neon accent line */}
+                  <div className="mt-3 h-0.5 w-24 mx-auto bg-gradient-to-r from-pink-500 via-purple-400 to-pink-500 rounded-full opacity-80"></div>
+                </div>
+
+                {/* Shimmer Badge */}
+                <div className="relative flex items-center justify-center py-3">
+                  <div className="h-px w-full bg-gradient-to-r from-transparent via-purple-500/30 to-transparent"></div>
+                  <span className="absolute rounded-full border border-purple-500/40 
+                     bg-gradient-to-r from-purple-600/60 to-pink-600/60 
+                     px-4 py-1 text-xs font-semibold text-white 
+                     backdrop-blur-sm shadow-[0_0_15px_rgba(168,85,247,0.45)] 
+                     tracking-wide animate-pulse">
+                    Cyphire
+                  </span>
+                </div>
+              </div>
+
+            </aside>
           </div>
-        )}
+        </Motion.div>
+      </div>
 
+      <PostingOverlay posting={posting} posted={posted} redirectTo="Tasks" />
 
-        {/* Title */}
-        <label className="block mb-2 text-lg">Title</label>
-        <input
-          type="text"
-          placeholder="e.g., Class 11 Chemistry – Notes on Organic Chemistry"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          className="w-full p-3 mb-4 rounded-lg bg-[#1f1f1f]/80 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
-        />
-
-        {/* Subject */}
-        <label className="block mb-2 text-lg">Subject</label>
-        <input
-          type="text"
-          placeholder="e.g., Chemistry"
-          value={subject}
-          onChange={(e) => setSubject(e.target.value)}
-          className="w-full p-3 mb-4 rounded-lg bg-[#1f1f1f]/80 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
-        />
-
-        {/* Deliverable Type */}
-        <label className="block mb-2 text-lg">Deliverables</label>
-        <div className="flex flex-wrap gap-2 mb-4">
-          {["Assignment", "Notes", "Question Bank", "PPT", "Quiz"].map((type) => {
-            const selected = deliverableTypes.includes(type);
-            const disabled = !selected && deliverableTypes.length >= 20;
-            return (
-              <motion.div
-                whileTap={!disabled ? { scale: 0.95 } : undefined}
-                whileHover={!disabled ? { scale: 1.05 } : undefined}
-                key={type}
-                onClick={() => !disabled && handleDeliverableClick(type)}
-                className={`px-4 py-2 rounded-full cursor-${disabled ? "not-allowed" : "pointer"} transition-all text-sm md:text-base
-          ${selected
-                    ? "bg-purple-600 border border-purple-400 shadow-lg shadow-purple-500/40"
-                    : `bg-[#1f1f1f]/80 border ${disabled ? "border-gray-800 opacity-50" : "border-gray-700 hover:border-purple-400"}`}
-        `}
-              >
-                {type}
-              </motion.div>
-            );
-          })}
-        </div>
-
-
-        {/* Description */}
-        <label className="block mb-2 text-lg">Details / Description</label>
-        <textarea
-          placeholder="Describe the deliverable requirements (length, format, topics, etc.)"
-          rows="4"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          className="w-full p-3 mb-4 rounded-lg bg-[#1f1f1f]/80 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
-        ></textarea>
-
-        {/* Deadline */}
-        <label className="block mb-2 text-lg">Deadline</label>
-        <input
-          type="date"
-          value={deadline}
-          onChange={(e) => setDeadline(e.target.value)}
-          className="w-full p-3 mb-4 rounded-lg bg-[#1f1f1f]/80 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
-        />
-
-        {/* Budget */}
-        <label className="block mb-2 text-lg">Budget (₹)</label>
-        <input
-          type="number"
-          placeholder="e.g., 1500"
-          value={price}
-          onChange={(e) => setPrice(e.target.value)}
-          className="w-full p-3 mb-4 rounded-lg bg-[#1f1f1f]/80 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
-        />
-
-        {/* Applicants */}
-        <label className="block mb-2 text-lg">Max Applicants</label>
-        <input
-          type="number"
-          placeholder="e.g., 5"
-          value={numApplicants}
-          onChange={(e) => setNumApplicants(e.target.value)}
-          className="w-full p-3 mb-4 rounded-lg bg-[#1f1f1f]/80 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
-        />
-
-        {/* Attachments */}
-        <label className="block mb-2 text-lg">Attachments</label>
-        <div
-          className="border-2 border-dashed border-gray-600 rounded-lg p-6 text-center bg-[#1f1f1f]/50 hover:border-purple-400 transition-all cursor-pointer mb-4"
-          onClick={() => document.getElementById("fileInput").click()}
-        >
-          <p className="text-gray-400">Click or drag files here to upload</p>
-          <p className="text-sm text-gray-500">Max 10 files</p>
-          <input
-            id="fileInput"
-            type="file"
-            multiple
-            onChange={handleAttachmentChange}
-            className="hidden"
-          />
-        </div>
-        <div className="flex flex-wrap gap-3 mb-4">
-          {attachments.map((file, index) => (
-            <div
-              key={index}
-              className="bg-[#1f1f1f]/80 px-3 py-2 rounded-lg flex items-center gap-2 border border-gray-700"
-            >
-              <span className="text-sm truncate max-w-[120px]">{file.name}</span>
-              <button
-                onClick={() => removeAttachment(index)}
-                className="text-red-400 hover:text-red-500"
-              >
-                ✕
-              </button>
-            </div>
-          ))}
-        </div>
-
-        {/* Submit */}
-        <motion.button
-          whileHover={{ scale: 1.03 }}
-          whileTap={{ scale: 0.97 }}
-          transition={{ type: "spring", stiffness: 300 }}
-          className="w-full py-3 rounded-lg bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 shadow-lg shadow-purple-500/30 font-semibold text-lg"
-          onClick={handleSubmit}
-          disabled={posting}
-        >
-          {posting ? "Posting..." : "Post Task"}
-        </motion.button>
-      </motion.div>
-
-      {/* Overlay */}
-      <PostingOverlay posting={posting} posted={posted} />
-
-
-      {/* Keyframes */}
       <style>{`
         @keyframes gradient {
           0% { background-position: 0% 50%; }
@@ -324,18 +734,34 @@ export default function EducationPostTask() {
           100% { background-position: 0% 50%; }
         }
         .animate-gradient {
-          background-size: 200% 200%;
-          animation: gradient 10s ease infinite;
+          background-size: 220% 220%;
+          animation: gradient 16s ease infinite;
         }
         @keyframes float {
           0% { transform: translateY(0px); }
-          50% { transform: translateY(-20px); }
+          50% { transform: translateY(-16px); }
           100% { transform: translateY(0px); }
         }
         .animate-float {
           animation: float infinite ease-in-out;
         }
-      `}</style>
+        .date-input {
+          -webkit-appearance: none;
+          appearance: none;
+        }
+        .date-input::-webkit-inner-spin-button,
+        .date-input::-webkit-clear-button,
+        .date-input::-webkit-calendar-picker-indicator {
+          display: none;
+        }
+        .date-input[data-has-value="false"]::-webkit-datetime-edit {
+          color: transparent;
+        }
+        .date-input[data-has-value="false"]::-moz-placeholder {
+          color: transparent;
+        }
+      `}
+      </style>
     </div>
   );
 }

@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 // src/pages/viewprofile.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";

@@ -4,7 +4,7 @@ import { Canvas } from "@react-three/fiber";
 import { OrbitControls, useGLTF } from "@react-three/drei";
 
 function CytadelModel() {
-  const { scene } = useGLTF("/models/cytadel.glb"); // ✅ make sure file is in public/models
+  const { scene } = useGLTF("/models/cytadel.glb");
   return <primitive object={scene} scale={1} />;
 }
 

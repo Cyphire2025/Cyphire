@@ -2,7 +2,7 @@ import React, { Suspense, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/navbar";
 import Footer from "../components/footer";
-import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
+import { AnimatePresence, useMotionValue, useTransform } from "framer-motion";
 import {
   ArrowRight,
   ArrowUpRight,
@@ -232,7 +232,9 @@ const HeroStatCard = ({ icon, value, label }) => (
 );
 
 const HeroShowcase = ({ tickerItems }) => {
+  // eslint-disable-next-line no-unused-vars
   const primary = tickerItems[0] ?? TICKER_FALLBACK[0];
+  // eslint-disable-next-line no-unused-vars
   const secondary = tickerItems[1] ?? TICKER_FALLBACK[1];
 
   return (
@@ -377,7 +379,7 @@ const HeroTicker = ({ items }) => {
   );
 };
 const HeroSection = ({ navigate }) => (
-  <section className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-24 pb-20">
+  <section className="relative mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 pt-24 pb-20">
     <div className="grid items-center gap-10 md:grid-cols-2">
       <div>
         <motion.h1
@@ -482,7 +484,7 @@ const SectionHeader = ({ eyebrow, title, subtitle }) => (
 );
 
 const FeatureGrid = ({ items }) => (
-  <section className="mx-auto max-w-7xl px-6 py-14">
+  <section className="mx-auto max-w-screen-2xl px-6 py-14">
     <SectionHeader
       eyebrow="Why Cyphire"
       title="A marketplace engineered for outcomes"
@@ -509,7 +511,7 @@ const FeatureGrid = ({ items }) => (
 );
 
 const LiveBriefs = ({ tasks, loading, error, onRetry, navigate }) => (
-  <section className="mx-auto max-w-7xl px-6 py-14">
+  <section className="mx-auto max-w-screen-2xl px-6 py-14">
     <SectionHeader
       eyebrow="Live briefs"
       title="Fresh missions picking up signal"
@@ -556,7 +558,7 @@ const LiveBriefs = ({ tasks, loading, error, onRetry, navigate }) => (
 );
 
 const SecuritySection = ({ pillars }) => (
-  <section className="mx-auto max-w-7xl px-6 py-14">
+  <section className="mx-auto max-w-screen-2xl px-6 py-14">
     <SectionHeader
       eyebrow="Security & compliance"
       title="Enterprise-grade controls without the enterprise drag"
@@ -577,7 +579,7 @@ const SecuritySection = ({ pillars }) => (
 );
 
 const TestimonialDeck = ({ items }) => (
-  <section className="mx-auto max-w-7xl px-6 py-16">
+  <section className="mx-auto max-w-screen-2xl px-6 py-16">
     <SectionHeader
       eyebrow="Signal over noise"
       title="Teams that switched to Cyphire"

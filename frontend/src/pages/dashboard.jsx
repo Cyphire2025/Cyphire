@@ -102,35 +102,35 @@ export default function DashboardPage() {
 
 
   // Select applicant (owner only)
-  const onSelectApplicant = async (task, applicant) => {
-    try {
-      const res = await fetch(`${API_BASE}/api/tasks/${toId(task._id)}/select`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ applicantId: toId(applicant) }),
-      });
-      const d = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(d.error || "Select API not implemented yet");
+  // const onSelectApplicant = async (task, applicant) => {
+  //   try {
+  //     const res = await fetch(`${API_BASE}/api/tasks/${toId(task._id)}/select`, {
+  //       method: "POST",
+  //       credentials: "include",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify({ applicantId: toId(applicant) }),
+  //     });
+  //     const d = await res.json().catch(() => ({}));
+  //     if (!res.ok) throw new Error(d.error || "Select API not implemented yet");
 
-      // Merge returned fields into the local task
-      setTasks((prev) =>
-        prev.map((t) =>
-          sameId(t._id, task._id)
-            ? {
-              ...t,
-              selectedApplicant: d?.task?.selectedApplicant ?? t.selectedApplicant,
-              workroomId: d?.task?.workroomId ?? t.workroomId,
-            }
-            : t
-        )
-      );
-      setOpenTaskIdx(null);
-      alert("✅ Applicant selected! Workroom is now available.");
-    } catch (e) {
-      alert(e.message);
-    }
-  };
+  //     // Merge returned fields into the local task
+  //     setTasks((prev) =>
+  //       prev.map((t) =>
+  //         sameId(t._id, task._id)
+  //           ? {
+  //             ...t,
+  //             selectedApplicant: d?.task?.selectedApplicant ?? t.selectedApplicant,
+  //             workroomId: d?.task?.workroomId ?? t.workroomId,
+  //           }
+  //           : t
+  //       )
+  //     );
+  //     setOpenTaskIdx(null);
+  //     alert("✅ Applicant selected! Workroom is now available.");
+  //   } catch (e) {
+  //     alert(e.message);
+  //   }
+  // };
 
   const SummaryCard = () => (
     <GlassCard className="p-6 flex flex-wrap gap-6 items-center">

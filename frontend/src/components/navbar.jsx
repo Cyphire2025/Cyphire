@@ -120,7 +120,7 @@ export default function Navbar() {
         }}
       />
 
-      <div className="relative z-10 max-w-7xl mx-4 sm:mx-6 lg:mx-8 px-1 py-3 flex items-center justify-between">
+      <div className="relative z-10 w-full px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between max-w-screen-2xl mx-auto">
         <div className="flex items-center gap-3 sm:gap-4 lg:gap-6 flex-grow">
           <h1
             className="text-xl sm:text-2xl lg:text-[26px] font-bold cursor-pointer transition-colors duration-200 whitespace-nowrap"
@@ -530,7 +530,8 @@ export default function Navbar() {
                         method: "POST",
                         credentials: "include",
                       });
-                    } catch { }
+                    } catch {console.error();
+                    }
                     localStorage.removeItem("token");
                     localStorage.removeItem("userId");
                     sessionStorage.removeItem("token");

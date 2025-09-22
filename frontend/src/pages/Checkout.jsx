@@ -49,7 +49,7 @@ export default function Checkout() {
         name: "Cyphire",
         description: `${plan} plan subscription`,
         order_id: order.id,
-        handler: async function (response) {
+        handler: async function () {
           try {
             // 3) On success → activate plan
             await axios.patch(

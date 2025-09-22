@@ -1,7 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import {  AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { AnimatedCalendar as Calendar } from "@/components/ui/Calendar"
+import { format } from "date-fns"
 import {
   ArrowLeft,
   UploadCloud,
@@ -19,6 +21,7 @@ import PostingOverlay from "../components/PostingOverlay";
 
 const MAX_CATEGORIES = 3;
 const MAX_ATTACHMENTS = 5;
+const OTHER_CATEGORY = "Other";
 
 export default function PostTask() {
   const navigate = useNavigate();
@@ -45,10 +48,11 @@ export default function PostTask() {
   const [particles, setParticles] = useState([]);
   const [logo, setLogo] = useState(null);
   const [logoPreview, setLogoPreview] = useState("");
+  const [openDeadline, setOpenDeadline] = useState(false);
+  
 
   const logoInputRef = useRef(null);
   const fileInputRef = useRef(null);
-  const deadlineInputRef = useRef(null);
 
   useEffect(() => {
     const newParticles = Array.from({ length: 12 }).map(() => ({
@@ -300,7 +304,7 @@ export default function PostTask() {
                   />
                   <label
                     htmlFor="taskTitle"
-                    className="pointer-events-none absolute left-5 top-3 text-[11px] font-medium uppercase tracking-[0.18em] text-purple-200 transition-all duration-200 peer-placeholder-shown:top-1/2 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:text-sm peer-placeholder-shown:text-gray-400 peer-focus:top-3 peer-focus:-translate-y-0 peer-focus:text-[11px] peer-focus:text-purple-100"
+                    className="pointer-events-none absolute left-5 top-3 text-[11px] font-medium uppercase tracking-[0.18em] text-purple-200 transition-all duration-200 peer-placeholder-shown:top-6 peer-placeholder-shown:text-sm peer-placeholder-shown:text-gray-400 peer-focus:top-3 peer-focus:text-[11px] peer-focus:text-purple-100"
                   >
                     Title
                   </label>
@@ -430,35 +434,68 @@ export default function PostTask() {
                 </div>
 
                 {/* Deadline */}
-<div className="relative min-w-[170px]">
-  <CalendarDays className="pointer-events-none absolute left-5 top-1/2 h-4 w-4 
-    -translate-y-1/2 text-purple-200/70" />
-  <input
-    id="deadline"
-    type="date"
-    value={deadline || ""}
-    onChange={(e) => setDeadline(e.target.value)}
-    placeholder=" "
-    className="peer block w-full rounded-2xl border border-white/12 bg-white/5 
-      px-12 pr-14 pt-8 pb-3 text-[15px] leading-relaxed text-white 
-      placeholder-transparent transition focus:border-pink-300/70 
-      focus:bg-white/10 focus:outline-none focus:ring-4 
-      focus:ring-purple-500/30 [appearance:textfield] 
-      [&::-webkit-calendar-picker-indicator]:opacity-0"
-  />
-  <label
-    htmlFor="deadline"
-    className="pointer-events-none absolute left-12 top-3 text-[11px] font-medium uppercase 
-      tracking-[0.18em] text-purple-200 transition-all duration-200 
-      peer-placeholder-shown:left-12 peer-placeholder-shown:top-1/2 
-      peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:text-xs 
-      peer-placeholder-shown:text-gray-400 peer-focus:top-3 
-      peer-focus:text-[11px] peer-focus:text-purple-100"
-  >
-    Deadline
-  </label>
-</div>
+                <div className="relative min-w-[170px] group">
+                  <Popover open={openDeadline} onOpenChange={setOpenDeadline}>
+                    <PopoverTrigger asChild>
+                      <div className="relative w-full">
+                        <CalendarDays className="pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 h-4 w-4 text-purple-200/70" />
 
+                        {/* Fake input styled like Applicants & Budget */}
+                        <div
+                          tabIndex={0}
+                          className="peer block w-full rounded-2xl border border-white/12 bg-white/5 
+                    px-12 pr-14 pt-8 pb-3 text-[15px] leading-relaxed text-white 
+                    transition focus:border-pink-300/70 focus:bg-white/10 focus:outline-none focus:ring-4 focus:ring-purple-500/30 cursor-pointer"
+                        >
+                          {deadline ? (
+                            <span className="text-white whitespace-nowrap">{format(deadline, "PP")}</span>
+                          ) : (
+                            <span className="text-transparent">-</span>
+                          )}
+                        </div>
+
+                        {/* Floating label */}
+                        <label
+                          className={`absolute left-12 text-[11px] font-medium uppercase tracking-[0.18em] transition-all duration-200
+                    ${deadline
+                              ? "top-3 text-purple-200"
+                              : "top-1/2 -translate-y-1/2 text-xs text-gray-400 peer-focus:top-3 peer-focus:-translate-y-0 peer-focus:text-[11px] peer-focus:text-purple-100"
+                            }`}
+                        >
+                          Deadline
+                        </label>
+
+                      </div>
+                    </PopoverTrigger>
+
+                    <PopoverContent className="w-auto p-0 bg-[#141414] border border-white/10 rounded-xl shadow-xl">
+                      <Calendar
+                        mode="single"
+                        selected={deadline}
+                        onSelect={(date) => {
+                          setDeadline(date);
+                          setOpenDeadline(false); // 👈 closes the popover
+                        }}
+                        className="rounded-md border-none text-white"
+                      />
+
+                    </PopoverContent>
+                  </Popover>
+
+                  {/* Tooltip on hover */}
+                  <div className="absolute -bottom-11 left-1/2 -translate-x-1/2 
+                                opacity-0 group-hover:opacity-100 transition-all duration-300 
+                                pointer-events-none">
+                    <p className="text-sm font-medium text-purple-100 
+                                bg-[#141414]/90 backdrop-blur-md 
+                                border border-purple-400/30 
+                                px-4 py-2 rounded-xl shadow-[0_0_15px_rgba(168,85,247,0.45)] 
+                                whitespace-nowrap">
+                      Select the project deadline date
+                    </p>
+                  </div>
+
+                </div>
 
               </div>
 
@@ -644,3 +681,4 @@ export default function PostTask() {
     </div>
   );
 }
+

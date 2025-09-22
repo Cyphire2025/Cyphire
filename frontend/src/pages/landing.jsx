@@ -1,9 +1,10 @@
+/* eslint-disable no-unused-vars */
 import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { useGLTF, ScrollControls, useScroll } from "@react-three/drei";
 import { EffectComposer, Bloom, Vignette, DepthOfField } from "@react-three/postprocessing";
 import * as THREE from "three";
-import { motion, AnimatePresence } from "framer-motion";
+import {  AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { create } from "zustand";
 
@@ -396,6 +397,7 @@ function AmbientNumbers() {
 }
 
 function CoreCTA() {
+  // eslint-disable-next-line no-unused-vars
   const introDone = useLandingStore((s) => s.introDone);
   const portalActive = useLandingStore((s) => s.portalActive);
   const triggerPortal = useLandingStore((s) => s.triggerPortal);

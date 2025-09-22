@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 // src/pages/viewtask.jsx
 import React, { useEffect, useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";

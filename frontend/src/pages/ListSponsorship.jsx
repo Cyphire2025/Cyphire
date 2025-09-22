@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import {} from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
@@ -166,7 +166,7 @@ export default function SponsorshipPostTask() {
         name: "Cyphire Sponsorship",
         description: amount === 1000 ? "Basic Sponsorship" : "Premium Sponsorship",
         order_id: order.id,
-        handler: async function (response) {
+        handler: async function () {
           try {
             // Step 3: Verify + Create Sponsorship Task
             const formData = new FormData();
