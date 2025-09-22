@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import {  AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { AnimatedCalendar as Calendar } from "@/components/ui/calendar"
+import { AnimatedCalendar as Calendar } from "@/components/ui/Calendar"
 import { format } from "date-fns"
 import {
   ArrowLeft,
