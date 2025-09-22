@@ -2,7 +2,9 @@ import React, { useEffect, useRef, useState } from "react";
 import {  AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { AnimatedCalendar as Calendar } from "@/components/ui/Cal"
+// Techposttask.jsx
+const Calendar = React.lazy(() => import('@/components/ui/Cal'));
+
 import { format } from "date-fns"
 import {
   ArrowLeft,
