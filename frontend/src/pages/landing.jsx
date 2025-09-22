@@ -632,13 +632,19 @@ function PortalOverlay() {
             transition={{ duration: 2.6, repeat: Infinity }}
           />
           <motion.div
-            className="relative z-10 rounded-full border border-white/10 px-10 py-6 text-xs uppercase tracking-[0.6em] text-white/70"
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1 + portalProgress * 0.2, opacity: 1 }}
-            transition={{ duration: 0.6 }}
-          >
-            Docking
-          </motion.div>
+  className="relative z-10 rounded-full p-[2px]" // outer gradient border
+  style={{
+    background: 'linear-gradient(135deg, #a855f7, #ec4899, #3b82f6)',
+  }}
+  initial={{ scale: 0.9, opacity: 0 }}
+  animate={{ scale: 1 + portalProgress * 0.2, opacity: 1 }}
+  transition={{ duration: 0.6 }}
+>
+  <div className="rounded-full bg-black/70 px-10 py-6 text-xs uppercase tracking-[0.6em] text-white/70 flex items-center justify-center">
+    Docking
+  </div>
+</motion.div>
+
         </motion.div>
       )}
     </AnimatePresence>
@@ -653,7 +659,7 @@ function PortalWatcher() {
   useEffect(() => {
     if (!portalActive) return;
     if (portalProgress < 1) return;
-    const timeout = setTimeout(() => navigate(targetRoute), 320);
+    const timeout = setTimeout(() => navigate(targetRoute), 4500);
     return () => clearTimeout(timeout);
   }, [navigate, portalActive, portalProgress, targetRoute]);
 
@@ -676,7 +682,7 @@ function BackgroundLayers() {
 }
 
 function LandingPage() {
-
+  const portalActive = useLandingStore((s) => s.portalActive);
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-black text-white">
       <BackgroundLayers />
@@ -714,16 +720,22 @@ function LandingPage() {
           </ScrollControls>
         </Suspense>
       </Canvas>
-      <IntroSequence />
-      <FloatingShardMessage />
-      <AmbientNumbers />
-      <CoreCTA />
-      <AmbientSoundToggle />
-      <SceneHud />
-      <EasterGlyphs />
+      {!portalActive && (
+        <>
+          <IntroSequence />
+          <FloatingShardMessage />
+          <AmbientNumbers />
+          <CoreCTA />
+          <AmbientSoundToggle />
+          <SceneHud />
+          <EasterGlyphs />
+          <NeonCursor />
+        </>
+      )}
+
       <PortalOverlay />
-      <NeonCursor />
       <PortalWatcher />
+
     </div>
   );
 }
