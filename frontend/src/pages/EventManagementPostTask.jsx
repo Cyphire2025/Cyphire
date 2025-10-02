@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -397,7 +398,6 @@ export default function EventManagementPostTask() {
                     ))}
                   </ul>
                 </div>
-
                 <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 via-white/5 to-transparent p-5">
                   <div className="flex items-center gap-3">
                     <div className="rounded-full bg-white/10 p-2"><Lightbulb className="h-5 w-5 text-purple-100" /></div>
