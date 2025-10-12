@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from "react";
 import { motion as Motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { AnimatedCalendar as Calendar } from "@/components/ui/Cal"
 import { format } from "date-fns"
 import {
   ArrowLeft,
@@ -19,6 +18,7 @@ import {
 } from "lucide-react";
 import PostingOverlay from "../components/PostingOverlay";
 
+const Calendar = React.lazy(() => import('@/components/ui/Cal'));
 const MAX_CATEGORIES = 5;
 const MAX_ATTACHMENTS = 5;
 
@@ -110,12 +110,21 @@ export default function EducationPostTask() {
       const formData = new FormData();
       formData.append("title", title);
       formData.append("description", description);
-      selectedCategories.forEach((cat) => formData.append("categories[]", cat));
-      formData.append("category", "Education");
       formData.append("numberOfApplicants", numApplicants);
       formData.append("price", price);
       if (deadline) formData.append("deadline", deadline.toISOString());
-      formData.append("metadata", JSON.stringify({ subject, deliverables: selectedCategories }));
+
+      // --- FIX: Consolidate data structure ---
+      formData.append("category", "Education"); // Main category
+      // All other details go into metadata
+      formData.append(
+        "metadata",
+        JSON.stringify({
+          "Subject": subject,
+          "Deliverables": selectedCategories
+        })
+      );
+
 
       if (logo) formData.append("logo", logo);
       attachments.forEach((file) => formData.append("attachments", file));
@@ -393,163 +402,43 @@ export default function EducationPostTask() {
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
-                {/* Applicants */}
-                <div className="relative min-w-[170px] group">
-                  <Users className="pointer-events-none absolute left-5 top-1/2 h-4 w-4 
-    -translate-y-1/2 text-purple-200/70" />
-                  <input
-                    id="applicants"
-                    type="number"
-                    inputMode="numeric"
-                    min="1"
-                    value={numApplicants}
-                    onChange={(e) => setNumApplicants(e.target.value)}
-                    placeholder="0"
-                    className="peer block w-full rounded-2xl border border-white/12 bg-white/5 
-      px-12 pr-14 pt-8 pb-3 text-[15px] leading-relaxed text-white 
-      placeholder-transparent transition focus:border-pink-300/70 
-      focus:bg-white/10 focus:outline-none focus:ring-4 
-      focus:ring-purple-500/30 [appearance:textfield] 
-      [&::-webkit-outer-spin-button]:appearance-none 
-      [&::-webkit-inner-spin-button]:appearance-none"
-                  />
-                  <label
-                    htmlFor="applicants"
-                    className="pointer-events-none absolute left-12 top-3 text-[11px] font-medium uppercase 
-      tracking-[0.18em] text-purple-200 transition-all duration-200 
-      peer-placeholder-shown:left-12 peer-placeholder-shown:top-1/2 
-      peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:text-xs 
-      peer-placeholder-shown:text-gray-400 peer-focus:top-3 
-      peer-focus:text-[11px] peer-focus:text-purple-100"
-                  >
-                    Applicants
-                  </label>
-
-                  {/* Tooltip on hover */}
-                  <div className="absolute -bottom-16 left-1/2 -translate-x-1/2 
-                  opacity-0 group-hover:opacity-100 transition-all duration-300 
-                  pointer-events-none">
-                    <p className="text-sm font-medium text-purple-100 
-                  bg-[#141414]/90 backdrop-blur-md 
-                  border border-purple-400/30 
-                  px-4 py-2 rounded-xl shadow-[0_0_15px_rgba(168,85,247,0.45)] 
-                  whitespace-nowrap">
-                      Enter the maximum number <br></br>of applicants allowed
-                    </p>
-                  </div>
+                <div className="relative">
+                  <Users className="pointer-events-none absolute left-5 top-1/2 h-4 w-4 -translate-y-1/2 text-purple-200/70" />
+                  <input id="applicants" type="number" inputMode="numeric" min="1" value={numApplicants} onChange={(e) => setNumApplicants(e.target.value)} placeholder="e.g., 5" className="peer block w-full rounded-2xl border border-white/12 bg-white/5 px-12 pt-8 pb-3 text-[15px] text-white placeholder-transparent transition focus:border-pink-300/70 focus:bg-white/10 focus:outline-none focus:ring-4 focus:ring-purple-500/30 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                  <label htmlFor="applicants" className="pointer-events-none absolute left-12 top-3 text-[11px] font-medium uppercase tracking-[0.18em] text-purple-200 transition-all duration-200 peer-placeholder-shown:top-1/2 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:text-xs peer-placeholder-shown:text-gray-400 peer-focus:top-3 peer-focus:text-[11px] peer-focus:text-purple-100">Max Applicants</label>
                 </div>
-
-                {/* Budget */}
-                <div className="relative min-w-[170px] group">
-                  <Wallet className="pointer-events-none absolute left-5 top-1/2 h-4 w-4 
-    -translate-y-1/2 text-purple-200/70" />
-                  <input
-                    id="price"
-                    type="number"
-                    inputMode="decimal"
-                    min="0"
-                    value={price}
-                    onChange={(e) => setPrice(e.target.value)}
-                    placeholder="0"
-                    className="peer block w-full rounded-2xl border border-white/12 bg-white/5 
-      px-12 pr-14 pt-8 pb-3 text-[15px] leading-relaxed text-white 
-      placeholder-transparent transition focus:border-pink-300/70 
-      focus:bg-white/10 focus:outline-none focus:ring-4 
-      focus:ring-purple-500/30 [appearance:textfield] 
-      [&::-webkit-outer-spin-button]:appearance-none 
-      [&::-webkit-inner-spin-button]:appearance-none"
-                  />
-                  <label
-                    htmlFor="price"
-                    className="pointer-events-none absolute left-12 top-3 text-[11px] font-medium uppercase 
-      tracking-[0.18em] text-purple-200 transition-all duration-200 
-      peer-placeholder-shown:left-12 peer-placeholder-shown:top-1/2 
-      peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:text-xs 
-      peer-placeholder-shown:text-gray-400 peer-focus:top-3 
-      peer-focus:text-[11px] peer-focus:text-purple-100"
-                  >
-                    Budget ($)
-                  </label>
-
-                  {/* Tooltip on hover */}
-                  <div className="absolute -bottom-11 left-1/2 -translate-x-1/2 
-                  opacity-0 group-hover:opacity-100 transition-all duration-300 
-                  pointer-events-none">
-                    <p className="text-sm font-medium text-purple-100 
-                  bg-[#141414]/90 backdrop-blur-md 
-                  border border-purple-400/30 
-                  px-4 py-2 rounded-xl shadow-[0_0_15px_rgba(168,85,247,0.45)] 
-                  whitespace-nowrap">
-                      Enter your project budget
-                    </p>
-                  </div>
+                <div className="relative">
+                  <Wallet className="pointer-events-none absolute left-5 top-1/2 h-4 w-4 -translate-y-1/2 text-purple-200/70" />
+                  <input id="price" type="number" inputMode="decimal" min="0" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="e.g., 5000" className="peer block w-full rounded-2xl border border-white/12 bg-white/5 px-12 pt-8 pb-3 text-[15px] text-white placeholder-transparent transition focus:border-pink-300/70 focus:bg-white/10 focus:outline-none focus:ring-4 focus:ring-purple-500/30 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                  <label htmlFor="price" className="pointer-events-none absolute left-12 top-3 text-[11px] font-medium uppercase tracking-[0.18em] text-purple-200 transition-all duration-200 peer-placeholder-shown:top-1/2 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:text-xs peer-placeholder-shown:text-gray-400 peer-focus:top-3 peer-focus:text-[11px] peer-focus:text-purple-100">Budget (₹)</label>
                 </div>
-
-                {/* Deadline */}
                 <div className="relative min-w-[170px] group">
                   <Popover open={openDeadline} onOpenChange={setOpenDeadline}>
                     <PopoverTrigger asChild>
                       <div className="relative w-full">
                         <CalendarDays className="pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 h-4 w-4 text-purple-200/70" />
-
-                        {/* Fake input styled like Applicants & Budget */}
                         <div
                           tabIndex={0}
-                          className="peer block w-full rounded-2xl border border-white/12 bg-white/5 
-    px-12 pr-14 pt-8 pb-3 text-[15px] leading-relaxed text-white 
-    transition focus:border-pink-300/70 focus:bg-white/10 focus:outline-none focus:ring-4 focus:ring-purple-500/30 cursor-pointer"
+                          className="peer block w-full cursor-pointer rounded-2xl border border-white/12 bg-white/5 px-12 pt-8 pb-3 text-[15px] leading-relaxed text-white transition focus:border-pink-300/70 focus:bg-white/10 focus:outline-none focus:ring-4 focus:ring-purple-500/30"
                         >
-                          {deadline ? (
-                            <span className="text-white whitespace-nowrap">{format(deadline, "PP")}</span>
-                          ) : (
-                            <span className="text-transparent">-</span>
-                          )}
+                          {deadline ? (<span className="whitespace-nowrap text-white">{format(deadline, "PP")}</span>) : (<span className="text-transparent">-</span>)}
                         </div>
-
-                        {/* Floating label */}
-                        <label
-                          className={`absolute left-12 text-[11px] font-medium uppercase tracking-[0.18em] transition-all duration-200
-    ${deadline
-                              ? "top-3 text-purple-200"
-                              : "top-1/2 -translate-y-1/2 text-xs text-gray-400 peer-focus:top-3 peer-focus:-translate-y-0 peer-focus:text-[11px] peer-focus:text-purple-100"
-                            }`}
-                        >
-                          Deadline
-                        </label>
-
+                        <label className={`pointer-events-none absolute left-12 text-[11px] font-medium uppercase tracking-[0.18em] transition-all duration-200 ${deadline ? "top-3 text-purple-200" : "top-1/2 -translate-y-1/2 text-xs text-gray-400"}`}>Deadline</label>
                       </div>
                     </PopoverTrigger>
-
                     <PopoverContent className="w-auto p-0 bg-[#141414] border border-white/10 rounded-xl shadow-xl">
-                      <Calendar
-                        mode="single"
-                        selected={deadline}
-                        onSelect={(date) => {
-                          setDeadline(date);
-                          setOpenDeadline(false); // 👈 closes the popover
-                        }}
-                        className="rounded-md border-none text-white"
-                      />
-
+                      <React.Suspense fallback={<div>Loading...</div>}>
+                        <Calendar
+                          mode="single"
+                          selected={deadline}
+                          onSelect={(date) => { setDeadline(date); setOpenDeadline(false); }}
+                          fromDate={new Date()}
+                          className="rounded-md border-none text-white"
+                        />
+                      </React.Suspense>
                     </PopoverContent>
                   </Popover>
-
-                  {/* Tooltip on hover */}
-                  <div className="absolute -bottom-11 left-1/2 -translate-x-1/2 
-                opacity-0 group-hover:opacity-100 transition-all duration-300 
-                pointer-events-none">
-                    <p className="text-sm font-medium text-purple-100 
-                bg-[#141414]/90 backdrop-blur-md 
-                border border-purple-400/30 
-                px-4 py-2 rounded-xl shadow-[0_0_15px_rgba(168,85,247,0.45)] 
-                whitespace-nowrap">
-                      Select the project deadline date
-                    </p>
-                  </div>
-
                 </div>
-
-
               </div>
 
               <div>
@@ -566,7 +455,7 @@ export default function EducationPostTask() {
                     <UploadCloud className="h-5 w-5" />
                   </div>
                   <p className="mt-3 text-sm font-medium text-white">Drop files or click to browse</p>
-                  <p className="mt-1 text-xs text-gray-400">Up to {MAX_ATTACHMENTS} files � PDF, ZIP, Figma, Docs</p>
+                  <p className="mt-1 text-xs text-gray-400">Up to {MAX_ATTACHMENTS} files · PDF, ZIP, Figma, Docs</p>
                   <input
                     ref={fileInputRef}
                     id="fileInput"
@@ -614,12 +503,13 @@ export default function EducationPostTask() {
                 transition={{ type: "spring", stiffness: 260, damping: 18 }}
                 className="sticky bottom-4 w-full rounded-2xl bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 px-6 py-3 text-lg font-semibold shadow-[0_20px_60px_rgba(129,17,188,0.35)] transition hover:shadow-[0_25px_70px_rgba(129,17,188,0.45)] focus:outline-none focus:ring-4 focus:ring-purple-400/40"
                 onClick={handleSubmit}
+                disabled={posting}
               >
-                Post Task
+                {posting ? 'Posting...' : 'Post Task'}
               </Motion.button>
             </section>
 
-            <aside className="relative mt-2 space-y-6 rounded-3xl border border-white/10 bg-white/5 px-6 py-8 shadow-[0_25px_80px_rgba(15,15,35,0.45)] backdrop-blur-xl sm:px-7 sm:py-10 w-fit h-fit">
+            <aside className="relative mt-2 hidden md:block space-y-6 rounded-3xl border border-white/10 bg-white/5 px-6 py-8 shadow-[0_25px_80px_rgba(15,15,35,0.45)] backdrop-blur-xl sm:px-7 sm:py-10">
               <div className="absolute -top-20 right-4 h-40 w-40 rounded-full bg-gradient-to-tr from-purple-500/35 via-pink-400/25 to-transparent blur-3xl" />
               <div className="relative space-y-6 text-sm text-white/90">
                 <div className="rounded-2xl border border-white/10 bg-black/30 p-5">
@@ -657,9 +547,9 @@ export default function EducationPostTask() {
                     {essentials.map((item) => (
                       <li key={item.id} className="flex items-start gap-3">
                         {item.complete ? (
-                          <CheckCircle className="mt-0.5 h-4 w-4 text-emerald-300" />
+                          <CheckCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-300" />
                         ) : (
-                          <CircleDashed className="mt-0.5 h-4 w-4 text-purple-200/70" />
+                          <CircleDashed className="mt-0.5 h-4 w-4 flex-shrink-0 text-purple-200/70" />
                         )}
                         <div>
                           <p className="font-medium text-white/90">{item.label}</p>
@@ -693,33 +583,6 @@ export default function EducationPostTask() {
                   </a>
                 </div>
               </div>
-              {/* Visual Finishers */}
-              <div className="space-y-10 relative">
-                {/* Motivational Quote Card */}
-                <div className="relative rounded-2xl border border-purple-400/20 
-                  bg-gradient-to-br from-purple-900/30 via-[#1a1a1a]/80 to-pink-900/20 
-                  p-6 text-center shadow-[0_12px_40px_rgba(129,17,188,0.25)] 
-                  backdrop-blur-md">
-                  <p className="text-sm font-semibold text-purple-100 italic tracking-wide drop-shadow-[0_0_6px_rgba(168,85,247,0.35)]">
-                    “Great briefs attract great talent.”
-                  </p>
-                  {/* Thin neon accent line */}
-                  <div className="mt-3 h-0.5 w-24 mx-auto bg-gradient-to-r from-pink-500 via-purple-400 to-pink-500 rounded-full opacity-80"></div>
-                </div>
-
-                {/* Shimmer Badge */}
-                <div className="relative flex items-center justify-center py-3">
-                  <div className="h-px w-full bg-gradient-to-r from-transparent via-purple-500/30 to-transparent"></div>
-                  <span className="absolute rounded-full border border-purple-500/40 
-                     bg-gradient-to-r from-purple-600/60 to-pink-600/60 
-                     px-4 py-1 text-xs font-semibold text-white 
-                     backdrop-blur-sm shadow-[0_0_15px_rgba(168,85,247,0.45)] 
-                     tracking-wide animate-pulse">
-                    Cyphire
-                  </span>
-                </div>
-              </div>
-
             </aside>
           </div>
         </Motion.div>
@@ -728,40 +591,11 @@ export default function EducationPostTask() {
       <PostingOverlay posting={posting} posted={posted} redirectTo="Tasks" />
 
       <style>{`
-        @keyframes gradient {
-          0% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-          100% { background-position: 0% 50%; }
-        }
-        .animate-gradient {
-          background-size: 220% 220%;
-          animation: gradient 16s ease infinite;
-        }
-        @keyframes float {
-          0% { transform: translateY(0px); }
-          50% { transform: translateY(-16px); }
-          100% { transform: translateY(0px); }
-        }
-        .animate-float {
-          animation: float infinite ease-in-out;
-        }
-        .date-input {
-          -webkit-appearance: none;
-          appearance: none;
-        }
-        .date-input::-webkit-inner-spin-button,
-        .date-input::-webkit-clear-button,
-        .date-input::-webkit-calendar-picker-indicator {
-          display: none;
-        }
-        .date-input[data-has-value="false"]::-webkit-datetime-edit {
-          color: transparent;
-        }
-        .date-input[data-has-value="false"]::-moz-placeholder {
-          color: transparent;
-        }
-      `}
-      </style>
+        @keyframes gradient { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+        .animate-gradient { background-size: 220% 220%; animation: gradient 16s ease infinite; }
+        @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-16px); } 100% { transform: translateY(0px); } }
+        .animate-float { animation: float infinite ease-in-out; }
+      `}</style>
     </div>
   );
 }
