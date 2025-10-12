@@ -1,8 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
-import {  AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-// Techposttask.jsx
 const Calendar = React.lazy(() => import('@/components/ui/Cal'));
 
 import { format } from "date-fns"
@@ -23,7 +22,6 @@ import PostingOverlay from "../components/PostingOverlay";
 
 const MAX_CATEGORIES = 3;
 const MAX_ATTACHMENTS = 5;
-const OTHER_CATEGORY = "Other";
 
 export default function PostTask() {
   const navigate = useNavigate();
@@ -44,14 +42,14 @@ export default function PostTask() {
   const [description, setDescription] = useState("");
   const [numApplicants, setNumApplicants] = useState("");
   const [price, setPrice] = useState("");
-  const [deadline, setDeadline] = useState("");
+  const [deadline, setDeadline] = useState(null); // --- FIX: Use null for date objects
   const [posting, setPosting] = useState(false);
   const [posted, setPosted] = useState(false);
   const [particles, setParticles] = useState([]);
   const [logo, setLogo] = useState(null);
   const [logoPreview, setLogoPreview] = useState("");
   const [openDeadline, setOpenDeadline] = useState(false);
-  
+
 
   const logoInputRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -112,11 +110,14 @@ export default function PostTask() {
       const formData = new FormData();
       formData.append("title", title);
       formData.append("description", description);
-      selectedCategories.forEach((cat) => formData.append("categories[]", cat));
+      
+      // --- FIX: Add main category and use a different name for sub-categories ---
+      formData.append("category", "Tech"); // Main category for filtering
+      selectedCategories.forEach((cat) => formData.append("categories[]", cat)); // Sub-categories for tags
+
       formData.append("numberOfApplicants", numApplicants);
       formData.append("price", price);
-      formData.append("deadline", deadline);
-
+      if (deadline) formData.append("deadline", deadline.toISOString());
 
 
       if (logo) formData.append("logo", logo);
@@ -431,7 +432,7 @@ export default function PostTask() {
                peer-placeholder-shown:text-gray-400 peer-focus:top-3 
                peer-focus:text-[11px] peer-focus:text-purple-100"
                   >
-                    Budget ($)
+                    Budget (₹)
                   </label>
                 </div>
 
@@ -441,13 +442,9 @@ export default function PostTask() {
                     <PopoverTrigger asChild>
                       <div className="relative w-full">
                         <CalendarDays className="pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 h-4 w-4 text-purple-200/70" />
-
-                        {/* Fake input styled like Applicants & Budget */}
                         <div
                           tabIndex={0}
-                          className="peer block w-full rounded-2xl border border-white/12 bg-white/5 
-                    px-12 pr-14 pt-8 pb-3 text-[15px] leading-relaxed text-white 
-                    transition focus:border-pink-300/70 focus:bg-white/10 focus:outline-none focus:ring-4 focus:ring-purple-500/30 cursor-pointer"
+                          className="peer block w-full rounded-2xl border border-white/12 bg-white/5 px-12 pt-8 pb-3 text-[15px] leading-relaxed text-white transition focus:border-pink-300/70 focus:bg-white/10 focus:outline-none focus:ring-4 focus:ring-purple-500/30 cursor-pointer"
                         >
                           {deadline ? (
                             <span className="text-white whitespace-nowrap">{format(deadline, "PP")}</span>
@@ -455,50 +452,33 @@ export default function PostTask() {
                             <span className="text-transparent">-</span>
                           )}
                         </div>
-
-                        {/* Floating label */}
                         <label
-                          className={`absolute left-12 text-[11px] font-medium uppercase tracking-[0.18em] transition-all duration-200
-                    ${deadline
+                          className={`pointer-events-none absolute left-12 text-[11px] font-medium uppercase tracking-[0.18em] transition-all duration-200 ${
+                            deadline
                               ? "top-3 text-purple-200"
-                              : "top-1/2 -translate-y-1/2 text-xs text-gray-400 peer-focus:top-3 peer-focus:-translate-y-0 peer-focus:text-[11px] peer-focus:text-purple-100"
-                            }`}
+                              : "top-1/2 -translate-y-1/2 text-xs text-gray-400"
+                          }`}
                         >
                           Deadline
                         </label>
-
                       </div>
                     </PopoverTrigger>
-
                     <PopoverContent className="w-auto p-0 bg-[#141414] border border-white/10 rounded-xl shadow-xl">
-                      <Calendar
-                        mode="single"
-                        selected={deadline}
-                        onSelect={(date) => {
-                          setDeadline(date);
-                          setOpenDeadline(false); // 👈 closes the popover
-                        }}
-                        className="rounded-md border-none text-white"
-                      />
-
+                      <React.Suspense fallback={<div>Loading...</div>}>
+                        <Calendar
+                          mode="single"
+                          selected={deadline}
+                          onSelect={(date) => {
+                            setDeadline(date);
+                            setOpenDeadline(false);
+                          }}
+                          fromDate={new Date()}
+                          className="rounded-md border-none text-white"
+                        />
+                      </React.Suspense>
                     </PopoverContent>
                   </Popover>
-
-                  {/* Tooltip on hover */}
-                  <div className="absolute -bottom-11 left-1/2 -translate-x-1/2 
-                                opacity-0 group-hover:opacity-100 transition-all duration-300 
-                                pointer-events-none">
-                    <p className="text-sm font-medium text-purple-100 
-                                bg-[#141414]/90 backdrop-blur-md 
-                                border border-purple-400/30 
-                                px-4 py-2 rounded-xl shadow-[0_0_15px_rgba(168,85,247,0.45)] 
-                                whitespace-nowrap">
-                      Select the project deadline date
-                    </p>
-                  </div>
-
                 </div>
-
               </div>
 
               <div>
@@ -515,7 +495,7 @@ export default function PostTask() {
                     <UploadCloud className="h-5 w-5" />
                   </div>
                   <p className="mt-3 text-sm font-medium text-white">Drop files or click to browse</p>
-                  <p className="mt-1 text-xs text-gray-400">Up to {MAX_ATTACHMENTS} files � PDF, ZIP, Figma, Docs</p>
+                  <p className="mt-1 text-xs text-gray-400">Up to {MAX_ATTACHMENTS} files · PDF, ZIP, Figma, Docs</p>
                   <input
                     ref={fileInputRef}
                     id="fileInput"
@@ -563,12 +543,13 @@ export default function PostTask() {
                 transition={{ type: "spring", stiffness: 260, damping: 18 }}
                 className="sticky bottom-4 w-full rounded-2xl bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 px-6 py-3 text-lg font-semibold shadow-[0_20px_60px_rgba(129,17,188,0.35)] transition hover:shadow-[0_25px_70px_rgba(129,17,188,0.45)] focus:outline-none focus:ring-4 focus:ring-purple-400/40"
                 onClick={handleSubmit}
+                disabled={posting}
               >
-                Post Task
+                {posting ? 'Posting...' : 'Post Task'}
               </motion.button>
             </section>
 
-            <aside className="relative mt-2 space-y-6 rounded-3xl border border-white/10 bg-white/5 px-6 py-8 shadow-[0_25px_80px_rgba(15,15,35,0.45)] backdrop-blur-xl sm:px-7 sm:py-10">
+            <aside className="relative mt-2 hidden md:block space-y-6 rounded-3xl border border-white/10 bg-white/5 px-6 py-8 shadow-[0_25px_80px_rgba(15,15,35,0.45)] backdrop-blur-xl sm:px-7 sm:py-10">
               <div className="absolute -top-20 right-4 h-40 w-40 rounded-full bg-gradient-to-tr from-purple-500/35 via-pink-400/25 to-transparent blur-3xl" />
               <div className="relative space-y-6 text-sm text-white/90">
                 <div className="rounded-2xl border border-white/10 bg-black/30 p-5">
@@ -602,9 +583,9 @@ export default function PostTask() {
                     {essentials.map((item) => (
                       <li key={item.id} className="flex items-start gap-3">
                         {item.complete ? (
-                          <CheckCircle className="mt-0.5 h-4 w-4 text-emerald-300" />
+                          <CheckCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-300" />
                         ) : (
-                          <CircleDashed className="mt-0.5 h-4 w-4 text-purple-200/70" />
+                          <CircleDashed className="mt-0.5 h-4 w-4 flex-shrink-0 text-purple-200/70" />
                         )}
                         <div>
                           <p className="font-medium text-white/90">{item.label}</p>
@@ -646,41 +627,11 @@ export default function PostTask() {
       <PostingOverlay posting={posting} posted={posted} redirectTo="Tasks" />
 
       <style>{`
-        @keyframes gradient {
-          0% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-          100% { background-position: 0% 50%; }
-        }
-        .animate-gradient {
-          background-size: 220% 220%;
-          animation: gradient 16s ease infinite;
-        }
-        @keyframes float {
-          0% { transform: translateY(0px); }
-          50% { transform: translateY(-16px); }
-          100% { transform: translateY(0px); }
-        }
-        .animate-float {
-          animation: float infinite ease-in-out;
-        }
-        .date-input {
-          -webkit-appearance: none;
-          appearance: none;
-        }
-        .date-input::-webkit-inner-spin-button,
-        .date-input::-webkit-clear-button,
-        .date-input::-webkit-calendar-picker-indicator {
-          display: none;
-        }
-        .date-input[data-has-value="false"]::-webkit-datetime-edit {
-          color: transparent;
-        }
-        .date-input[data-has-value="false"]::-moz-placeholder {
-          color: transparent;
-        }
-      `}
-      </style>
+        @keyframes gradient { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+        .animate-gradient { background-size: 220% 220%; animation: gradient 16s ease infinite; }
+        @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-16px); } 100% { transform: translateY(0px); } }
+        .animate-float { animation: float infinite ease-in-out; }
+      `}</style>
     </div>
   );
 }
-

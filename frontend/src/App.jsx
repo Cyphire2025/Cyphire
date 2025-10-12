@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { Toaster } from "react-hot-toast";
 
 // pages
 import LandingPage from "./pages/landing";
@@ -9,7 +10,7 @@ import Signin from "./pages/signin";
 import Home from "./pages/home";
 import Tasks from "./pages/Tasks"
 
-import TechPostTask from "./pages/Techposttask";
+import TechPostTask from "./pages/Techposttask.jsx";
 import ViewTask from "./pages/viewtask";
 import EducationPostTask from "./pages/EducationPostTask"; 
 import ArchitecturePostTask from "./pages/ArchitecturePostTask"; 
@@ -41,11 +42,21 @@ function AutoLogin() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const token =
-      localStorage.getItem("token") || sessionStorage.getItem("token");
-    if (token) {
-      navigate("/home", { replace: true });
-    }
+    // Check if user is authenticated via HTTP-only cookie
+    const checkAuth = async () => {
+      try {
+        const response = await fetch(`${import.meta.env?.VITE_API_BASE || "http://localhost:5000"}/api/auth/me`, {
+          credentials: "include"
+        });
+        if (response.ok) {
+          navigate("/home", { replace: true });
+        }
+      } catch (error) {
+        console.error("Auth check failed:", error);
+      }
+    };
+    
+    checkAuth();
   }, [navigate]);
 
   return null;
@@ -56,6 +67,33 @@ function App() {
     <Router>
       {/* 👇 This ensures scroll resets on every route change */}
       <ScrollToTop />
+      
+      {/* Toast notifications */}
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: 'rgba(0, 0, 0, 0.8)',
+            color: '#fff',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            backdropFilter: 'blur(10px)',
+            borderRadius: '12px',
+          },
+          success: {
+            iconTheme: {
+              primary: '#10b981',
+              secondary: '#fff',
+            },
+          },
+          error: {
+            iconTheme: {
+              primary: '#ef4444',
+              secondary: '#fff',
+            },
+          },
+        }}
+      />
 
       <Routes>
         {/* Auth & Core */}

@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
 import { FcGoogle } from "react-icons/fc";
+import toast from "react-hot-toast";
 
 
 const API_BASE = import.meta.env?.VITE_API_BASE || "http://localhost:5000";
@@ -18,7 +19,6 @@ export default function Signin() {
 
   // ui state
   const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState("");
 
   const handleChange = useCallback((e) => {
     const { name, value } = e.target;
@@ -48,9 +48,8 @@ export default function Signin() {
   const handleEmailSignin = useCallback(
     async (e) => {
       e.preventDefault();
-      setErr("");
       if (!form.email || !form.password) {
-        setErr("Enter your email and password.");
+        toast.error("Enter your email and password.");
         return;
       }
 
@@ -59,27 +58,32 @@ export default function Signin() {
         const res = await fetch(`${API_BASE}/api/auth/signin`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(form),
+          body: JSON.stringify({ ...form, rememberMe: remember }),
           credentials: "include",
         });
 
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.message || "Login failed");
 
+        // Backend uses HTTP-only cookies, so we just store user info
         const store = remember ? localStorage : sessionStorage;
+        if (data?.user?.id) store.setItem("userId", data.user.id);
+        if (data?.user?.name) store.setItem("userName", data.user.name);
+        if (data?.user?.email) store.setItem("userEmail", data.user.email);
         store.setItem("loginTime", Date.now().toString());
+        
+        toast.success("Welcome back!");
         navigate("/home");
       } catch (e) {
-        setErr(e.message || "Sign in failed");
+        toast.error(e.message || "Sign in failed");
       } finally {
         setLoading(false);
       }
     },
-    [form, navigate]
+    [form, navigate, remember]
   );
 
   const handleGoogle = useCallback(() => {
-    setErr("");
     setLoading(true);
     window.location.href = `${API_BASE}/api/auth/google?mode=signin&remember=${remember ? 1 : 0}`;
   }, [remember]);
@@ -97,9 +101,6 @@ export default function Signin() {
             <p className="text-white/60 mt-2">Sign in to continue</p>
           </div>
 
-          {err && (
-            <div className="mb-4 rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">{err}</div>
-          )}
 
           <button
             onClick={handleGoogle}

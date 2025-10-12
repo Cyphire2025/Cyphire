@@ -1,10 +1,11 @@
 /* eslint-disable no-unused-vars */
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FiSearch, FiX } from "react-icons/fi";
-import { Filter, Layers, Wallet, Gift, Star } from "lucide-react";
+import { FiSearch, FiX, FiMail, FiPhone, FiMapPin, FiExternalLink, FiHeart, FiShare2 } from "react-icons/fi";
+import { Filter, Layers, Wallet, Gift, Star, TrendingUp, Users, Award, Clock } from "lucide-react";
 import Navbar from "../components/navbar";
 import Footer from "../components/footer";
+import toast from "react-hot-toast";
 
 const API_BASE = import.meta.env?.VITE_API_BASE || "http://localhost:5000";
 
@@ -63,9 +64,23 @@ const Particles = React.memo(() => (
 /* ======================================================
    Sponsor Card (Memoized for Performance)
    ====================================================== */
-const SponsorCard = React.memo(({ sponsor }) => {
+const SponsorCard = React.memo(({ sponsor, onContact, onSave, onShare }) => {
     const { _id, title, description, metadata = {} } = sponsor;
-    const { budgetRange, eventTypes = [], tier } = metadata;
+    const { budgetRange, eventTypes = [], tier, companySize, industry, responseTime, successRate } = metadata;
+    const [isSaved, setIsSaved] = useState(false);
+
+
+    const handleSave = () => {
+        setIsSaved(!isSaved);
+        toast.success(isSaved ? "Removed from favorites" : "Added to favorites");
+        onSave?.(_id, !isSaved);
+    };
+
+    const handleShare = () => {
+        navigator.clipboard.writeText(`${window.location.origin}/task/${_id}`);
+        toast.success("Link copied to clipboard!");
+        onShare?.(_id);
+    };
 
     return (
         <motion.div
@@ -74,20 +89,40 @@ const SponsorCard = React.memo(({ sponsor }) => {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.8 }}
             transition={{ type: "spring", stiffness: 200, damping: 25 }}
-            className={`relative rounded-2xl overflow-hidden flex flex-col backdrop-blur-xl
+            whileHover={{ scale: 1.02, y: -5 }}
+            className={`relative rounded-2xl overflow-hidden flex flex-col backdrop-blur-xl cursor-pointer group
         ${tier === "premium"
                     ? "border-1 border-fuchsia-500/60 bg-gradient-to-br from-fuchsia-900/30 via-purple-900/20 to-sky-900/20 shadow-[0_0_25px_rgba(236,72,153,0.4)]"
                     : "border border-white/10 bg-white/[0.06] shadow-[0_0_15px_rgba(168,85,247,0.4)]"
                 }`}
         >
-            {tier === "premium" && (
-                <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
+            {/* Action buttons - visible on hover */}
+            <div className="absolute top-3 right-3 z-10 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        handleSave();
+                    }}
+                    className="p-2 rounded-full bg-black/50 backdrop-blur-sm border border-white/20 hover:bg-black/70 transition-colors"
+                >
+                    <FiHeart className={`w-4 h-4 ${isSaved ? 'text-red-400 fill-current' : 'text-white'}`} />
+                </button>
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        handleShare();
+                    }}
+                    className="p-2 rounded-full bg-black/50 backdrop-blur-sm border border-white/20 hover:bg-black/70 transition-colors"
+                >
+                    <FiShare2 className="w-4 h-4 text-white" />
+                </button>
+                {tier === "premium" && (
                     <span className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold bg-gradient-to-r from-pink-500 via-fuchsia-500 to-purple-600 text-white shadow-lg border border-white/20">
                         <Star className="h-3.5 w-3.5 text-yellow-300" fill="currentColor" />
                         PREMIUM
                     </span>
-                </div>
-            )}
+                )}
+            </div>
 
             <div className="h-40 bg-gradient-to-r from-fuchsia-600/30 via-purple-600/30 to-sky-600/30 flex items-center justify-center overflow-hidden">
                 {sponsor.logo?.url ? (
@@ -98,27 +133,46 @@ const SponsorCard = React.memo(({ sponsor }) => {
             </div>
 
             <div className="flex-1 p-6 flex flex-col">
-                <h3 className="text-xl font-bold text-white/90">{title}</h3>
-                <p className="mt-2 text-sm text-gray-300 line-clamp-2">{description}</p>
+                <div className="flex items-start justify-between mb-2">
+                    <h3 className="text-xl font-bold text-white/90 group-hover:text-fuchsia-200 transition-colors">
+                        {title}
+                    </h3>
+                    {industry && (
+                        <span className="px-2 py-1 rounded-lg text-xs bg-white/10 text-white/70 border border-white/20">
+                            {industry}
+                        </span>
+                    )}
+                </div>
 
-                <div className="mt-4 space-y-3 text-sm">
-                    <p>
-                        <span className="text-white/60">Budget: </span>
-                        <span className="font-semibold text-fuchsia-300">{budgetRange || "—"}</span>
-                    </p>
+                <p className="text-sm text-gray-300 line-clamp-2 mb-4">{description}</p>
+
+
+
+                <div className="space-y-3 text-sm">
+                    <div className="flex items-center justify-between">
+                        <span className="text-white/60">Budget:</span>
+                        <span className="font-semibold text-fuchsia-300">{budgetRange || "Contact for details"}</span>
+                    </div>
+
+                    {companySize && (
+                        <div className="flex items-center justify-between">
+                            <span className="text-white/60">Company Size:</span>
+                            <span className="font-semibold text-white/80">{companySize}</span>
+                        </div>
+                    )}
 
                     {eventTypes.length > 0 && (
                         <div>
                             <p className="text-white/60 mb-2 font-medium">Event Types:</p>
                             <div className="flex flex-wrap gap-2">
                                 {eventTypes.slice(0, 3).map((et) => (
-                                    <span key={et} className="px-3 py-1 rounded-full text-xs bg-white/10 text-white/90 border border-white/20">
+                                    <span key={et} className="px-2 py-1 rounded-full text-xs bg-gradient-to-r from-fuchsia-500/20 to-violet-500/20 text-white/90 border border-white/20">
                                         {et}
                                     </span>
                                 ))}
                                 {eventTypes.length > 3 && (
-                                    <span className="px-3 py-1 rounded-full text-xs bg-white/5 text-white/60 border border-white/10">
-                                        +{eventTypes.length - 3} more
+                                    <span className="px-2 py-1 rounded-full text-xs bg-white/5 text-white/60 border border-white/10">
+                                        +{eventTypes.length - 3}
                                     </span>
                                 )}
                             </div>
@@ -126,10 +180,17 @@ const SponsorCard = React.memo(({ sponsor }) => {
                     )}
                 </div>
 
-                <div className="mt-auto pt-6">
-                    {/* For security and performance, use a routing library's Link component instead of window.location */}
-                    <a href={`/task/${_id}`} className="block w-full text-center bg-gradient-to-r from-fuchsia-600 via-purple-600 to-sky-600 hover:opacity-90 transition rounded-xl py-2 px-4 text-sm font-semibold text-white shadow-md">
-                        View Sponsorship
+                <div className="mt-auto pt-6 space-y-3">
+
+                    {/* Secondary CTA */}
+                    <a
+                        href={`/task/${_id}`}
+                        className="block w-full text-center bg-white/10 hover:bg-white/20 transition rounded-xl py-2 px-4 text-sm font-medium text-white/90 border border-white/20"
+                    >
+                        <div className="flex items-center justify-center gap-2">
+                            <FiExternalLink className="w-4 h-4" />
+                            View Details
+                        </div>
                     </a>
                 </div>
             </div>
@@ -268,18 +329,26 @@ export default function Sponsorships() {
         (async () => {
             setLoading(true);
             try {
-                // OPTIMIZATION: Fetch only sponsorships from the API
-                const res = await fetch(`${API_BASE}/api/tasks?category=sponsorship`, { cache: "no-store", signal });
+                // inside useEffect in Sponsorships.jsx
+                const res = await fetch(`${API_BASE}/api/tasks?category=Sponsorship`, { cache: "no-store", signal });
                 if (!res.ok) throw new Error("Failed to fetch sponsorships");
                 const data = await res.json();
-                
-                // OPTIMIZATION: Pre-process data once on fetch
-                const processedData = data.map(s => ({
+
+                // Keep ONLY true Sponsorship listings (string or array, case-insensitive)
+                const onlySponsorships = data.filter((t) => {
+                    const cat = t?.category;
+                    if (typeof cat === "string") return cat.toLowerCase() === "sponsorship";
+                    if (Array.isArray(cat)) return cat.some((c) => String(c).toLowerCase() === "sponsorship");
+                    return false;
+                });
+
+                // Pre-process once for filters
+                const processed = onlySponsorships.map((s) => ({
                     ...s,
-                    // Parse budget into a number for efficient filtering
                     budgetValue: parseInt((s.metadata?.budgetRange || "0").replace(/[^0-9]/g, "")) || 0,
                 }));
-                setSponsorships(processedData);
+                setSponsorships(processed);
+
 
             } catch (e) {
                 if (e.name !== 'AbortError') console.error(e);
@@ -349,6 +418,36 @@ export default function Sponsorships() {
                     />
                 </div>
 
+                {/* Featured Sponsors Section */}
+                {filteredSponsors.length > 0 && !search && (
+                    <div className="mb-16">
+                        <div className="text-center mb-8">
+                            <h2 className="text-2xl font-bold text-white mb-2">
+                                <span className="bg-gradient-to-r from-yellow-400 via-orange-400 to-red-400 bg-clip-text text-transparent">
+                                    Featured Sponsors
+                                </span>
+                            </h2>
+                            <p className="text-white/60">Top-rated sponsors with excellent track records</p>
+                        </div>
+
+                        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 max-w-6xl mx-auto">
+                            {filteredSponsors
+                                .filter(s => s.metadata?.tier === "premium")
+                                .slice(0, 3)
+                                .map((sponsor) => (
+                                    <SponsorCard
+                                        key={sponsor._id}
+                                        sponsor={sponsor}
+                                        onContact={(id) => console.log('Contacted sponsor:', id)}
+                                        onSave={(id, saved) => console.log('Saved sponsor:', id, saved)}
+                                        onShare={(id) => console.log('Shared sponsor:', id)}
+                                    />
+                                ))}
+                        </div>
+                    </div>
+                )}
+
+
                 {/* Mobile Filter Button */}
                 <div className="md:hidden mb-6 text-center">
                     <button
@@ -374,7 +473,13 @@ export default function Sponsorships() {
                             <motion.div layout className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                                 <AnimatePresence>
                                     {filteredSponsors.map((s) => (
-                                        <SponsorCard key={s._id} sponsor={s} />
+                                        <SponsorCard
+                                            key={s._id}
+                                            sponsor={s}
+                                            onContact={(id) => console.log('Contacted sponsor:', id)}
+                                            onSave={(id, saved) => console.log('Saved sponsor:', id, saved)}
+                                            onShare={(id) => console.log('Shared sponsor:', id)}
+                                        />
                                     ))}
                                 </AnimatePresence>
                             </motion.div>
@@ -384,7 +489,7 @@ export default function Sponsorships() {
                     </div>
                 </div>
             </main>
-            
+
             {/* Mobile Filter Drawer */}
             <AnimatePresence>
                 {isFilterOpen && (
@@ -403,10 +508,10 @@ export default function Sponsorships() {
                             onClick={(e) => e.stopPropagation()}
                             className="absolute top-0 left-0 h-full w-full max-w-xs bg-[#0c0c14] border-r border-fuchsia-500/30 p-6 overflow-y-auto"
                         >
-                           <button onClick={() => setFilterOpen(false)} className="absolute top-4 right-4 text-white/70">
+                            <button onClick={() => setFilterOpen(false)} className="absolute top-4 right-4 text-white/70">
                                 <FiX size={24} />
-                           </button>
-                           <FilterControls {...filterProps} />
+                            </button>
+                            <FilterControls {...filterProps} />
                         </motion.div>
                     </motion.div>
                 )}

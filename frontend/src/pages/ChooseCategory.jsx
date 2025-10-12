@@ -9,7 +9,7 @@ const categories = [
     name: "Tech",
     desc: "From software to AI solutions, build the future with experts.",
     img: "https://img.icons8.com/color/96/000000/laptop--v1.png",
-    link: "/posttask-Tech",
+    link: "/posttask-tech",
   },
   {
     name: "Education",

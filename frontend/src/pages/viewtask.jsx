@@ -13,6 +13,7 @@ import {
   Wallet,
   Clock,
   Star,
+  Briefcase, // --- FIX: Import Briefcase icon
 } from "lucide-react";
 
 const API_BASE = import.meta.env?.VITE_API_BASE || "http://localhost:5000";
@@ -101,7 +102,6 @@ export default function ViewTask() {
   const [isOwner, setIsOwner] = useState(false);
   const [applied, setApplied] = useState(false);
 
-  // Timeout message if server is slow
   useEffect(() => {
     const timeout = setTimeout(() => {
       if (loading) {
@@ -112,7 +112,6 @@ export default function ViewTask() {
     return () => clearTimeout(timeout);
   }, [loading]);
 
-  // Load both: current user and task
   useEffect(() => {
     let alive = true;
 
@@ -135,22 +134,9 @@ export default function ViewTask() {
         setMe(meUser);
 
         if (!tJson) {
-          // Fallback: fetch all tasks and find by id
-          const all = await fetch(`${API_BASE}/api/tasks`, { cache: "no-store", credentials: "include" });
-          if (!all.ok) throw new Error("Failed to fetch tasks");
-          const arr = await all.json();
-          const t = arr.find((x) => (x._id || x.id) === id);
-          if (!t) throw new Error("Task not found");
-          setTask(t);
-
-          if (meUser?._id && Array.isArray(t.applicants)) {
-            const alreadyApplied = t.applicants.some((u) => String(u?._id || u) === String(meUser._id));
-            setApplied(alreadyApplied);
-            setIsOwner(String(t.createdBy) === String(meUser._id));
-          }
+          throw new Error("Task not found");
         } else {
           setTask(tJson);
-
           if (meUser?._id && Array.isArray(tJson.applicants)) {
             const alreadyApplied = tJson.applicants.some((u) => String(u?._id || u) === String(meUser._id));
             setApplied(alreadyApplied);
@@ -170,18 +156,21 @@ export default function ViewTask() {
 
   const deadlineDaysLeft = useMemo(() => toDaysLeft(task?.deadline), [task]);
 
-  const categories = useMemo(() => {
-    return task?.category?.length
-      ? task.category
-      : task?.categories?.length
-        ? task.categories
-        : [];
+  // --- FIX: Logic to separate main category from sub-categories ---
+  const mainCategory = useMemo(() => {
+    return typeof task?.category === 'string' && task.category !== 'Sponsorship' ? task.category : null;
   }, [task]);
 
-  const isSponsorship = categories.some((c) => c.toLowerCase() === "sponsorship");
+  const subCategories = useMemo(() => {
+    // This handles the old format where 'category' might be an array
+    const fromCategory = Array.isArray(task?.category) ? task.category : [];
+    const fromCategories = Array.isArray(task?.categories) ? task.categories : [];
+    // Combine and deduplicate, just in case
+    return [...new Set([...fromCategory, ...fromCategories])];
+  }, [task]);
 
+  const isSponsorship = task?.category === 'Sponsorship';
 
-  // applied/total display
   const appliedCount = Array.isArray(task?.applicants) ? task.applicants.length : 0;
   const totalSeats = Number(task?.numberOfApplicants) || 0;
 
@@ -196,7 +185,7 @@ export default function ViewTask() {
         alert("You cannot apply to your own task.");
         return;
       }
-      if (applied) return; // already applied → no-op
+      if (applied) return;
 
       const res = await fetch(`${API_BASE}/api/tasks/${task._id}/apply`, {
         method: "POST",
@@ -209,33 +198,14 @@ export default function ViewTask() {
         throw new Error(data.error || "Failed to apply");
       }
 
-      // Server returns updated task { _id, applicants, numberOfApplicants }
-      const updated = data?.task;
-      if (updated) {
-        setTask((prev) => ({
-          ...prev,
-          applicants: Array.isArray(updated.applicants) ? updated.applicants : (prev?.applicants || []),
-          numberOfApplicants:
-            typeof updated.numberOfApplicants === "number"
-              ? updated.numberOfApplicants
-              : (prev?.numberOfApplicants || 0), // capacity unchanged
-        }));
-      } else {
-        // Fallback: append locally
-        setTask((prev) => ({
-          ...prev,
-          applicants: Array.isArray(prev?.applicants) ? [...prev.applicants, me._id] : [me._id],
-        }));
-      }
-
+      setTask((prev) => ({
+        ...prev,
+        applicants: data?.task?.applicants || [...(prev?.applicants || []), me._id],
+      }));
       setApplied(true);
     } catch (e) {
       alert(e.message || "Could not apply right now.");
     }
-  };
-
-  const handleStartEscrow = async () => {
-    alert("ℹ️ Escrow coming soon.");
   };
 
   if (loading) {
@@ -276,48 +246,34 @@ export default function ViewTask() {
         )}
 
         {!loading && task && (
-          <div
-            className={`${isSponsorship
-                ? "flex justify-center px-4" // sponsorship → flex centers it
-                : "grid gap-8 md:grid-cols-3" // normal tasks → grid
-              }`}
-          >
-            <div
-              className={`${isSponsorship
-                  ? "w-full max-w-5xl" // sponsorship → centered + capped
-                  : "md:col-span-2"
-                }`}
-            >
+          <div className={`${isSponsorship ? "flex justify-center px-4" : "grid gap-8 md:grid-cols-3"}`}>
+            <div className={`${isSponsorship ? "w-full max-w-5xl" : "md:col-span-2"}`}>
               <motion.div
                 initial={{ opacity: 0, y: 14 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="rounded-2xl border border-white/10 bg-white/[0.06] overflow-hidden backdrop-blur-xl"
               >
-                {/* 🔥 Banner fills edge-to-edge */}
                 <div className="h-32 sm:h-40 md:h-80 w-full overflow-hidden">
                   {task.logo?.url ? (
-                    <img
-                      src={task.logo.url}
-                      alt="task-logo"
-                      className="w-full h-full object-cover"
-                    />
+                    <img src={task.logo.url} alt="task-logo" className="w-full h-full object-cover" />
                   ) : task.attachments?.length > 0 ? (
-                    <img
-                      src={task.attachments[0].url}
-                      alt="task-attachment"
-                      className="w-full h-full object-cover"
-                    />
+                    <img src={task.attachments[0].url} alt="task-attachment" className="w-full h-full object-cover" />
                   ) : (
-                    <div className="flex items-center justify-center h-full text-white/50 italic">
+                    <div className="flex items-center justify-center h-full text-white/50 italic bg-black/20">
                       No Image
                     </div>
                   )}
                 </div>
 
-                {/* Content with padding */}
                 <div className="p-6">
+                  {/* --- FIX: Display both main and sub categories --- */}
                   <div className="mb-3 inline-flex flex-wrap items-center gap-2 text-xs text-white/70">
-                    {categories.map((cat, idx) => (
+                    {mainCategory && (
+                       <span className="inline-flex items-center gap-2 rounded-full border border-fuchsia-400/50 bg-fuchsia-500/20 px-3 py-1 font-medium text-fuchsia-200">
+                         <Briefcase className="h-4 w-4" /> {mainCategory}
+                       </span>
+                    )}
+                    {subCategories.map((cat, idx) => (
                       <span
                         key={idx}
                         className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-1"
@@ -336,25 +292,22 @@ export default function ViewTask() {
                     {task.description}
                   </p>
 
-                  {/* Extra details if metadata exists */}
+                  {/* --- FIX: This section now works for all categories with metadata --- */}
                   {task?.metadata && Object.keys(task.metadata).length > 0 && (
-                    <div className="mt-6 space-y-2">
+                    <div className="mt-8 space-y-4 rounded-2xl border border-white/10 bg-black/20 p-5">
                       <h3 className="text-lg font-semibold text-white">Additional Details</h3>
-                      <ul className="mt-2 space-y-1 text-sm text-white/80">
+                      <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm text-white/80">
                         {Object.entries(task.metadata).map(([key, value]) => {
                           if (!value || (Array.isArray(value) && value.length === 0)) return null;
+                          const displayValue = Array.isArray(value) ? value.join(", ") : String(value);
+                          if (!displayValue) return null;
 
                           return (
-                            <li key={key}>
+                            <li key={key} className="flex flex-col">
                               <span className="font-medium capitalize text-fuchsia-300">
-                                {key.replace(/([A-Z])/g, " $1")}:
-                              </span>{" "}
-                              {Array.isArray(value)
-                                ? value
-                                  .filter((v, i, arr) => v !== "Other" || arr.length === 1) // hide "Other" if custom exists
-                                  .join(", ")
-                                : String(value)}
-
+                                {key.replace(/([A-Z])/g, " $1")}
+                              </span>
+                              <span>{displayValue}</span>
                             </li>
                           );
                         })}
@@ -362,7 +315,6 @@ export default function ViewTask() {
                     </div>
                   )}
 
-                  {/* Extra button only for Sponsorships */}
                   {isSponsorship && isOwner && (
                     <div className="mt-8">
                       <NeonButton onClick={() => navigate("/dashboard")}>
@@ -371,46 +323,21 @@ export default function ViewTask() {
                     </div>
                   )}
 
-
                   {Array.isArray(task.attachments) && task.attachments.length > 0 && (
                     <div className="mt-8">
                       <Label icon={Paperclip}>Attachments</Label>
                       <div className="mt-2 flex flex-wrap gap-2">
                         {task.attachments.map((a, i) => {
                           const url = a?.url || (typeof a === "string" ? a : "#");
-                          const name =
-                            a?.original_name ||
-                            a?.name ||
-                            `File ${i + 1}`;
-                          const isImage = (a?.contentType || "").startsWith("image/");
-                          const isVideo = (a?.contentType || "").startsWith("video/");
-
+                          const name = a?.original_name || a?.name || `File ${i + 1}`;
                           return (
-                            <div
-                              key={i}
-                              className="group relative rounded-lg border border-white/10 bg-white/5 p-2"
-                            >
-                              <a
-                                href={url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="block"
-                                title={name}
-                              >
-                                <div className="w-36 h-24 overflow-hidden rounded-md bg-black/30">
-                                  {isVideo ? (
-                                    <video src={url} className="w-full h-full object-cover" muted />
-                                  ) : isImage ? (
-                                    <img src={url} className="w-full h-full object-cover" />
-                                  ) : (
-                                    <div className="flex h-full w-full items-center justify-center text-xs text-white/70">
-                                      <Paperclip className="mr-1 h-4 w-4" />
-                                      {name}
-                                    </div>
-                                  )}
-                                </div>
-                              </a>
-                            </div>
+                            <a key={i} href={url} target="_blank" rel="noreferrer" title={name}
+                              className="block w-36 h-24 overflow-hidden rounded-md bg-black/30 group relative border border-white/10 p-1">
+                              <img src={url} className="w-full h-full object-cover rounded" onError={(e) => { e.target.onerror = null; e.target.src = 'placeholder.png'; }}/>
+                              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center p-2">
+                                <p className="text-xs text-center text-white break-words">{name}</p>
+                              </div>
+                            </a>
                           );
                         })}
                       </div>
@@ -425,7 +352,7 @@ export default function ViewTask() {
                 <motion.div
                   initial={{ opacity: 0, y: 14 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="space-y-4"
+                  className="space-y-4 sticky top-24"
                 >
                   <GlassCard className="p-5">
                     <Label icon={Wallet}>Budget</Label>

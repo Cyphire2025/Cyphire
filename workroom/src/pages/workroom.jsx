@@ -69,6 +69,13 @@ const getMessageText = (m) =>
 const getTimestamp = (m) =>
   firstOf(m, ["createdAt", "created_at", "timestamp", "time", "createdOn", "created_on", "date"]);
 
+const getSenderName = (m, fallback = "Collaborator") =>
+  firstOf(m?.sender, ["name", "displayName"]) ||
+  firstOf(m?.user, ["name"]) ||
+  firstOf(m?.author, ["name"]) ||
+  firstOf(m, ["senderName", "name"]) ||
+  fallback;
+
 const normalizeAttachments = (m) => {
   let atts = firstOf(m, ["attachments", "files", "media", "assets", "uploads"]) || [];
   if (!Array.isArray(atts)) atts = [atts];
@@ -85,6 +92,26 @@ const normalizeAttachments = (m) => {
       return { url, name, type };
     })
     .filter(Boolean);
+};
+
+const formatCurrency = (value) => {
+  if (value === undefined || value === null || Number.isNaN(Number(value))) return "—";
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(Number(value));
+};
+
+const formatDate = (value) => {
+  if (!value) return "No deadline";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "No deadline";
+  return date.toLocaleDateString(undefined, {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 };
 
 /* ====== Page ====== */
@@ -113,6 +140,7 @@ export default function WorkroomPage() {
   const listRef = useRef(null);
   const socketRef = useRef(null);
   const meId = me?._id;
+  const canSend = text.trim().length > 0 || files.length > 0;
 
   const bothFinalised =
     !!meta?.finalisedAt || (!!meta?.clientFinalised && !!meta?.workerFinalised);
@@ -197,30 +225,34 @@ export default function WorkroomPage() {
   };
 
   /* ====== Messages ====== */
-  const fetchMessages = useCallback(async () => {
-    try {
-      const r = await fetch(`${API_BASE}/api/workrooms/${workroomId}/messages`, {
-        credentials: "include",
-      });
-      const d = await parseJsonSafe(r);
-      const list = d.items || d.messages || d.data || [];
-      setItems(list);
-      setLoading(false);
-      if (atBottom) setTimeout(scrollToBottom, 10);
-    } catch (e) {
-      console.warn("Message fetch error", e);
-    }
-  }, [workroomId, atBottom]);
+  const fetchMessages = useCallback(
+    async (forceScroll = false) => {
+      setLoading(true);
+      try {
+        const r = await fetch(`${API_BASE}/api/workrooms/${workroomId}/messages`, {
+          credentials: "include",
+        });
+        const d = await parseJsonSafe(r);
+        const list = d.items || d.messages || d.data || [];
+        setItems(list);
+        const shouldScroll = forceScroll || atBottom;
+        if (shouldScroll) setTimeout(scrollToBottom, 10);
+      } catch (e) {
+        console.warn("Message fetch error", e);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [workroomId, atBottom]
+  );
 
   useEffect(() => {
-    const id = setInterval(fetchMessages, 2000);
-    return () => clearInterval(id);
+    fetchMessages(true);
   }, [fetchMessages]);
 
   /* ====== Send ====== */
   const onSend = async () => {
-    if (sending || bothFinalised) return;
-    if (!text.trim() && files.length === 0) return;
+    if (sending || bothFinalised || !canSend) return;
     setSending(true);
     try {
       const trimmed = text.trim();
@@ -270,31 +302,49 @@ export default function WorkroomPage() {
 
   /* ====== UI ====== */
   if (meta?.paymentRequested) {
-  return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-[#0a0a0f] via-[#0c0c14] to-black text-gray-100">
-      <div className="text-center p-10 rounded-3xl border border-emerald-400/30 bg-emerald-900/20 shadow-lg">
-        <CheckCircle2 className="h-16 w-16 text-emerald-400 mx-auto mb-4" />
-        <h1 className="text-3xl font-bold text-emerald-300">Task Completed</h1>
-        <p className="mt-2 text-white/70">This workroom has been closed. The payout request has been recorded.</p>
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-[#0a0a0f] via-[#0c0c14] to-black text-gray-100">
+        <div className="text-center p-10 rounded-3xl border border-emerald-400/30 bg-emerald-900/20 shadow-lg">
+          <CheckCircle2 className="h-16 w-16 text-emerald-400 mx-auto mb-4" />
+          <h1 className="text-3xl font-bold text-emerald-300">Task Completed</h1>
+          <p className="mt-2 text-white/70">
+            This workroom has been closed. The payout request has been recorded.
+          </p>
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#0a0a0f] via-[#0c0c14] to-black text-gray-100">
       <Aurora />
       <main className="relative mx-auto max-w-6xl px-4 pt-20 pb-10 sm:pt-24">
         {/* Header */}
         <div className="mb-6 flex flex-col gap-4 rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-2xl shadow-lg md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-fuchsia-400 to-sky-400 bg-clip-text text-transparent">
-              Workroom
-            </h1>
-            <p className="text-xs text-white/60">Room: {workroomId}</p>
+          <div className="space-y-3">
+            <div>
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-fuchsia-400 to-sky-400 bg-clip-text text-transparent">
+                {meta?.title || "Workroom"}
+              </h1>
+              <p className="text-xs text-white/60">Room ID: {workroomId}</p>
+            </div>
+            <div className="grid gap-2 text-[11px] text-white/70 sm:grid-cols-2 lg:grid-cols-3">
+              <span className="inline-flex items-center gap-1 rounded-xl border border-white/15 bg-white/10 px-3 py-1.5">
+                <Sparkles className="h-3.5 w-3.5 text-fuchsia-300" />
+                {meta?.role === "client" ? "You are the client" : "You are the selected freelancer"}
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-xl border border-white/15 bg-white/10 px-3 py-1.5">
+                Budget&nbsp;
+                <strong className="font-semibold text-white/80">{formatCurrency(meta?.price)}</strong>
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-xl border border-white/15 bg-white/10 px-3 py-1.5">
+                Deadline&nbsp;
+                <strong className="font-semibold text-white/80">{formatDate(meta?.deadline)}</strong>
+              </span>
+            </div>
           </div>
           <div className="flex w-full flex-wrap items-center gap-2 sm:gap-3 md:w-auto md:justify-end">
             <button
-              onClick={fetchMessages}
+              onClick={() => fetchMessages(true)}
               className="px-3 py-2 text-sm rounded-xl bg-white/10 hover:bg-white/20 flex items-center gap-2"
             >
               <RefreshCcw className="h-4 w-4" /> Refresh
@@ -309,7 +359,7 @@ export default function WorkroomPage() {
                         method: "POST",
                         credentials: "include",
                       });
-                      fetchMessages();
+                      fetchMessages(true);
                     }}
                     className="px-4 py-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-sky-600 font-semibold"
                   >
@@ -323,7 +373,7 @@ export default function WorkroomPage() {
                         method: "POST",
                         credentials: "include",
                       });
-                      fetchMessages();
+                      fetchMessages(true);
                     }}
                     className="px-4 py-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-sky-600 font-semibold"
                   >
@@ -496,7 +546,7 @@ export default function WorkroomPage() {
 
         {/* ====== Chat Box ====== */}
         <div
-          className={`rounded-3xl border border-white/10 bg-white/5 backdrop-blur-3xl shadow-lg transition ${dragOver ? "ring-2 ring-fuchsia-400/50" : ""}`}
+          className={`relative rounded-3xl border border-white/10 bg-white/5 backdrop-blur-3xl shadow-lg transition ${dragOver ? "ring-2 ring-fuchsia-400/50" : ""}`}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
@@ -521,7 +571,14 @@ export default function WorkroomPage() {
               <AnimatePresence>
                 {items.map((m, idx) => {
                   const key = m._id || m.id || String(idx);
-                  const mine = String(getSenderId(m) || "") === String(meId || "");
+                  const currentSenderId = getSenderId(m);
+                  const mine = String(currentSenderId || "") === String(meId || "");
+                  const previousSenderId = idx > 0 ? getSenderId(items[idx - 1]) : null;
+                  const showSenderLabel =
+                    String(previousSenderId || "") !== String(currentSenderId || "") || idx === 0;
+                  const senderName = mine ? "You" : getSenderName(m);
+                  const timestamp = getTimestamp(m);
+                  const parsedTs = timestamp ? new Date(timestamp) : null;
                   return (
                     <motion.div
                       key={key}
@@ -531,6 +588,21 @@ export default function WorkroomPage() {
                       className={`flex ${mine ? "justify-end" : "justify-start"}`}
                     >
                       <div className={bubbleCls(mine)}>
+                        {showSenderLabel && (
+                          <div className="mb-2 flex items-center justify-between gap-3 text-[11px] uppercase tracking-wider text-white/50">
+                            <span>{senderName}</span>
+                            {parsedTs && !Number.isNaN(parsedTs.getTime()) && (
+                              <span className="text-white/40">
+                                {parsedTs.toLocaleString(undefined, {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                  day: "2-digit",
+                                  month: "short",
+                                })}
+                              </span>
+                            )}
+                          </div>
+                        )}
                         {getMessageText(m) && (
                           <p className="whitespace-pre-wrap leading-relaxed">{getMessageText(m)}</p>
                         )}
@@ -542,7 +614,12 @@ export default function WorkroomPage() {
                                 <div key={i} className="overflow-hidden rounded-xl border border-white/20 bg-black/20">
                                   {att.type === "image" ? (
                                     <a href={att.url} target="_blank" rel="noreferrer">
-                                      <img src={att.url} alt={att.name || "image"} className="max-h-48 w-full object-cover" />
+                                      <img
+                                        src={att.url}
+                                        alt={att.name || "image"}
+                                        loading="lazy"
+                                        className="max-h-48 w-full object-cover"
+                                      />
                                     </a>
                                   ) : att.type === "video" ? (
                                     <video src={att.url} controls className="max-h-48 w-full" />
@@ -589,13 +666,6 @@ export default function WorkroomPage() {
                             );
                           })()}
                         </div>
-                        {(() => {
-                          const ts = getTimestamp(m);
-                          const d = ts ? new Date(ts) : null;
-                          return d && !Number.isNaN(d.getTime()) ? (
-                            <p className="text-[10px] text-white/40 mt-1">{d.toLocaleTimeString()}</p>
-                          ) : null;
-                        })()}
                       </div>
                     </motion.div>
                   );
@@ -683,8 +753,8 @@ export default function WorkroomPage() {
 
               <button
                 onClick={onSend}
-                disabled={sending}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-sky-600 px-5 py-3 text-sm font-semibold transition hover:scale-105 disabled:opacity-50 sm:w-auto sm:px-6 sm:py-2"
+                disabled={sending || !canSend || bothFinalised}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-sky-600 px-5 py-3 text-sm font-semibold transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 sm:w-auto sm:px-6 sm:py-2"
               >
                 {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 Send

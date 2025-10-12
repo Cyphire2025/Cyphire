@@ -1,14 +1,16 @@
 // src/components/Navbar.jsx
 import React, { useEffect, useState } from "react";
-import { FiSearch, FiMessageSquare, FiSettings, FiChevronDown, FiMenu, FiX } from "react-icons/fi";
+import { FiSearch, FiMessageSquare, FiSettings, FiChevronDown, FiMenu, FiX, FiHome, FiUser, FiBriefcase } from "react-icons/fi";
 import { FaRegBell } from "react-icons/fa";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import toast from "react-hot-toast";
 
 
 const API_BASE = import.meta.env?.VITE_API_BASE || "http://localhost:5000";
 
 export default function Navbar() {
+  const location = useLocation();
   const [msgOpen, setMsgOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -33,6 +35,29 @@ export default function Navbar() {
     </span>
   );
 
+  // Helper functions for navigation
+  const isActive = (path) => {
+    if (path === '/home') return location.pathname === '/home' || location.pathname === '/';
+    return location.pathname.startsWith(path);
+  };
+
+  const getBreadcrumbs = () => {
+    const path = location.pathname;
+    const segments = path.split('/').filter(Boolean);
+    
+    const breadcrumbMap = {
+      'home': { label: 'Home', icon: FiHome },
+      'tasks': { label: 'Tasks', icon: FiBriefcase },
+      'profile': { label: 'Profile', icon: FiUser },
+      'dashboard': { label: 'Dashboard', icon: FiSettings },
+      'pricing': { label: 'Pricing', icon: null },
+      'about-us': { label: 'About Us', icon: null },
+      'contact': { label: 'Contact', icon: null },
+    };
+
+    return segments.map(segment => breadcrumbMap[segment] || { label: segment, icon: null });
+  };
+
   const fetchMessages = async () => {
     try {
       const res = await fetch(`${API_BASE}/api/auth/notifications`, {
@@ -50,18 +75,6 @@ export default function Navbar() {
     }
   };
 
-  const markMessageRead = async (index) => {
-    try {
-      await fetch(`${API_BASE}/api/auth/notifications/${index}/read`, {
-        method: "POST",
-        credentials: "include",
-      });
-      setMessages((prev) => prev.map((m, i) => (i === index ? { ...m, read: true } : m)));
-      setUnreadCount((c) => Math.max(0, c - 1));
-    } catch {
-      // ignore 
-    }
-  };
 
   useEffect(() => {
     let alive = true;
@@ -159,7 +172,11 @@ export default function Navbar() {
                 setProfileOpen(false);
                 setSponsorOpen(false)
               }}
-              className="flex items-center text-gray-300 hover:text-white transition-all duration-200 font-medium"
+              className={`flex items-center transition-all duration-200 font-medium ${
+                isActive('/tasks') || isActive('/home') 
+                  ? 'text-white bg-white/10 px-3 py-1 rounded-lg' 
+                  : 'text-gray-300 hover:text-white'
+              }`}
             >
               About
               <FiChevronDown
@@ -196,7 +213,11 @@ export default function Navbar() {
                 setProfileOpen(false);
                 setSponsorOpen(false)
               }}
-              className="flex items-center text-gray-300 hover:text-white transition-all duration-200 font-medium"
+              className={`flex items-center transition-all duration-200 font-medium ${
+                isActive('/pricing') 
+                  ? 'text-white bg-white/10 px-3 py-1 rounded-lg' 
+                  : 'text-gray-300 hover:text-white'
+              }`}
             >
               Explore
               <FiChevronDown
@@ -233,7 +254,11 @@ export default function Navbar() {
                 setSettingsOpen(false);
                 setProfileOpen(false);
               }}
-              className="flex items-center text-gray-300 hover:text-white transition-all duration-200 font-medium"
+              className={`flex items-center transition-all duration-200 font-medium ${
+                isActive('/Sponsorships') || isActive('/List-Sponsorship')
+                  ? 'text-white bg-white/10 px-3 py-1 rounded-lg' 
+                  : 'text-gray-300 hover:text-white'
+              }`}
             >
               Sponsorships
               <FiChevronDown
@@ -375,7 +400,9 @@ export default function Navbar() {
                 setSolutionsOpen(false);
                 setProfileOpen(false);
               }}
-              className="text-gray-300 hover:text-white transition-all duration-200 p-2 rounded-lg hover:bg-white/10 relative"
+              className={`text-gray-300 hover:text-white transition-all duration-200 p-2 rounded-lg hover:bg-white/10 relative ${
+                notifOpen ? 'bg-white/10 text-white' : ''
+              }`}
             >
               <FaRegBell size={20} />
             </button>
@@ -790,5 +817,31 @@ export default function Navbar() {
         </motion.div>
       )}
     </header>
+    
+    // {/* Breadcrumb Navigation */}
+    // {location.pathname !== '/' && location.pathname !== '/home' && (
+    //   <div className="fixed top-16 left-0 right-0 z-40 bg-black/20 backdrop-blur-sm border-b border-white/10">
+    //     <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
+    //       <nav className="flex items-center space-x-2 text-sm">
+    //         <Link 
+    //           to="/home" 
+    //           className="text-white/60 hover:text-white transition-colors flex items-center gap-1"
+    //         >
+    //           <FiHome className="w-4 h-4" />
+    //           Home
+    //         </Link>
+    //         {getBreadcrumbs().map((crumb, index) => (
+    //           <React.Fragment key={index}>
+    //             <span className="text-white/40">/</span>
+    //             <span className="text-white/80 flex items-center gap-1">
+    //               {crumb.icon && <crumb.icon className="w-4 h-4" />}
+    //               {crumb.label}
+    //             </span>
+    //           </React.Fragment>
+    //         ))}
+    //       </nav>
+    //     </div>
+    //   </div>
+    // )}
   );
 }
