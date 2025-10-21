@@ -1,7 +1,7 @@
 /* eslint-disable no-unused-vars */
 import React, { memo, useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { FcGoogle } from "react-icons/fc";
 import {
   FiEye, FiEyeOff, FiShield, FiLock, FiMail, FiUser, FiCheck, FiX, FiZap, FiCpu, FiActivity,
@@ -55,6 +55,12 @@ const Field = memo(function Field({
 
 export default function Signup() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const redirectPath = useMemo(() => {
+    const next = new URLSearchParams(location.search || "").get("next");
+    if (next && next.startsWith("/")) return next;
+    return "/choose";
+  }, [location.search]);
 
   // form state
   const [form, setForm] = useState({ name: "", email: "", password: "", confirm: "" });
@@ -129,8 +135,8 @@ export default function Signup() {
   // Google OAuth (redirect, keeps your original behavior)
   const handleGoogle = useCallback(() => {
     setLoading(true);
-    window.location.href = `${API_BASE}/api/auth/google?mode=signup&remember=${remember ? 1 : 0}`;
-  }, [remember]);
+    window.location.href = `${API_BASE}/api/auth/google?mode=signup&remember=${remember ? 1 : 0}&next=${encodeURIComponent(redirectPath)}`;
+  }, [redirectPath, remember]);
 
   // Email signup
   const handleEmailSignup = useCallback(
@@ -162,14 +168,14 @@ export default function Signup() {
 
         toast.success("Welcome to Cyphire! Redirecting…");
         // short celebratory delay for premium feel
-        setTimeout(() => navigate("/home"), 650);
+        setTimeout(() => navigate(redirectPath), 650);
       } catch (e) {
         toast.error(e.message || "Something went wrong");
       } finally {
         setLoading(false);
       }
     },
-    [form, remember, navigate, validate]
+    [form, remember, navigate, redirectPath, validate]
   );
 
   // Receive Google popup messages (kept compatible with your earlier flow if you switch to popup)
@@ -186,12 +192,12 @@ export default function Signup() {
         store.setItem("token", token);
         if (user?.id) store.setItem("userId", user.id);
         store.setItem("loginTime", Date.now().toString());
-        navigate("/home");
+        navigate(redirectPath);
       }
     };
     window.addEventListener("message", onMsg);
     return () => window.removeEventListener("message", onMsg);
-  }, [remember, navigate]);
+  }, [redirectPath, remember, navigate]);
 
   // Keyboard shortcut submit
   useEffect(() => {
@@ -640,3 +646,4 @@ export default function Signup() {
     </div>
   );
 }
+

@@ -8,6 +8,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { create } from "zustand";
 
+const API_BASE = import.meta.env?.VITE_API_BASE || "http://localhost:5000";
+
 const useLandingStore = create((set) => ({
   introAnimating: true,
   introDone: false,
@@ -16,7 +18,7 @@ const useLandingStore = create((set) => ({
   portalProgress: 0,
   pointer: { x: 0, y: 0 },
   soundOn: false,
-  targetRoute: '/home',
+  targetRoute: '/choose',
   setIntroFinished: () => set({ introAnimating: false, introDone: true }),
   skipIntro: () => set({ introAnimating: false, introDone: true }),
   setActiveScene: (value) => set({ activeScene: value }),
@@ -397,26 +399,26 @@ function AmbientNumbers() {
 }
 
 function CoreCTA() {
-  // eslint-disable-next-line no-unused-vars
-  const introDone = useLandingStore((s) => s.introDone);
   const portalActive = useLandingStore((s) => s.portalActive);
   const triggerPortal = useLandingStore((s) => s.triggerPortal);
   const pointer = useLandingStore((s) => s.pointer);
-  const handleClick = () => {
-    const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-    const loginTimeRaw = localStorage.getItem("loginTime");
-    const loginTime = loginTimeRaw ? Number(loginTimeRaw) : 0;
-    const now = Date.now();
 
-    const within24Hours =
-      Boolean(token) && loginTime > 0 && now - loginTime < 24 * 60 * 60 * 1000;
+  const handleClick = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/me`, { credentials: "include" });
+      const target = res.ok ? "/choose" : "/signup?next=/choose";
+      useLandingStore.getState().setTargetRoute(target);
 
-    const target = within24Hours ? "/home" : "/signup";
-    useLandingStore.getState().setTargetRoute(target);
-
-    if (!portalActive) {
-      triggerPortal();
-      if (navigator.vibrate) navigator.vibrate([12, 24, 12]);
+      if (!portalActive) {
+        triggerPortal();
+        if (navigator.vibrate) navigator.vibrate([12, 24, 12]);
+      }
+    } catch {
+      useLandingStore.getState().setTargetRoute("/signup?next=/choose");
+      if (!portalActive) {
+        triggerPortal();
+        if (navigator.vibrate) navigator.vibrate([12, 24, 12]);
+      }
     }
   };
 
@@ -429,12 +431,7 @@ function CoreCTA() {
     <motion.button
       type="button"
       className="pointer-events-auto fixed bottom-20 left-1/2 z-40 flex h-32 w-32 -translate-x-1/2 items-center justify-center rounded-full"
-      onClick={() => {
-        if (!portalActive) {
-          triggerPortal();
-          if (navigator.vibrate) navigator.vibrate([12, 24, 12]);
-        }
-      }}
+      onClick={handleClick}
       animate={portalActive ? { scale: [1, 1.4, 0.6], opacity: [1, 0.8, 0.3] } : {}}
       transition={{ duration: 1.2, ease: "easeInOut", repeat: portalActive ? Infinity : 0 }}
     >
@@ -632,18 +629,18 @@ function PortalOverlay() {
             transition={{ duration: 2.6, repeat: Infinity }}
           />
           <motion.div
-  className="relative z-10 rounded-full p-[2px]" // outer gradient border
-  style={{
-    background: 'linear-gradient(135deg, #a855f7, #ec4899, #3b82f6)',
-  }}
-  initial={{ scale: 0.9, opacity: 0 }}
-  animate={{ scale: 1 + portalProgress * 0.2, opacity: 1 }}
-  transition={{ duration: 0.6 }}
->
-  <div className="rounded-full bg-black/70 px-10 py-6 text-xs uppercase tracking-[0.6em] text-white/70 flex items-center justify-center">
-    Docking
-  </div>
-</motion.div>
+            className="relative z-10 rounded-full p-[2px]" // outer gradient border
+            style={{
+              background: 'linear-gradient(135deg, #a855f7, #ec4899, #3b82f6)',
+            }}
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1 + portalProgress * 0.2, opacity: 1 }}
+            transition={{ duration: 0.6 }}
+          >
+            <div className="rounded-full bg-black/70 px-10 py-6 text-xs uppercase tracking-[0.6em] text-white/70 flex items-center justify-center">
+              Docking
+            </div>
+          </motion.div>
 
         </motion.div>
       )}

@@ -23,7 +23,23 @@ html {
   overflow-x: hidden; /* prevent background aurora/particles from causing horizontal scroll */
 }
 
+@keyframes loaderShimmer {
+  0% { transform: translateX(-120%); }
+  60% { transform: translateX(220%); }
+  100% { transform: translateX(220%); }
+}
 
+@keyframes shimmerX {
+  0%   { transform: translateX(-120%); }
+  60%  { transform: translateX(140%); }
+  100% { transform: translateX(140%); }
+}
+@keyframes cyphireSweep {
+  0%   { transform: translateX(-140%); opacity: 0; }
+  20%  { opacity: .85; }
+  60%  { transform: translateX(180%); opacity: .85; }
+  100% { transform: translateX(180%); opacity: 0; }
+}
 
 @layer base {
   :root {
@@ -81,13 +97,21 @@ html {
   }
 }
 
-
-
 @layer base {
-  * {
-    @apply border-border;
+  * { @apply border-border; }
+  body { @apply bg-background text-foreground; }
+
+  /* ✅ DM Sans for headings globally, Inter for body via `font-sans` */
+  h1, h2, h3 { @apply font-heading; }
+}
+
+@keyframes neonPulse {
+  0%, 100% {
+    opacity: 0.65;
+    filter: brightness(1);
   }
-  body {
-    @apply bg-background text-foreground;
+  50% {
+    opacity: 0.9;
+    filter: brightness(1.25);
   }
 }

@@ -16,6 +16,7 @@ import "./config/passport.js";
 import authRoutes from "./routes/authRoutes.js";
 import taskRoutes from "./routes/taskRoutes.js";
 import usersRoutes from "./routes/usersRoutes.js";
+import intellectualsRoutes from "./routes/intellectualsRoutes.js";
 
 import helpRoutes from "./routes/helpRoutes.js";
 import helpQuestionRoutes from "./routes/helpQuestionRoutes.js";
@@ -111,7 +112,7 @@ app.get("/", (_req, res) => res.send("Cyphire API up"));
 app.use("/api/auth", authRoutes);
 app.use("/api/tasks", taskRoutes);
 app.use("/api/users", usersRoutes);
-
+app.use("/api/intellectuals", intellectualsRoutes);
 app.use("/api/workrooms", workroomRoutes);
 app.use("/api/workrooms", workroomMessageRoutes);
 app.use("/api/admin", adminRoutes);

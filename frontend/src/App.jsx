@@ -7,13 +7,20 @@ import { Toaster } from "react-hot-toast";
 import LandingPage from "./pages/landing";
 import Signup from "./pages/signup";
 import Signin from "./pages/signin";
+import ChooseMode from "./pages/ChooseMode";
+import SponsorshipHome from "./pages/sponsorshiphome";
+import Intellectualhome from "./pages/Intellectuals"
 import Home from "./pages/home";
 import Tasks from "./pages/Tasks"
 
+import ShowAllIntellectuals from "./pages/ShowAllIntellectuals.jsx";
+import ApplyProfessor from "./pages/ApplyProfessor.jsx";
+import ApplyExpert from "./pages/ApplyExpert.jsx";
+
 import TechPostTask from "./pages/Techposttask.jsx";
 import ViewTask from "./pages/viewtask";
-import EducationPostTask from "./pages/EducationPostTask"; 
-import ArchitecturePostTask from "./pages/ArchitecturePostTask"; 
+import EducationPostTask from "./pages/EducationPostTask";
+import ArchitecturePostTask from "./pages/ArchitecturePostTask";
 import EventManagementPostTask from "./pages/EventManagementPostTask";
 import ListSponsorship from "./pages/ListSponsorship.jsx";
 import Sponsorships from "./pages/Sponsorships.jsx";
@@ -24,7 +31,7 @@ import ViewProfilePage from "./pages/viewprofile";
 
 import Pricing from "./pages/Pricing.jsx";
 import Checkout from "./pages/Checkout.jsx";
-import ChooseCategory from "./pages/ChooseCategory"; 
+import ChooseCategory from "./pages/ChooseCategory";
 
 // pages2
 import ScrollToTop from "./components/ScrollToTop";
@@ -55,7 +62,7 @@ function AutoLogin() {
         console.error("Auth check failed:", error);
       }
     };
-    
+
     checkAuth();
   }, [navigate]);
 
@@ -67,7 +74,7 @@ function App() {
     <Router>
       {/* 👇 This ensures scroll resets on every route change */}
       <ScrollToTop />
-      
+
       {/* Toast notifications */}
       <Toaster
         position="top-right"
@@ -98,10 +105,17 @@ function App() {
       <Routes>
         {/* Auth & Core */}
         <Route path="/" element={<LandingPage />} />
+        <Route path="/choose" element={<ChooseMode />} />
+        <Route path="/home" element={<Home />} />
+        <Route path="/sponsorshiphome" element={<SponsorshipHome />} />
+        <Route path="/intellectuals" element={<Intellectualhome />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/signin" element={<Signin />} />
-        <Route path="/home" element={<Home />} />
 
+        <Route path="/apply-professor" element={<ApplyProfessor />} />
+        <Route path="/apply-expert" element={<ApplyExpert />} />
+
+      
         <Route path="/tasks" element={<Tasks />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/posttask-tech" element={<TechPostTask />} />
@@ -109,8 +123,10 @@ function App() {
         <Route path="/posttask-architecture" element={<ArchitecturePostTask />} />
         <Route path="/posttask-event" element={<EventManagementPostTask />} />
         <Route path="/List-Sponsorship" element={<ListSponsorship />} />
-        <Route path="/Sponsorships" element={<Sponsorships/>}/>
-
+        <Route path="/Sponsorships" element={<Sponsorships />} />
+        
+        <Route path="/intellectuals-all" element={<ShowAllIntellectuals />} />
+        
         <Route path="/task/:id" element={<ViewTask />} />
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/u/:slug" element={<ViewProfilePage />} />

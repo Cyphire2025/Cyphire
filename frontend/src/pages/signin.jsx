@@ -1,7 +1,7 @@
 /* eslint-disable no-unused-vars */
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { motion } from "framer-motion";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { FcGoogle } from "react-icons/fc";
 import toast from "react-hot-toast";
 
@@ -12,6 +12,12 @@ const API_BASE = import.meta.env?.VITE_API_BASE || "http://localhost:5000";
 
 export default function Signin() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const redirectPath = useMemo(() => {
+    const next = new URLSearchParams(location.search || "").get("next");
+    if (next && next.startsWith("/")) return next;
+    return "/choose";
+  }, [location.search]);
 
   // form state
   const [form, setForm] = useState({ email: "", password: "" });
@@ -38,12 +44,12 @@ export default function Signin() {
         store.setItem("token", token);
         if (user?.id) store.setItem("userId", user.id);
         store.setItem("loginTime", Date.now().toString());
-        navigate("/home");
+        navigate(redirectPath);
       }
     };
     window.addEventListener("message", onMsg);
     return () => window.removeEventListener("message", onMsg);
-  }, [remember, navigate]);
+  }, [remember, navigate, redirectPath]);
 
   const handleEmailSignin = useCallback(
     async (e) => {
@@ -73,20 +79,20 @@ export default function Signin() {
         store.setItem("loginTime", Date.now().toString());
         
         toast.success("Welcome back!");
-        navigate("/home");
+        navigate(redirectPath);
       } catch (e) {
         toast.error(e.message || "Sign in failed");
       } finally {
         setLoading(false);
       }
     },
-    [form, navigate, remember]
+    [form, navigate, redirectPath, remember]
   );
 
   const handleGoogle = useCallback(() => {
     setLoading(true);
-    window.location.href = `${API_BASE}/api/auth/google?mode=signin&remember=${remember ? 1 : 0}`;
-  }, [remember]);
+    window.location.href = `${API_BASE}/api/auth/google?mode=signin&remember=${remember ? 1 : 0}&next=${encodeURIComponent(redirectPath)}`;
+  }, [redirectPath, remember]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#0a0a0f] via-[#0c0c14] to-[#000] text-white flex items-center justify-center p-6 relative overflow-hidden">
