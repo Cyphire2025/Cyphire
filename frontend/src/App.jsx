@@ -16,6 +16,8 @@ import Tasks from "./pages/Tasks"
 import ShowAllIntellectuals from "./pages/ShowAllIntellectuals.jsx";
 import ApplyProfessor from "./pages/ApplyProfessor.jsx";
 import ApplyExpert from "./pages/ApplyExpert.jsx";
+import ApplyInfluencer from "./pages/ApplyInfluencer";
+import ApplyMentor from "./pages/ApplyMentor.jsx";
 
 import TechPostTask from "./pages/Techposttask.jsx";
 import ViewTask from "./pages/viewtask";
@@ -43,6 +45,7 @@ import HowitWorks from "./pages2/HowItWorks.jsx";
 import PricingPlans from "./pages2/PricingPlans.jsx";
 import EscrowPolicy from "./pages2/EscrowPolicy.jsx";
 import HelpCenter from "./pages2/HelpCenter.jsx";
+
 
 
 function AutoLogin() {
@@ -114,8 +117,9 @@ function App() {
 
         <Route path="/apply-professor" element={<ApplyProfessor />} />
         <Route path="/apply-expert" element={<ApplyExpert />} />
+        <Route path="/apply-influencer" element={<ApplyInfluencer />} />
+        <Route path="/apply-mentor" element={<ApplyMentor />} />
 
-      
         <Route path="/tasks" element={<Tasks />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/posttask-tech" element={<TechPostTask />} />
