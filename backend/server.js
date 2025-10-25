@@ -33,6 +33,9 @@ const PORT = process.env.PORT || 5000;
 const server = http.createServer(app);
 import { Server } from "socket.io";
 
+// 🔐 Required on Render so Secure cookies are honored behind the proxy
+app.set("trust proxy", 1);
+
 // ✅ Allow both frontend and admin origins
 const allowedOrigins = [
   "http://localhost:5173",                        //test frontend
@@ -43,9 +46,24 @@ const allowedOrigins = [
   "https://cyphire-admin.vercel.app"              //admin
 ];
 
+// small helper to also allow any Vercel preview
+const isVercelPreview = (origin) => {
+  try {
+    const u = new URL(origin);
+    return u.protocol === "https:" && u.hostname.endsWith(".vercel.app");
+  } catch {
+    return false;
+  }
+};
+
 const io = new Server(server, {
   cors: {
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin) || isVercelPreview(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error("Not allowed by CORS"));
+    },
     credentials: true,
   },
 });
@@ -78,11 +96,17 @@ io.on("connection", (socket) => {
 
 // ----- Core Middleware -----
 
-// ✅ Fix: Dynamically allow known origins
+// ensure caches/CDNs don’t mix responses between origins
+app.use((req, res, next) => {
+  res.header("Vary", "Origin");
+  next();
+});
+
+// ✅ Fix: Dynamically allow known origins + vercel previews; allow credentials
 app.use(
   cors({
     origin: function (origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (!origin || allowedOrigins.includes(origin) || isVercelPreview(origin)) {
         callback(null, true);
       } else {
         callback(new Error("Not allowed by CORS"));
@@ -122,6 +146,7 @@ app.use("/api", paymentLogRoutes);
 
 app.use("/api/help", helpRoutes);
 app.use("/api/help/questions", helpQuestionRoutes);
+
 // ----- Start Server -----
 connectDB().then(() => {
   server.listen(PORT, () => {

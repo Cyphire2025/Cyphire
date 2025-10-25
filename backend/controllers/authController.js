@@ -37,23 +37,16 @@ const getFrontendBase = () => {
 
 // utils/setAuthCookie.js or inside authController.js
 // keep this helper in authController.js (or utils)
-const setAuthCookie = (res, token, rememberMe) => {
-  const maxAge = rememberMe ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
-
-  // On localhost (HTTP), SameSite:'lax', secure:false so the cookie is accepted.
-  // In production (HTTPS, different domains), SameSite:'none', secure:true.
-  const isProd = process.env.NODE_ENV === "production";
-
+const setAuthCookie = (req, res, token, remember = false) => {
+  const maxAge = remember ? 1000 * 60 * 60 * 24 * 30 : 1000 * 60 * 60 * 6; // 30d or 6h
   res.cookie("token", token, {
     httpOnly: true,
-    sameSite: isProd ? "none" : "lax",
-    secure: isProd,
-    path: "/",          // very important so /home and every route sees it
+    sameSite: "none",   // REQUIRED for cross-site (vercel.app -> onrender.com)
+    secure: true,       // REQUIRED when SameSite=None
+    path: "/",
     maxAge,
   });
 };
-
-
 
 
 // POST /api/auth/signup (email + password)
@@ -69,7 +62,7 @@ export const emailSignup = async (req, res) => {
     const user = await User.create({ name, email: email.toLowerCase(), passwordHash });
 
     const token = signJwt({ id: user._id });
-    setAuthCookie(res, token, req.body.rememberMe);
+    setAuthCookie(req, res, token, /* remember= */ !!req.body.rememberMe);
 
     res.status(201).json({
       user: { id: user._id, name: user.name, email: user.email, avatar: user.avatar }
@@ -93,7 +86,8 @@ export const emailSignin = async (req, res) => {
     if (!ok) return res.status(401).json({ error: "Invalid credentials" });
 
     const token = signJwt({ id: user._id });
-    setAuthCookie(res, token, req.body.rememberMe);
+setAuthCookie(req, res, token, !!req.body.rememberMe);
+
 
     res.json({
       user: { id: user._id, name: user.name, email: user.email, avatar: user.avatar }
@@ -119,37 +113,64 @@ export const googleAuth = (req, res, next) => {
 };
 
 // GET /api/auth/google/callback
+// authController.js
+
 export const googleCallback = (req, res, next) => {
   passport.authenticate("google", { session: false }, (err, user) => {
     if (err || !user) {
       return res.redirect(`${getFrontendBase()}/signin?error=oauth_failed`);
     }
 
-    const token = signJwt({ id: user._id });
-    let rememberMe = false;
-    let nextPath = "/choose";
+    try {
+      const token = signJwt({ id: user._id });
 
-    const { state } = req.query;
-    if (state === "1" || state === "0" || state === undefined) {
-      rememberMe = state === "1";
-    } else {
-      try {
-        const parsed = decodeState(state);
-        if (parsed) {
-          rememberMe = parsed.remember === "1" || parsed.remember === true;
-          nextPath = sanitizeNextPath(parsed.next);
+      // Defaults
+      let rememberMe = false;
+      let nextPath = "/choose";
+
+      // Parse state (supports plain "1"/"0" or the encoded object)
+      const { state } = req.query;
+      if (state === "1" || state === "0" || state === undefined) {
+        rememberMe = state === "1";
+      } else {
+        try {
+          const parsed = decodeState(state);
+          if (parsed) {
+            rememberMe =
+              parsed.remember === "1" || parsed.remember === true || parsed.remember === "true";
+            nextPath = sanitizeNextPath(parsed.next) || "/choose";
+          }
+        } catch (stateErr) {
+          console.error("Failed to decode Google OAuth state:", stateErr);
         }
-      } catch (stateErr) {
-        console.error("Failed to decode Google OAuth state:", stateErr);
       }
+
+      // 🔐 Set the auth cookie on your API domain (Render) so the browser will
+      // include it on subsequent XHR/fetch from your Vercel app.
+      const maxAge = rememberMe
+        ? 1000 * 60 * 60 * 24 * 30 // 30 days
+        : 1000 * 60 * 60 * 6;      // 6 hours
+
+      res.cookie("token", token, {
+        httpOnly: true,
+        sameSite: "none",  // REQUIRED for cross-site (vercel.app → onrender.com)
+        secure: true,      // REQUIRED when SameSite=None
+        path: "/",
+        maxAge,
+      });
+
+      // Avoid any proxy/CDN caching of this auth response
+      res.setHeader("Cache-Control", "no-store");
+
+      // ✅ Now that the cookie is set on Render, send user to your frontend
+      return res.redirect(`${getFrontendBase()}${nextPath}`);
+    } catch (e) {
+      console.error("googleCallback error:", e);
+      return res.redirect(`${getFrontendBase()}/signin?error=server_error`);
     }
-
-    // use the same cookie helper you already use for email sign-in
-    setAuthCookie(res, token, rememberMe);
-    return res.redirect(`${getFrontendBase()}${nextPath}`);
-
   })(req, res, next);
 };
+
 
 // POST /api/auth/signout
 export const signout = (_req, res) => {
