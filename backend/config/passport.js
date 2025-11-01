@@ -1,16 +1,17 @@
 // config/passport.js
+
 import dotenv from "dotenv";
-dotenv.config(); // ⬅️ Make sure .env is loaded BEFORE anything else
+dotenv.config(); // Must load .env before passport config
 
 import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import User from "../models/userModel.js";
 
-// Destructure AFTER dotenv.config() runs
+// Destructure after .env loaded
 const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_CALLBACK_URL } = process.env;
 
-if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
-  console.warn("⚠️ Google OAuth disabled: missing GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET");
+if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !GOOGLE_CALLBACK_URL) {
+  console.warn("⚠️ Google OAuth DISABLED: missing GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET/GOOGLE_CALLBACK_URL");
 } else {
   console.log("✅ Google OAuth enabled");
   passport.use(

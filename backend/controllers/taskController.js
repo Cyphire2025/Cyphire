@@ -1,299 +1,405 @@
-// backend/controllers/taskController.js
+// controllers/taskController.js
+
 import mongoose from "mongoose";
 import Task from "../models/taskModel.js";
 import User from "../models/userModel.js";
-import cloudinary from "../utils/cloudinary.js"; // uses your utils/cloudinary.js config
-import { getNextWorkroomId } from "../utils/getNextWorkroomId.js";
+import cloudinary from "../utils/cloudinary.js";
 
-// Helper: upload a single file buffer/path to Cloudinary
-const uploadToCloudinary = (file) =>
-  new Promise((resolve, reject) => {
-    // If multer gave us a path (disk storage), use uploader.upload
-    if (file.path) {
-      cloudinary.uploader.upload(
-        file.path,
-        { resource_type: "auto", folder: "cyphire/tasks" },
-        (err, result) => {
-          if (err) return reject(err);
-          resolve({
-            url: result.secure_url,
-            public_id: result.public_id,
-            original_name: file.originalname || file.filename || "file",
-            size: file.size || 0,
-            contentType: file.mimetype || "application/octet-stream",
-          });
-        }
-      );
-      return;
-    }
+/* --------------------------- shared config/helpers -------------------------- */
 
-    // If multer gave us a memory buffer, stream it
-    if (file.buffer) {
-      const stream = cloudinary.uploader.upload_stream(
-        { resource_type: "auto", folder: "cyphire/tasks" },
-        (err, result) => {
-          if (err) return reject(err);
-          resolve({
-            url: result.secure_url,
-            public_id: result.public_id,
-            original_name: file.originalname || "file",
-            size: file.size || 0,
-            contentType: file.mimetype || "application/octet-stream",
-          });
-        }
-      );
-      stream.end(file.buffer);
-      return;
-    }
+const SAFE_USER_SELECT = "_id name avatar slug";
 
-    // Fallback: nothing to upload
-    resolve(null);
+const TASK_POPULATE = [
+  { path: "createdBy", select: SAFE_USER_SELECT },
+  { path: "applicants", select: SAFE_USER_SELECT }, // applicants is [ObjectId]
+];
+
+const log = (req) => ({
+  info: (...a) => (req?.log?.info ? req.log.info(...a) : console.log("[INFO]", ...a)),
+  warn: (...a) => (req?.log?.warn ? req.log.warn(...a) : console.warn("[WARN]", ...a)),
+  error: (...a) => (req?.log?.error ? req.log.error(...a) : console.error("[ERROR]", ...a)),
+});
+
+const isObjectId = (v) => typeof v === "string" && mongoose.isValidObjectId(v);
+
+/** Upload a single file buffer to Cloudinary */
+const uploadToCloudinary = async (file, folder) => {
+  if (!file?.buffer) return null;
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      { folder, resource_type: "auto", use_filename: true, unique_filename: true, overwrite: false },
+      (err, res) => (err ? reject(err) : resolve(res))
+    );
+    stream.end(file.buffer);
   });
+};
 
-// POST /api/tasks
-export const createTask = async (req, res) => {
+/** Upload multiple files to Cloudinary */
+const uploadAttachments = async (files, folder) => {
+  if (!Array.isArray(files) || files.length === 0) return [];
+  const out = [];
+  for (const f of files) {
+    // eslint-disable-next-line no-await-in-loop
+    const up = await uploadToCloudinary(f, folder);
+    if (up?.secure_url) {
+      out.push({
+        url: up.secure_url,
+        public_id: up.public_id,
+        original_name: f.originalname || "file",
+        size: f.size || 0,
+        contentType: f.mimetype || "application/octet-stream",
+        width: up.width || 0,
+        height: up.height || 0,
+        format: up.format || "",
+        bytes: up.bytes || 0,
+      });
+    }
+  }
+  return out;
+};
+
+const populateTaskById = (id) => Task.findById(id).populate(TASK_POPULATE).lean();
+
+/* --------------------------------- create ---------------------------------- */
+
+/**
+ * POST /api/tasks
+ * Create a new task with optional attachments/logo
+ */
+export const createTask = async (req, res, next) => {
+  const logger = log(req);
   try {
+    const userId = req?.user?._id;
+    if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
     const {
       title,
       description,
-      category,
-      categories,
-      numberOfApplicants,
+      category, // can be string or array
       price,
+      numberOfApplicants,
       deadline,
-      metadata,
+      metadata, // can be object or JSON string
     } = req.body;
 
-    const normalizedCategory = Array.isArray(categories)
-      ? categories
-      : Array.isArray(category)
-        ? category
-        : category
-          ? [category]
-          : [];
+    if (!title || String(title).trim().length < 3)
+      return res.status(400).json({ error: "Title must be at least 3 characters" });
+    if (!description || String(description).trim().length < 10)
+      return res.status(400).json({ error: "Description must be at least 10 characters" });
 
-    // Upload attachments
-    const uploadedFiles = [];
-    if (req.files?.attachments?.length > 0) {
-      for (const f of req.files.attachments) {
-        const uploaded = await uploadToCloudinary(f);
-        if (uploaded) uploadedFiles.push(uploaded);
-      }
-    }
+    const attachmentsFiles = req.files?.attachments || [];
+    const logoFile = Array.isArray(req.files?.logo) ? req.files.logo[0] : null;
 
-    // ✅ Upload logo separately
-    let uploadedLogo = null; // <-- define first
-    if (req.files?.logo?.length > 0) {
-      const uploaded = await uploadToCloudinary(req.files.logo[0]);
-      if (uploaded) uploadedLogo = uploaded;
-    }
+    const uploadedAttachments = await uploadAttachments(attachmentsFiles, "cyphire/tasks");
+    const uploadedLogo = logoFile ? await uploadToCloudinary(logoFile, "cyphire/tasks/logo") : null;
 
-    // ❌ If no logo uploaded, block sponsorship posting
-    if (!uploadedLogo) {
-      return res.status(400).json({ error: "Logo is required for sponsorships" });
-    }
+    const doc = {
+      title: String(title).trim(),
+      description: String(description).trim(),
+      category: Array.isArray(category) ? category.filter(Boolean) : [category].filter(Boolean),
+      price: price != null ? Number(price) : undefined,
+      numberOfApplicants: numberOfApplicants != null ? Number(numberOfApplicants) : undefined,
+      deadline: deadline ? new Date(deadline) : undefined,
+      metadata: typeof metadata === "string" ? (JSON.parse(metadata || "{}") || {}) : (metadata || {}),
+      attachments: uploadedAttachments,
+      logo: uploadedLogo?.secure_url
+        ? { url: uploadedLogo.secure_url, public_id: uploadedLogo.public_id }
+        : undefined,
+      createdBy: userId,
+      applicants: [],
+      status: "open",
+    };
 
-    // ✅ Parse metadata safely
-    let parsedMetadata = {};
-    try {
-      if (metadata) {
-        parsedMetadata =
-          typeof metadata === "string" ? JSON.parse(metadata) : metadata;
-      }
-    } catch (err) {
-      console.warn("Invalid metadata JSON:", metadata);
-    }
+    const task = await Task.create(doc);
+    const populated = await populateTaskById(task._id);
 
-    const newTask = await Task.create({
-      title,
-      description,
-      category: normalizedCategory,
-      numberOfApplicants: Number(numberOfApplicants) || 0,
-      price: Number(price) || 0,
-      deadline: deadline ? new Date(deadline) : null,
-      createdBy: req.user._id,
-      attachments: uploadedFiles,
-      logo: {                          // <-- save properly
-        url: uploadedLogo.url,
-        public_id: uploadedLogo.public_id,
-      },
-      metadata: parsedMetadata,
-    });
-
-    return res.status(201).json(newTask);
-  } catch (err) {
-    console.error("createTask error:", err);
-    return res.status(500).json({ error: "Server error creating task" });
+    logger.info("Task created", { taskId: String(task._id), by: String(userId) });
+    // return a single task object
+    return res.status(201).json(populated);
+  } catch (e) {
+    log(req).error("createTask error:", e);
+    return next(e);
   }
 };
 
+/* --------------------------------- reads ----------------------------------- */
 
-
-// GET /api/tasks
-export const getTasks = async (_req, res) => {
+/**
+ * GET /api/tasks
+ * Public list (supports ?category= for your Sponsorships page)
+ * Returns a PLAIN ARRAY because the frontend expects Array.isArray(response) === true.
+ */
+export const getTasks = async (req, res, next) => {
+  const logger = log(req);
   try {
-    const tasks = await Task.find()
-      .sort({ createdAt: -1 })
-      .populate({
-        path: "applicants",
-        select: "name avatar slug",  // include slug for profile URL
-      });
+    const { category } = req.query;
+    const q = {};
+    if (category) {
+      // accept string or array categories in DB, match case-insensitive
+      q.$or = [
+        { category: { $regex: `^${String(category)}$`, $options: "i" } },
+        { category: { $elemMatch: { $regex: `^${String(category)}$`, $options: "i" } } },
+      ];
+    }
+    const limit = Math.min(Math.max(Number(req.query.limit) || 100, 1), 200);
 
+    const tasks = await Task.find(q)
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .populate(TASK_POPULATE)
+      .lean();
+
+    // IMPORTANT: return an array (frontend sets it directly)
     return res.json(tasks);
-  } catch (err) {
-    console.error("getTasks error:", err);
-    return res.status(500).json({ error: "Server error fetching tasks" });
+  } catch (e) {
+    logger.error("getTasks error:", e);
+    return next(e);
   }
 };
 
-
-// GET /api/tasks/:id
-export const getTaskById = async (req, res) => {
+/**
+ * GET /api/tasks/mine
+ * Dashboard list for the task owner
+ * (You can map this to your route; if not used, feel free to remove.)
+ */
+export const getMyTasks = async (req, res, next) => {
+  const logger = log(req);
   try {
-    const { id } = req.params;
-    const task = await Task.findById(id);
+    const userId = req?.user?._id;
+    if (!userId) return res.status(401).json({ error: "Unauthorized" });
 
-    if (!task) {
-      return res.status(404).json({ error: "Task not found" });
-    }
-    return res.json(task);
-  } catch (err) {
-    console.error("getTaskById error:", err);
-    return res.status(500).json({ error: "Server error fetching task" });
-  }
-};
-
-
-// GET /api/tasks/mine  (tasks created by the logged-in user)
-export const getMyTasks = async (req, res) => {
-  try {
-    const tasks = await Task.find({ createdBy: req.user._id })
+    const tasks = await Task.find({ createdBy: userId })
       .sort({ createdAt: -1 })
-      .populate({
-        path: "applicants",
-        select: "name email avatar", // adjust fields as needed
-        path: "applicants",
-        select: "name avatar slug",
-      });
+      .populate(TASK_POPULATE)
+      .lean();
 
-    return res.json({ tasks });
-  } catch (err) {
-    console.error("getMyTasks error:", err);
-    return res.status(500).json({ error: "Server error fetching my tasks" });
+    // Dashboard also expects array
+    return res.json(tasks);
+  } catch (e) {
+    logger.error("getMyTasks error:", e);
+    return next(e);
   }
 };
 
-
-export const applyToTask = async (req, res) => {
+/**
+ * GET /api/tasks/:id
+ * Single task
+ */
+export const getTaskById = async (req, res, next) => {
+  const logger = log(req);
   try {
     const { id } = req.params;
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ error: "Invalid task id" });
-    }
+    if (!isObjectId(id)) return res.status(400).json({ error: "Invalid task id" });
+
+    const task = await Task.findById(id).populate(TASK_POPULATE).lean();
+    if (!task) return res.status(404).json({ error: "Task not found" });
+
+    return res.json(task);
+  } catch (e) {
+    logger.error("getTaskById error:", e);
+    return next(e);
+  }
+};
+
+/* ----------------------------- applications flow ---------------------------- */
+
+/**
+ * POST /api/tasks/:id/apply
+ * Current user applies to a task
+ */
+export const applyToTask = async (req, res, next) => {
+  const logger = log(req);
+  try {
+    const { id } = req.params;
+    const userId = req?.user?._id;
+
+    if (!userId) return res.status(401).json({ error: "Unauthorized" });
+    if (!isObjectId(id)) return res.status(400).json({ error: "Invalid task id" });
+
+    const task = await Task.findById(id);
+    if (!task) return res.status(404).json({ error: "Task not found" });
+    if (String(task.createdBy) === String(userId))
+      return res.status(400).json({ error: "You cannot apply to your own task" });
+    if (task.status !== "open")
+      return res.status(400).json({ error: "Task is not open for applications" });
+
+    const already = task.applicants.some((a) => String(a) === String(userId));
+    if (already) return res.status(400).json({ error: "Already applied" });
+
+    task.applicants.push(userId);
+    await task.save();
+
+    const populated = await populateTaskById(task._id);
+    // return the updated, populated task object
+    return res.json(populated);
+  } catch (e) {
+    logger.error("applyToTask error:", e);
+    return next(e);
+  }
+};
+
+/**
+ * POST /api/tasks/:id/withdraw
+ * Current user withdraws their application
+ */
+export const withdrawApplication = async (req, res, next) => {
+  const logger = log(req);
+  try {
+    const { id } = req.params;
+    const userId = req?.user?._id;
+
+    if (!userId) return res.status(401).json({ error: "Unauthorized" });
+    if (!isObjectId(id)) return res.status(400).json({ error: "Invalid task id" });
 
     const task = await Task.findById(id);
     if (!task) return res.status(404).json({ error: "Task not found" });
 
-    // 1) Block owner from applying
-    if (String(task.createdBy) === String(req.user._id)) {
-      return res.status(400).json({ error: "You cannot apply to your own task" });
-    }
-
-    // 2) Prevent duplicates
-    const already = task.applicants.some((u) => String(u) === String(req.user._id));
-    if (already) {
-      // 200 so the UI can just flip to "Applied"
-      return res.status(200).json({ task, message: "Already applied" });
-    }
-
-    // 3) Enforce capacity (numberOfApplicants = max seats)
-    const capacity = Number(task.numberOfApplicants) || 0; // 0 means unlimited
-    if (capacity > 0 && task.applicants.length >= capacity) {
-      return res.status(400).json({ error: "Applications are full" });
-    }
-
-    // 4) Apply
-    task.applicants.push(req.user._id);
-
-    // IMPORTANT: DO NOT set numberOfApplicants to the current length
-    // It represents capacity, not count.
+    const before = task.applicants.length;
+    task.applicants = task.applicants.filter((a) => String(a) !== String(userId));
+    if (task.applicants.length === before)
+      return res.status(400).json({ error: "You have not applied to this task" });
 
     await task.save();
-
-    // Return minimal updated task so UI can refresh counts
-    const updated = await Task.findById(id).select("_id applicants numberOfApplicants");
-    return res.json({ task: updated });
-  } catch (err) {
-    console.error("applyToTask error:", err);
-    return res.status(500).json({ error: "Server error applying to task" });
+    const populated = await populateTaskById(task._id);
+    return res.json(populated);
+  } catch (e) {
+    logger.error("withdrawApplication error:", e);
+    return next(e);
   }
 };
 
-// add below your imports
-
-
-;
-// POST /api/tasks/:id/select
-// POST /api/tasks/:id/select
-
-export const selectApplicant = async (req, res) => {
+/**
+ * POST /api/tasks/:id/select
+ * Task owner selects an applicant (typically followed by payment/escrow)
+ */
+export const selectApplicant = async (req, res, next) => {
+  const logger = log(req);
   try {
     const { id } = req.params;
     const { applicantId } = req.body;
+    const userId = req?.user?._id;
 
-    const task = await Task.findById(id).populate("applicants", "_id name");
+    if (!userId) return res.status(401).json({ error: "Unauthorized" });
+    if (!isObjectId(id)) return res.status(400).json({ error: "Invalid task id" });
+    if (!isObjectId(applicantId)) return res.status(400).json({ error: "Invalid applicant id" });
+
+    const task = await Task.findById(id);
     if (!task) return res.status(404).json({ error: "Task not found" });
+    if (String(task.createdBy) !== String(userId))
+      return res.status(403).json({ error: "Forbidden" });
 
-    if (String(task.createdBy) !== String(req.user._id)) {
-      return res.status(403).json({ error: "Only the task owner can select an applicant" });
-    }
+    if (!task.applicants.some((a) => String(a) === String(applicantId)))
+      return res.status(400).json({ error: "Applicant not found in this task" });
 
-    const applied = (task.applicants || []).some(
-      (a) => String(a._id || a) === String(applicantId)
-    );
-    if (!applied) return res.status(400).json({ error: "This user has not applied to the task" });
-
-    if (task.selectedApplicant) {
-      return res.status(400).json({ error: "An applicant has already been selected" });
-    }
-
-    // ✅ Generate numeric 10-digit workroomId
     task.selectedApplicant = applicantId;
-    task.workroomId = await getNextWorkroomId();
+    task.status = "in-progress";
     await task.save();
 
-    // Build notifications
-    const selectedId = String(applicantId);
-    const title = task.title || "your task";
-    const selectedMsg = `You’ve been selected for “${title}”. Open your applications to proceed.`;
-    const rejectedMsg = `Update on “${title}”: you weren’t selected this time.`;
+    const populated = await populateTaskById(task._id);
+    return res.json(populated);
+  } catch (e) {
+    logger.error("selectApplicant error:", e);
+    return next(e);
+  }
+};
 
-    // Fan-out notifications: selected + all others as rejection
-    await Promise.all(
-      (task.applicants || []).map(a => {
-        const uid = String(a._id || a);
-        const payload = {
-          type: uid === selectedId ? "selection" : "rejection",
-          message: uid === selectedId ? selectedMsg : rejectedMsg,
-          link: "/dashboard?tab=myApplications",
-          read: false,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
-        return User.updateOne(
-          { _id: uid },
-          { $push: { notifications: { $each: [payload], $position: 0 } } }
-        ).exec();
-      })
-    );
+/* --------------------------------- updates --------------------------------- */
 
-    // Return a lean task for UI merge
-    const clean = await Task.findById(id).select(
-      "_id title selectedApplicant workroomId createdBy applicants numberOfApplicants"
-    );
-    return res.json({ task: clean });
-  } catch (err) {
-    console.error("selectApplicant error:", err);
-    return res.status(500).json({ error: "Server error selecting applicant" });
+/**
+ * PUT /api/tasks/:id
+ * Owner updates task fields; optional attachments/logo replacement
+ */
+export const updateTask = async (req, res, next) => {
+  const logger = log(req);
+  try {
+    const { id } = req.params;
+    const userId = req?.user?._id;
+
+    if (!userId) return res.status(401).json({ error: "Unauthorized" });
+    if (!isObjectId(id)) return res.status(400).json({ error: "Invalid task id" });
+
+    const task = await Task.findById(id);
+    if (!task) return res.status(404).json({ error: "Task not found" });
+    if (String(task.createdBy) !== String(userId))
+      return res.status(403).json({ error: "Forbidden" });
+
+    const allowed = [
+      "title",
+      "description",
+      "price",
+      "numberOfApplicants",
+      "deadline",
+      "category",
+      "metadata",
+      "status",
+    ];
+
+    for (const key of allowed) {
+      if (key in req.body) {
+        if (key === "category") {
+          task.category = Array.isArray(req.body.category)
+            ? req.body.category.filter(Boolean)
+            : [req.body.category].filter(Boolean);
+        } else if (key === "metadata") {
+          task.metadata =
+            typeof req.body.metadata === "string"
+              ? (JSON.parse(req.body.metadata || "{}") || {})
+              : (req.body.metadata || {});
+        } else if (key === "price" || key === "numberOfApplicants") {
+          task[key] = req.body[key] != null ? Number(req.body[key]) : undefined;
+        } else if (key === "deadline") {
+          task.deadline = req.body.deadline ? new Date(req.body.deadline) : undefined;
+        } else {
+          task[key] = req.body[key];
+        }
+      }
+    }
+
+    // optional: replace media
+    const attachmentsFiles = req.files?.attachments || [];
+    const logoFile = Array.isArray(req.files?.logo) ? req.files.logo[0] : null;
+
+    if (attachmentsFiles.length) {
+      task.attachments = await uploadAttachments(attachmentsFiles, "cyphire/tasks");
+    }
+    if (logoFile) {
+      const up = await uploadToCloudinary(logoFile, "cyphire/tasks/logo");
+      task.logo = up?.secure_url ? { url: up.secure_url, public_id: up.public_id } : undefined;
+    }
+
+    await task.save();
+    const populated = await populateTaskById(task._id);
+    return res.json(populated);
+  } catch (e) {
+    logger.error("updateTask error:", e);
+    return next(e);
+  }
+};
+
+/* --------------------------------- delete ---------------------------------- */
+
+/**
+ * DELETE /api/tasks/:id
+ * Owner-only delete
+ */
+export const deleteTask = async (req, res, next) => {
+  const logger = log(req);
+  try {
+    const { id } = req.params;
+    const userId = req?.user?._id;
+
+    if (!userId) return res.status(401).json({ error: "Unauthorized" });
+    if (!isObjectId(id)) return res.status(400).json({ error: "Invalid task id" });
+
+    const task = await Task.findById(id);
+    if (!task) return res.status(404).json({ error: "Task not found" });
+    if (String(task.createdBy) !== String(userId))
+      return res.status(403).json({ error: "Forbidden" });
+
+    await task.deleteOne();
+    return res.json({ success: true });
+  } catch (e) {
+    logger.error("deleteTask error:", e);
+    return next(e);
   }
 };

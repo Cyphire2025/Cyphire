@@ -44,8 +44,7 @@ import Contact from "./pages2/Contact.jsx";
 import HowitWorks from "./pages2/HowItWorks.jsx";
 import PricingPlans from "./pages2/PricingPlans.jsx";
 import EscrowPolicy from "./pages2/EscrowPolicy.jsx";
-import HelpCenter from "./pages2/HelpCenter.jsx";
-
+import HelpCenter from "./pages2/HelpCenter.tsx";
 
 
 function AutoLogin() {
@@ -114,12 +113,10 @@ function App() {
         <Route path="/intellectuals" element={<Intellectualhome />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/signin" element={<Signin />} />
-
         <Route path="/apply-professor" element={<ApplyProfessor />} />
         <Route path="/apply-expert" element={<ApplyExpert />} />
         <Route path="/apply-influencer" element={<ApplyInfluencer />} />
         <Route path="/apply-mentor" element={<ApplyMentor />} />
-
         <Route path="/tasks" element={<Tasks />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/posttask-tech" element={<TechPostTask />} />

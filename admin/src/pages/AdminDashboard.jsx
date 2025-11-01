@@ -18,7 +18,8 @@ import {
 import UserView from "./usersview"
 import TasksView from "./tasksview";
 import PaymentsView from "./paymentsview";
-
+import QuestionsView from "./questionsview"; 
+import TicketsView from "./ticketsview";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
 
@@ -28,6 +29,7 @@ const menuItems = [
   { id: "tasks", label: "Tasks", icon: <ClipboardList size={18} /> },
   { id: "workroom", label: "Workroom Viewer", icon: <MessageSquare size={18} /> },
   { id: "questions", label: "Questions", icon: <Gavel size={18} /> },
+  { id: "tickets", label: "Tickets", icon: <MessageSquare size={18} /> },
   { id: "escrow", label: "Escrow Monitor", icon: <Wallet size={18} /> },
   { id: "payments", label: "Payment Logs", icon: <ReceiptText size={18} /> },
   { id: "reports", label: "Task Reports", icon: <FileText size={18} /> },
@@ -56,7 +58,10 @@ export default function AdminDashboard() {
         return <WorkroomViewer />;
       case "payments":
         return <PaymentsView />;
-
+      case "questions": 
+        return <QuestionsView />;
+      case "tickets": 
+        return <TicketsView />;
       default:
         return null;
     }

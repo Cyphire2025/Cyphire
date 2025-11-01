@@ -1,6 +1,7 @@
 // backend/models/intellectualApplicationModel.js
 import mongoose from "mongoose";
 
+// --- Cloud file sub-schema (secure, auditable, reusable) ---
 const CLOUD_FILE = new mongoose.Schema({
   url: { type: String, required: true },
   public_id: { type: String, required: true },
@@ -9,6 +10,7 @@ const CLOUD_FILE = new mongoose.Schema({
   contentType: { type: String, default: "application/octet-stream" },
 }, { _id: false });
 
+// --- Audit trail sub-schema ---
 const AUDIT = new mongoose.Schema({
   at: { type: Date, default: Date.now },
   by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
@@ -16,13 +18,14 @@ const AUDIT = new mongoose.Schema({
   note: { type: String, default: "" },
 }, { _id: false });
 
+// --- Profile (common fields for all intellectuals) ---
 const BASE_PROFILE = new mongoose.Schema({
   fullName: { type: String, required: true, trim: true },
   headline: { type: String, default: "" },       // short one-liner under name
   bio: { type: String, default: "" },
   avatar: CLOUD_FILE,                             // optional portrait
-  languages: { type: [String], default: [] },     // e.g. ['English','Hindi','Other: Marathi']
-  location: { type: String, default: "" },        // City, Country (free text)
+  languages: { type: [String], default: [] },
+  location: { type: String, default: "" },
   socials: {
     website: { type: String, default: "" },
     linkedin: { type: String, default: "" },
@@ -32,22 +35,19 @@ const BASE_PROFILE = new mongoose.Schema({
   }
 }, { _id: false });
 
-/**
- * Category-specific sections
- * Keep keys minimal + relevant; easy to extend later
- */
+// --- Category-specific schemas ---
 const PROFESSOR = new mongoose.Schema({
   institution: { type: String, required: true },
   department: { type: String, required: true },
-  designation: { type: String, default: "" }, // Assistant/Associate/Professor
-  expertise: { type: [String], default: [] }, // NLP, Control Systems, etc.
+  designation: { type: String, default: "" },
+  expertise: { type: [String], default: [] },
   publications: { type: Number, default: 0 },
   googleScholar: { type: String, default: "" },
-  proofDocs: { type: [CLOUD_FILE], default: [] }, // ID, faculty page, letters
+  proofDocs: { type: [CLOUD_FILE], default: [] },
 }, { _id: false });
 
 const INFLUENCER = new mongoose.Schema({
-  niches: { type: [String], default: [] },      // tech, education, lifestyle...
+  niches: { type: [String], default: [] },
   platforms: [{
     name: { type: String, enum: ["youtube","instagram","x","linkedin","tiktok","other"], required: true },
     handle: { type: String, default: "" },
@@ -59,50 +59,43 @@ const INFLUENCER = new mongoose.Schema({
 
 const INDUSTRY_EXPERT = new mongoose.Schema({
   company: { type: String, required: true },
-  role: { type: String, required: true },        // e.g. SDE3, Staff PM
+  role: { type: String, required: true },
   yearsExperience: { type: Number, min: 0, default: 0 },
-  domains: { type: [String], default: [] },      // fintech, ai, cloud
+  domains: { type: [String], default: [] },
   certifications: { type: [String], default: [] },
   proofDocs: { type: [CLOUD_FILE], default: [] },
 }, { _id: false });
 
 const COACH = new mongoose.Schema({
-  focusAreas: { type: [String], default: [] },   // career, interviews, public speaking
-  sessionsOffered: { type: [String], default: [] }, // 1:1, group, workshop
-  priceHint: { type: Number, min: 0, default: 0 },  // optional guide price
+  focusAreas: { type: [String], default: [] },
+  sessionsOffered: { type: [String], default: [] },
+  priceHint: { type: Number, min: 0, default: 0 },
   proofDocs: { type: [CLOUD_FILE], default: [] },
 }, { _id: false });
 
+// --- Main Intellectual Application schema ---
 const IntellectualApplicationSchema = new mongoose.Schema({
-  // Requester
   user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
-
-  // Category & status
   category: { type: String, enum: ["professor","influencer","industry_expert","coach"], required: true, index: true },
   status: { type: String, enum: ["draft","submitted","under_review","approved","rejected"], default: "submitted", index: true },
-
-  // Profile (common)
   profile: { type: BASE_PROFILE, required: true },
 
-  // Category-specific payload
+  // Category-specific sections
   professor: PROFESSOR,
   influencer: INFLUENCER,
   industry_expert: INDUSTRY_EXPERT,
   coach: COACH,
 
-  // Attachments common to all (e.g., CV)
-  attachments: { type: [CLOUD_FILE], default: [] },
-
-  // Admin-only: review notes, audit
+  attachments: { type: [CLOUD_FILE], default: [] }, // Common uploads (e.g., CV)
   reviewNotes: { type: String, default: "" },
   audit: { type: [AUDIT], default: [] },
 
-  // Idempotency / dedupe (optional)
+  // Dedupe/idempotency
   fingerprint: { type: String, default: "", index: true, unique: false },
 
 }, { timestamps: true });
 
-// Helpful compound index for admin dashboards
+// Compound index for admin dashboards
 IntellectualApplicationSchema.index({ category: 1, status: 1, createdAt: -1 });
 
 export default mongoose.model("IntellectualApplication", IntellectualApplicationSchema);

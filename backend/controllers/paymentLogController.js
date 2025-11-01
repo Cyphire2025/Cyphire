@@ -1,13 +1,27 @@
+// controllers/paymentLogController.js
+
 import Task from "../models/taskModel.js";
 import User from "../models/userModel.js";
 import PaymentLog from "../models/paymentLogModel.js";
 
+// --- Logger for payout actions ---
+const logger = {
+  info: (...args) => req.log.info("[PAYOUT]", ...args),
+  warn: (...args) => req.log.warn("[PAYOUT][WARN]", ...args),
+  error: (...args) => req.log.error("[PAYOUT][ERROR]", ...args),
+};
+
+/**
+ * POST /workrooms/:workroomId/payment-log
+ * Logs payout for a completed workroom/task.
+ */
 export const createPaymentLog = async (req, res) => {
   try {
     const { workroomId } = req.params;
     const { upiId } = req.body;
 
     if (!upiId || !upiId.includes("@")) {
+      req.log.warn("Invalid UPI for payout:", upiId);
       return res.status(400).json({ error: "Valid UPI ID required" });
     }
 
@@ -21,7 +35,6 @@ export const createPaymentLog = async (req, res) => {
     const fee = Math.round(task.price * (feePercent / 100));
     const netAmount = task.price - fee;
 
-    // Build UPI deep link
     const upiLink = `upi://pay?pa=${encodeURIComponent(
       upiId
     )}&pn=${encodeURIComponent(freelancer.name)}&am=${netAmount}&cu=INR&tn=${encodeURIComponent(
@@ -45,30 +58,39 @@ export const createPaymentLog = async (req, res) => {
       qrData: upiLink,
     });
 
-    // ✅ also update the Task itself
+    // Update task
     task.paymentRequested = true;
     task.upiId = upiId;
     await task.save();
 
+    req.log.info("Created payout log:", log._id, "for workroom:", workroomId);
+
     res.json({ success: true, log, paymentRequested: true });
 
   } catch (err) {
-    console.error("createPaymentLog error:", err);
+    req.log.error("createPaymentLog error:", err.message);
     res.status(500).json({ error: "Failed to create payment log" });
   }
 };
 
-// For Admin: fetch all logs
+/**
+ * GET /admin/payments
+ * Fetch all payout logs (admin).
+ */
 export const getPaymentLogs = async (req, res) => {
   try {
     const logs = await PaymentLog.find().sort({ createdAt: -1 });
     res.json(logs);
-  } catch {
+  } catch (err) {
+    req.log.error("getPaymentLogs error:", err.message);
     res.status(500).json({ error: "Failed to fetch logs" });
   }
 };
 
-// For Admin: update status
+/**
+ * PATCH /admin/payments/:id/status
+ * Update payout status (admin).
+ */
 export const updatePaymentStatus = async (req, res) => {
   try {
     const { id } = req.params;
@@ -79,8 +101,12 @@ export const updatePaymentStatus = async (req, res) => {
       { new: true }
     );
     if (!log) return res.status(404).json({ error: "Payment log not found" });
+
+    req.log.info("Updated payout status:", id, "to", paid);
+
     res.json({ success: true, paid: log.paid });
-  } catch {
+  } catch (err) {
+    req.log.error("updatePaymentStatus error:", err.message);
     res.status(500).json({ error: "Failed to update status" });
   }
 };

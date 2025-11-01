@@ -1,25 +1,38 @@
 // controllers/paymentController.js
+
 import Razorpay from "razorpay";
 import crypto from "crypto";
 import Task from "../models/taskModel.js";
-import cloudinary from "../utils/cloudinary.js"; // same as other controllers
+import cloudinary from "../utils/cloudinary.js";
 
-// --- Razorpay instance ---
+// --- Razorpay instance: env check and fail-fast ---
+if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+  throw new Error("[RAZORPAY] Missing credentials in env!");
+}
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
   key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
 
-// --- helper: upload a single file (buffer or path) to Cloudinary ---
+// --- Logger for audit and monitoring ---
+const logger = {
+  info: (...args) => req.log.info("[PAYMENT]", ...args),
+  warn: (...args) => req.log.warn("[PAYMENT][WARN]", ...args),
+  error: (...args) => req.log.error("[PAYMENT][ERROR]", ...args),
+};
+
+// --- Helper: upload one file (path or buffer) to Cloudinary ---
 const uploadToCloudinary = (file) =>
   new Promise((resolve, reject) => {
-    // disk path (if ever used)
     if (file?.path) {
-      return cloudinary.uploader.upload(
+      cloudinary.uploader.upload(
         file.path,
         { resource_type: "auto", folder: "cyphire/tasks" },
         (err, result) => {
-          if (err) return reject(err);
+          if (err) {
+            req.log.error("Cloudinary upload error:", err.message);
+            return reject(err);
+          }
           resolve({
             url: result.secure_url,
             public_id: result.public_id,
@@ -29,13 +42,16 @@ const uploadToCloudinary = (file) =>
           });
         }
       );
+      return;
     }
-    // memory buffer (your default)
     if (file?.buffer) {
       const stream = cloudinary.uploader.upload_stream(
         { resource_type: "auto", folder: "cyphire/tasks" },
         (err, result) => {
-          if (err) return reject(err);
+          if (err) {
+            req.log.error("Cloudinary upload error:", err.message);
+            return reject(err);
+          }
           resolve({
             url: result.secure_url,
             public_id: result.public_id,
@@ -45,32 +61,40 @@ const uploadToCloudinary = (file) =>
           });
         }
       );
-      return stream.end(file.buffer);
+      stream.end(file.buffer);
+      return;
     }
     resolve(null);
   });
 
-// --- POST /api/payment/create-order ---
+/**
+ * POST /api/payment/create-order
+ * Creates a new Razorpay order for the given amount.
+ */
 export const createOrder = async (req, res) => {
   try {
     const amount = parseInt(req.body.amount, 10);
     if (!Number.isFinite(amount) || amount <= 0) {
+      req.log.warn("Invalid amount for order:", req.body.amount);
       return res.status(400).json({ error: "Invalid amount" });
     }
     const order = await razorpay.orders.create({
-      amount: amount * 100, // paise
+      amount: amount * 100,
       currency: "INR",
       receipt: `rcpt_${Date.now()}`,
     });
+    req.log.info("Created Razorpay order:", order.id, "for amount:", amount);
     res.json(order);
   } catch (err) {
-    console.error("createOrder error:", err);
+    req.log.error("createOrder error:", err.message);
     res.status(500).json({ error: "Failed to create order" });
   }
 };
 
-// --- POST /api/payment/verify-payment ---
-// multipart form-data with fields + attachments
+/**
+ * POST /api/payment/verify-payment
+ * Verifies a successful payment, then creates a Task with attachments.
+ */
 export const verifyPaymentAndCreateTask = async (req, res) => {
   try {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
@@ -81,10 +105,11 @@ export const verifyPaymentAndCreateTask = async (req, res) => {
       .digest("hex");
 
     if (expected !== razorpay_signature) {
+      req.log.warn("Invalid Razorpay signature:", razorpay_order_id);
       return res.status(400).json({ success: false, message: "Invalid signature" });
     }
 
-    // --- collect task fields from multipart body ---
+    // Collect fields
     const {
       title,
       description,
@@ -95,17 +120,14 @@ export const verifyPaymentAndCreateTask = async (req, res) => {
       metadata,
     } = req.body;
 
-    // categories[] from form OR single category -> normalize to array
-    // inside verifyPaymentAndCreateTask
+    // Normalize categories
     const rawCats = []
       .concat(req.body["categories[]"] || [])
       .concat(req.body.categories || [])
       .concat(req.body.category || []);
-
     const categories = rawCats.flat().map(String).filter(Boolean);
 
-
-    // --- upload attachments if any ---
+    // Upload attachments
     const uploadedFiles = [];
     const files = Array.isArray(req.files) ? req.files : [];
     for (const f of files) {
@@ -113,7 +135,7 @@ export const verifyPaymentAndCreateTask = async (req, res) => {
       if (uploaded) uploadedFiles.push(uploaded);
     }
 
-    // --- create task ---
+    // Create task
     const task = await Task.create({
       title: String(title || "").trim(),
       description: String(description || "").trim(),
@@ -123,24 +145,26 @@ export const verifyPaymentAndCreateTask = async (req, res) => {
       deadline: deadline ? new Date(deadline) : null,
       createdBy: req.user._id,
       attachments: uploadedFiles,
-      metadata: metadata ? JSON.parse(metadata) : {}, // ✅ handle metadata
+      metadata: metadata ? JSON.parse(metadata) : {},
     });
 
+    req.log.info("Created task after payment:", task._id, "by", req.user._id);
 
     return res.json({ success: true, task });
   } catch (err) {
-    console.error("verifyPaymentAndCreateTask error:", err);
+    req.log.error("verifyPaymentAndCreateTask error:", err.message);
     res.status(500).json({ success: false, message: "Server error posting task" });
   }
 };
 
-// --- POST /api/payment/verify-and-select ---
-// verifies Razorpay payment AND selects an applicant in one step
+/**
+ * POST /api/payment/verify-and-select
+ * Verifies Razorpay payment, then selects applicant on a task.
+ */
 export const verifyPaymentAndSelectApplicant = async (req, res) => {
   try {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, taskId, applicantId } = req.body;
 
-    // 1) Verify Razorpay signature
     const sign = `${razorpay_order_id}|${razorpay_payment_id}`;
     const expected = crypto
       .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
@@ -148,36 +172,36 @@ export const verifyPaymentAndSelectApplicant = async (req, res) => {
       .digest("hex");
 
     if (expected !== razorpay_signature) {
+      req.log.warn("Invalid Razorpay signature for select:", razorpay_order_id);
       return res.status(400).json({ success: false, error: "Invalid payment signature" });
     }
 
-    // 2) Find the task
     const task = await Task.findById(taskId).populate("applicants", "_id name");
     if (!task) return res.status(404).json({ success: false, error: "Task not found" });
 
-    // 3) Ensure requester is owner
+    // Only owner can select
     if (String(task.createdBy) !== String(req.user._id)) {
+      req.log.warn("Unauthorized select attempt by", req.user._id, "for task", taskId);
       return res.status(403).json({ success: false, error: "Only the task owner can select an applicant" });
     }
 
-    // 4) Ensure applicant actually applied
+    // Ensure applicant applied
     const applied = (task.applicants || []).some(
       (a) => String(a._id || a) === String(applicantId)
     );
     if (!applied) return res.status(400).json({ success: false, error: "This user has not applied" });
 
-    // 5) Prevent duplicate selection
     if (task.selectedApplicant) {
       return res.status(400).json({ success: false, error: "An applicant has already been selected" });
     }
 
-    // 6) Select applicant + create workroomId
+    // Select applicant + create workroomId
     task.selectedApplicant = applicantId;
     const { getNextWorkroomId } = await import("../utils/getNextWorkroomId.js");
     task.workroomId = await getNextWorkroomId();
     await task.save();
 
-    // 7) Notifications
+    // Notifications (winner & all others)
     const User = (await import("../models/userModel.js")).default;
     const selectedId = String(applicantId);
     const title = task.title || "your task";
@@ -202,9 +226,11 @@ export const verifyPaymentAndSelectApplicant = async (req, res) => {
       })
     );
 
+    req.log.info("Applicant selected for task:", task._id, "applicant:", applicantId);
+
     return res.json({ success: true, task });
   } catch (err) {
-    console.error("verifyPaymentAndSelectApplicant error:", err);
+    req.log.error("verifyPaymentAndSelectApplicant error:", err.message);
     res.status(500).json({ success: false, error: "Server error selecting applicant" });
   }
 };

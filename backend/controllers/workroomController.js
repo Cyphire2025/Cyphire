@@ -1,9 +1,10 @@
-// backend/controllers/workroomController.js
+// controllers/workroomController.js
+
 import Task from "../models/taskModel.js";
 import cloudinary from "../utils/cloudinary.js";
 import WorkroomMessages from "../models/workroomMessageModel.js";
 
-// helper: upload memory or disk file to Cloudinary
+// --- Helper: Upload file (buffer/disk) to Cloudinary ---
 const uploadToCloudinary = (file, folder) =>
   new Promise((resolve, reject) => {
     if (file?.path) {
@@ -41,9 +42,10 @@ const uploadToCloudinary = (file, folder) =>
     resolve(null);
   });
 
+// --- Helper: Authorize access to a workroom (owner or selected) ---
 const assertCanAccess = async (workroomId, userId) => {
   const task = await Task.findOne({ workroomId }).select(
-    "_id title createdBy selectedApplicant clientFinalised workerFinalised finalisedAt workroomId"
+    "_id title createdBy selectedApplicant clientFinalised workerFinalised finalisedAt workroomId paymentRequested upiId"
   );
   if (!task) return { ok: false, code: 404, error: "Workroom not found" };
   const isOwner = String(task.createdBy) === String(userId);
@@ -56,10 +58,10 @@ const assertCanAccess = async (workroomId, userId) => {
 export const getWorkroomMeta = async (req, res) => {
   try {
     const { workroomId } = req.params;
-    const { ok, code, error, task, isOwner, isSelected } = await assertCanAccess(workroomId, req.user._id);
+    const { ok, code, error, task, isOwner } = await assertCanAccess(workroomId, req.user._id);
     if (!ok) return res.status(code).json({ error });
 
-        res.json({
+    res.json({
       workroomId,
       taskId: String(task._id),
       title: task.title,
@@ -69,60 +71,63 @@ export const getWorkroomMeta = async (req, res) => {
       workerFinalised: !!task.workerFinalised,
       finalisedAt: task.finalisedAt,
       role: isOwner ? "client" : "worker",
-      paymentRequested: !!task.paymentRequested,   // ✅ add this
-      upiId: task.upiId || "",                     // optional, if you want to show it
+      paymentRequested: !!task.paymentRequested,
+      upiId: task.upiId || "",
     });
-
   } catch (e) {
-    console.error("getWorkroomMeta error", e);
+    req.log.error("[WORKROOM] getWorkroomMeta error", e);
     res.status(500).json({ error: "Failed to load workroom meta" });
   }
 };
 
 /** POST /api/workrooms/:workroomId/finalise */
 export const finaliseWorkroom = async (req, res) => {
-  const { workroomId } = req.params;
-  const userId = String(req.user._id);
+  try {
+    const { workroomId } = req.params;
+    const userId = String(req.user._id);
 
-  const task = await Task.findOne({ workroomId });
-  if (!task) return res.status(404).json({ error: "Task not found for workroom" });
+    const task = await Task.findOne({ workroomId });
+    if (!task) return res.status(404).json({ error: "Task not found for workroom" });
 
-  const isClient = String(task.createdBy) === userId;
-  const isWorker = String(task.selectedApplicant) === userId;
-  if (!isClient && !isWorker) return res.status(403).json({ error: "Not authorized for this workroom" });
+    const isClient = String(task.createdBy) === userId;
+    const isWorker = String(task.selectedApplicant) === userId;
+    if (!isClient && !isWorker) return res.status(403).json({ error: "Not authorized for this workroom" });
 
-  const update = {};
-  if (isClient) update.clientFinalised = true;
-  if (isWorker) update.workerFinalised = true;
+    const update = {};
+    if (isClient) update.clientFinalised = true;
+    if (isWorker) update.workerFinalised = true;
 
-  const updated = await Task.findOneAndUpdate({ _id: task._id }, { $set: update }, { new: true });
-  const bothFinalised = updated.clientFinalised && updated.workerFinalised;
+    const updated = await Task.findOneAndUpdate({ _id: task._id }, { $set: update }, { new: true });
+    const bothFinalised = updated.clientFinalised && updated.workerFinalised;
 
-  if (bothFinalised && !updated.finalisedAt) {
-    const finalTime = new Date();
+    if (bothFinalised && !updated.finalisedAt) {
+      const finalTime = new Date();
 
-    await Task.updateOne({ _id: task._id }, { finalisedAt: finalTime });
+      await Task.updateOne({ _id: task._id }, { finalisedAt: finalTime });
 
-    const expireAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-    await WorkroomMessages.updateOne(
-      { workroomId },
-      { $set: { expireAt } }
-    );
+      // Set workroom messages to auto-expire after 7 days (MongoDB TTL index)
+      const expireAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      await WorkroomMessages.updateOne({ workroomId }, { $set: { expireAt } });
 
-    req.io?.to(`workroom:${workroomId}`).emit("workroom:finalised", {
-      workroomId,
-      finalisedAt: finalTime,
+      // Emit event to room (Socket.IO)
+      req.io?.to(`workroom:${workroomId}`).emit("workroom:finalised", {
+        workroomId,
+        finalisedAt: finalTime,
+      });
+    }
+
+    res.json({
+      clientFinalised: updated.clientFinalised,
+      workerFinalised: updated.workerFinalised,
+      finalisedAt: updated.finalisedAt || null,
     });
+  } catch (e) {
+    req.log.error("[WORKROOM] finaliseWorkroom error", e);
+    res.status(500).json({ error: "Failed to finalise workroom" });
   }
-
-  res.json({
-    clientFinalised: updated.clientFinalised,
-    workerFinalised: updated.workerFinalised,
-    finalisedAt: updated.finalisedAt || null,
-  });
 };
 
-/** POST /api/workrooms/:workroomId/messages (message send handler) */
+/** POST /api/workrooms/:workroomId/messages (send message, with files) */
 export const postMessage = async (req, res) => {
   try {
     const { workroomId } = req.params;
@@ -138,7 +143,6 @@ export const postMessage = async (req, res) => {
 
     const uploaded = [];
     const files = Array.isArray(req.files) ? req.files : [];
-
     for (const file of files) {
       const result = await uploadToCloudinary(file, `cyphire/workrooms/${workroomId}`);
       if (result) uploaded.push({
@@ -168,7 +172,7 @@ export const postMessage = async (req, res) => {
 
     const inserted = updated.messages[updated.messages.length - 1];
 
-    // ✅ Emit message to others in the room
+    // Emit new message to room
     req.io?.to(`workroom:${workroomId}`).emit("message:new", {
       ...inserted,
       sender: {
@@ -180,25 +184,22 @@ export const postMessage = async (req, res) => {
 
     res.status(201).json({ item: inserted });
   } catch (e) {
-    console.error("postMessage error", e);
+    req.log.error("[WORKROOM] postMessage error", e);
     res.status(500).json({ error: "Failed to send message" });
   }
 };
 
-/** ADMIN: GET /api/workrooms/:workroomId/admin */
+/** ADMIN: GET /api/workrooms/:workroomId/admin (admin view of workroom/chat) */
 export const adminGetWorkroom = async (req, res) => {
   try {
     const { workroomId } = req.params;
-
     const task = await Task.findOne({ workroomId })
       .populate("createdBy", "name email avatar")
       .populate("selectedApplicant", "name email avatar");
 
     if (!task) return res.status(404).json({ error: "Workroom not found" });
 
-    const doc = await WorkroomMessages.findOne({ workroomId })
-      .populate("messages.sender", "name email avatar");
-
+    const doc = await WorkroomMessages.findOne({ workroomId }).populate("messages.sender", "name email avatar");
     const messages = doc?.messages || [];
 
     res.json({
@@ -214,7 +215,7 @@ export const adminGetWorkroom = async (req, res) => {
       messages,
     });
   } catch (e) {
-    console.error("adminGetWorkroom error", e);
+    req.log.error("[WORKROOM] adminGetWorkroom error", e);
     res.status(500).json({ error: "Failed to load workroom for admin" });
   }
 };

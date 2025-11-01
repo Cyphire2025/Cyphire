@@ -1,16 +1,22 @@
+// routes/helpQuestionRoutes.js
 import express from "express";
-import { protect, adminProtect } from "../middlewares/authMiddleware.js";
-import { askQuestion, listQuestions, answerQuestion } from "../controllers/helpQuestionController.js";
+import { askQuestion, getRecentQuestions } from "../controllers/helpQuestionController.js";
+import { protect } from "../middlewares/authMiddleware.js";
+import { validateBody } from "../middlewares/validate.js";
+import { askQuestionSchema } from "../schemas/helpSchemas.js"; // create this schema for question input
+import { requireFlag } from "../middlewares/flags.js";
 
 const router = express.Router();
+router.use(requireFlag("FLAG_HELP_QUESTION", "1"));
+/**
+ * POST   /api/help/questions    — User submits a question (protected)
+ * GET    /api/help/questions    — User gets recent answered & public Qs
+ */
 
-// Public: list all Q&As
-router.get("/", listQuestions);
+// Ask a question (user must be authenticated)
+router.post("/", protect, validateBody(askQuestionSchema), askQuestion);
 
-// User: ask a question
-router.post("/", protect, askQuestion);
-
-// Admin: answer a question
-router.patch("/:id/answer", adminProtect, answerQuestion);
+// Get recently answered, visible questions (user/public)
+router.get("/", getRecentQuestions);
 
 export default router;

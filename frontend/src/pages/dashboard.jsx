@@ -110,7 +110,7 @@ export default function DashboardPage() {
   // quick tools
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState("recent"); // recent | priceAsc | priceDesc | deadlineAsc | deadlineDesc
-  const [onlyOpen, setOnlyOpen] = useState(false);
+  const [status, setStatus] = useState("all"); // pro-grade status filter , all | open | inProgress | completed
 
   // overlay (payment)
   const [paymentTask, setPaymentTask] = useState(null);
@@ -197,8 +197,14 @@ export default function DashboardPage() {
       );
     }
 
-    // only open
-    if (onlyOpen) l = l.filter((t) => !t.paymentRequested && !t.selectedApplicant);
+    // status gating
+    const isOpen = (t) => !t.paymentRequested && !t.selectedApplicant;
+    const isInProgress = (t) => !!t.selectedApplicant && !t.paymentRequested;
+    const isCompleted = (t) => !!t.paymentRequested;
+    if (status === "open") l = l.filter(isOpen);
+    else if (status === "inProgress") l = l.filter(isInProgress);
+    else if (status === "completed") l = l.filter(isCompleted);
+
 
     // sort
     const byPrice = (a, b) => Number(a.price || 0) - Number(b.price || 0);
@@ -213,7 +219,7 @@ export default function DashboardPage() {
       default: arr.sort(byRecent);
     }
     return arr;
-  }, [sourceList, query, onlyOpen, sort]);
+  }, [sourceList, query, status, sort]);
 
   // computed KPIs / insights
   const kpi = useMemo(() => {
@@ -310,24 +316,14 @@ export default function DashboardPage() {
     }
   }, [paymentTask, paymentApplicant, toId]);
 
-  // grouping for “board”
-  const grouped = useMemo(() => {
-  const open = filteredList.filter(
-    (t) => !t.paymentRequested && !t.selectedApplicant
-  );
-  return { open };
-}, [filteredList]);
-
-
   // count active filters
   const activeFilters = useMemo(() => {
     let n = 0;
     if (query.trim()) n++;
-    if (onlyOpen) n++;
+    if (status !== "all") n++;
     if (sort !== "recent") n++;
     return n;
-  }, [query, onlyOpen, sort]);
-
+  }, [query, status, sort]);
   /* ======================
      Subcomponents
      ====================== */
@@ -416,19 +412,33 @@ export default function DashboardPage() {
             aria-label="Search"
           />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <Filter className="h-4 w-4 text-white/50" aria-hidden="true" />
-          <label className="text-sm text-white/80 flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={onlyOpen}
-              onChange={(e) => setOnlyOpen(e.target.checked)}
-              className="accent-fuchsia-500"
-              aria-checked={onlyOpen}
-              aria-label="Only show open items"
-            />
-            Only open
-          </label>
+          {/* Segmented status filter (accessible, keyboardable) */}
+          <div role="tablist" aria-label="Filter by status" className="bg-white/5 border border-white/10 rounded-xl p-1 flex">
+            {[
+              { id: "all", label: "All" },
+              { id: "open", label: "Open" },
+              { id: "inProgress", label: "In progress" },
+              { id: "completed", label: "Completed" },
+            ].map((opt) => {
+              const selected = status === opt.id;
+              return (
+                <button
+                  key={opt.id}
+                  role="tab"
+                  aria-selected={selected}
+                  onClick={() => setStatus(opt.id)}
+                  className={`px-3 py-1.5 rounded-lg text-sm transition ${selected ? "bg-white/20 text-white" : "text-white/70 hover:bg-white/10"
+                    }`}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Sort control */}
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value)}
@@ -436,8 +446,7 @@ export default function DashboardPage() {
             aria-label="Sort by"
           >
             <option value="recent">Sort: Recent</option>
-            <option value="priceAsc">Sort: Price (Low → High)</option>
-            <option value="priceDesc">Sort: Price (High → Low)</option>
+            <option value="priceAsc">Sort: Price (Low → High)</option>     <option value="priceDesc">Sort: Price (High → Low)</option>
             <option value="deadlineAsc">Sort: Deadline (Sooner)</option>
             <option value="deadlineDesc">Sort: Deadline (Later)</option>
           </select>
@@ -719,29 +728,29 @@ export default function DashboardPage() {
             <section className="md:col-span-9 space-y-6" aria-live="polite" aria-busy={loading ? "true" : "false"}>
               <Toolbox />
 
-              {/* Simplified single-list layout: Only Open tasks */}
+              {/* Single list honoring status/search/sort */}
               <div className="space-y-4">
-                {grouped.open.length === 0 ? (
+                {filteredList.length === 0 ? (
                   <Glass className="p-8 text-center" elevation={1}>
-                    <div className="text-2xl mb-2">No open items</div>
+                    <div className="text-2xl mb-2">No items</div>
                     <p className="text-white/70">
-                      Try posting a new task or{" "}
+                      Try adjusting filters or{" "}
                       <Link className="text-fuchsia-300 hover:underline" to="/tasks">
                         explore opportunities
                       </Link>.
                     </p>
                   </Glass>
                 ) : (
-                  grouped.open.slice(0, openShown).map((t) => (
+                  filteredList.slice(0, openShown).map((t) => (
                     <TaskCard key={toId(t._id)} task={t} />
                   ))
                 )}
 
-                {openShown < grouped.open.length && (
+                {openShown < filteredList.length && (
                   <div className="mt-4 flex justify-center">
                     <button
                       onClick={() =>
-                        setOpenShown((n) => Math.min(grouped.open.length, n + PAGE_SIZE))
+                        setOpenShown((n) => Math.min(filteredList.length, n + PAGE_SIZE))
                       }
                       className="text-sm rounded-lg border border-white/15 bg-white/10 px-3 py-1 hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
                     >

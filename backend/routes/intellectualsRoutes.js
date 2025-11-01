@@ -1,53 +1,65 @@
+// routes/intellectualsRoutes.js
+
 import express from "express";
 import { protect, requireAdmin } from "../middlewares/authMiddleware.js";
 import { upload } from "../middlewares/uploadMiddleware.js";
-import { validate } from "../middlewares/validate.js";
+import { validateBody } from "../middlewares/validate.js";
 import { limitApplications } from "../middlewares/rateLimiter.js";
 import { coerceJson } from "../middlewares/coerceJson.js";
-
-import IntellectualApplication from "../models/intellectualApplicationModel.js"; // <-- add this
-
 import {
   createApplication,
-  createApplicationSchema,
   getMyApplications,
   getApplicationById,
+  getAllApplications,
   adminListApplications,
   adminUpdateStatus,
   adminAddReviewNote,
 } from "../controllers/intellectualsController.js";
+import { createApplicationSchema, adminUpdateStatusSchema, adminAddReviewNoteSchema } from "../schemas/intellectualsSchemas.js";
+import { requireFlag } from "../middlewares/flags.js";
 
 const router = express.Router();
+router.use(requireFlag("FLAG_INTELLECTUALS", "1"));
 
-// === ADD THIS: GET all intellectuals, must come BEFORE any "/:id" routes
-router.get("/", async (req, res) => {
-  try {
-    const all = await IntellectualApplication.find({})
-      .sort({ createdAt: -1 })
-      .limit(100);
-    res.json(all);
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
+// Public: All intellectuals (listing)
+router.get("/", getAllApplications);
 
-// User-facing
+// User: Submit new application
 router.post(
   "/applications",
   protect,
   limitApplications,
   upload.array("attachments", 10),
   coerceJson(["profile", "professor", "influencer", "industry_expert", "coach"]),
-  validate(createApplicationSchema),
+  validateBody(createApplicationSchema),
   createApplication
 );
 
+// User: List their own applications
 router.get("/applications/mine", protect, getMyApplications);
+
+// User/Admin: View single application (auth required)
 router.get("/applications/:id", protect, getApplicationById);
 
-// Admin-facing
+// Admin: List/search all applications
 router.get("/admin/applications", protect, requireAdmin, adminListApplications);
-router.patch("/admin/applications/:id/status", protect, requireAdmin, adminUpdateStatus);
-router.post("/admin/applications/:id/review-note", protect, requireAdmin, adminAddReviewNote);
+
+// Admin: Update status
+router.patch(
+  "/admin/applications/:id/status",
+  protect,
+  requireAdmin,
+  validateBody(adminUpdateStatusSchema),
+  adminUpdateStatus
+);
+
+// Admin: Add review note
+router.post(
+  "/admin/applications/:id/review-note",
+  protect,
+  requireAdmin,
+  validateBody(adminAddReviewNoteSchema),
+  adminAddReviewNote
+);
 
 export default router;

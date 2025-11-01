@@ -1,3 +1,4 @@
+// models/paymentLogModel.js
 import mongoose from "mongoose";
 
 const paymentLogSchema = new mongoose.Schema({

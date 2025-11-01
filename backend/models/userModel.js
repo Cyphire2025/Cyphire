@@ -1,7 +1,6 @@
 // models/userModel.js
 import mongoose from "mongoose";
 
-// keep this helper in the same file
 function slugify(name = "") {
   return name
     .toString()
@@ -10,8 +9,6 @@ function slugify(name = "") {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)+/g, "");
 }
-
-// add a subdoc schema above UserSchema
 
 const NotificationSchema = new mongoose.Schema(
   {
@@ -37,7 +34,6 @@ const userSchema = new mongoose.Schema(
     googleId: { type: String },
     avatar: { type: String },
 
-
     // public profile
     slug: { type: String, unique: true, sparse: true, lowercase: true, trim: true },
     bio: { type: String, maxlength: 300 },
@@ -52,6 +48,10 @@ const userSchema = new mongoose.Schema(
     upiId: { type: String },
     accountNumber: { type: String },
     ifsc: { type: String },
+
+    // NEW: IP tracking for anti-abuse/anti-multiaccount
+    signupIp: { type: String, index: true },
+    signinIpHistory: [{ type: String }], // last N signins, for admin/audit
 
     projects: [
       new mongoose.Schema(
@@ -78,19 +78,13 @@ const userSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// ✅ Auto-generate slug on first save
-// ✅ AND re-generate slug whenever the *name* changes
+// Auto-generate slug on save
 userSchema.pre("save", async function () {
-  // If no name available and slug already exists, do nothing.
   if (!this.isModified("name") && this.slug) return;
-
   const baseSource = this.name || this.email || "user";
   const base = slugify(baseSource) || Math.random().toString(36).slice(2, 8);
-
   let candidate = base;
   let i = 0;
-
-  // Ensure unique across other users (exclude current _id)
   while (
     await this.constructor.exists({
       slug: candidate,
@@ -100,8 +94,15 @@ userSchema.pre("save", async function () {
     i += 1;
     candidate = `${base}-${i}`;
   }
-
   this.slug = candidate;
 });
+
+// Optional: static to globally block IPs
+userSchema.statics.isIpBlocked = async function (ip) {
+  // For advanced: Store blocked IPs in a dedicated collection, or in .env/config
+  const BlockedIp = mongoose.model("BlockedIp", new mongoose.Schema({ ip: { type: String, unique: true } }));
+  const exists = await BlockedIp.exists({ ip });
+  return !!exists;
+};
 
 export default mongoose.model("User", userSchema);

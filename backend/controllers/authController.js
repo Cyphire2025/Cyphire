@@ -1,80 +1,121 @@
+// controllers/authController.js
+
 import bcrypt from "bcrypt";
 import passport from "passport";
 import User from "../models/userModel.js";
 import { signJwt } from "../utils/jwt.js";
+import { setAuthCookie } from "../utils/authCookie.js";
 
-const encodeState = (payload) =>
-  Buffer.from(JSON.stringify(payload), "utf8")
-    .toString("base64")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "");
+const FE = process.env.FRONTEND_URL || "http://localhost:5173"; // fallback for local
 
-const decodeState = (state) => {
-  if (!state) return null;
-  const normalized = state.replace(/-/g, "+").replace(/_/g, "/");
-  const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
-  const decoded = Buffer.from(padded, "base64").toString("utf8");
-  return JSON.parse(decoded);
+
+// Helper: get real client IP (trusts reverse proxy headers)
+const getClientIp = (req) => {
+  return (
+    req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
+    req.connection?.remoteAddress ||
+    req.ip
+  );
 };
 
-const sanitizeNextPath = (value) => {
-  if (typeof value !== "string") return "/choose";
-  if (!value.startsWith("/")) return "/choose";
-  try {
-    const url = new URL(value, "http://placeholder.local");
-    return url.pathname + (url.search || "") + (url.hash || "");
-  } catch (_err) {
-    return "/choose";
+// --- Simple logger; swap with Winston/Sentry in production ---
+const logger = {
+  info: (...args) => req.log.info("[INFO]", ...args),
+  warn: (...args) => req.log.warn("[WARN]", ...args),
+  error: (...args) => req.log.error("[ERROR]", ...args),
+};
+
+function sanitizeNextPath(next) {
+  if (typeof next !== "string") return "/";
+  if (next.startsWith("/") && !next.startsWith("//") && !next.includes("..")) {
+    return next;
   }
-};
+  return "/";
+}
 
-const getFrontendBase = () => {
-  const raw = process.env.FRONTEND_URL || "http://localhost:5173";
-  return raw.replace(/\/$/, "");
-};
-
-
-// utils/setAuthCookie.js or inside authController.js
-// keep this helper in authController.js (or utils)
-const setAuthCookie = (req, res, token, remember = false) => {
-  const maxAge = remember ? 1000 * 60 * 60 * 24 * 30 : 1000 * 60 * 60 * 6; // 30d or 6h
-  res.cookie("token", token, {
-    httpOnly: true,
-    sameSite: "none",   // REQUIRED for cross-site (vercel.app -> onrender.com)
-    secure: true,       // REQUIRED when SameSite=None
-    path: "/",
-    maxAge,
-  });
-};
+function encodeState(obj) {
+  // Simple, URL-safe base64 encoding of JSON
+  return Buffer.from(JSON.stringify(obj)).toString("base64url");
+}
+function decodeState(str) {
+  try {
+    return JSON.parse(Buffer.from(str, "base64url").toString());
+  } catch {
+    return null;
+  }
+}
 
 
-// POST /api/auth/signup (email + password)
-export const emailSignup = async (req, res) => {
+function getFrontendBase() {
+  // Use your .env FRONTEND_URL, fallback to localhost:5173 if not set
+  return process.env.FRONTEND_URL || "http://localhost:5173";
+}
+
+// --- CONTROLLER EXPORTS ---
+
+/**
+ * POST /api/auth/signup (email + password, IP check)
+ */
+export const emailSignup = async (req, res, next) => {
   try {
     const { name, email, password, rememberMe } = req.body;
-    if (!email || !password) return res.status(400).json({ error: "Email & password required" });
+    if (!email || !password) {
+      return res.status(400).json({ error: "Email & password required" });
+    }
+
+    // Get IP and check for abuse/ban
+    const signupIp = getClientIp(req);
+
+    // Advanced: block if IP is on blocklist
+    if (await User.isIpBlocked?.(signupIp)) {
+      req.log.warn("Blocked IP tried to signup:", signupIp);
+      return res.status(403).json({ error: "Signup blocked from your network." });
+    }
+
+    // Limit: max 3 signups/IP in 24h
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const count = await User.countDocuments({ signupIp, createdAt: { $gte: since } });
+    if (count >= 3) {
+      req.log.warn("Signup rate limit hit for IP:", signupIp);
+      return res.status(429).json({ error: "Too many signups from your network, try again later." });
+    }
 
     const existing = await User.findOne({ email: email.toLowerCase() });
-    if (existing) return res.status(409).json({ error: "Email already registered" });
+    if (existing) {
+      return res.status(409).json({ error: "Email already registered" });
+    }
 
     const passwordHash = await bcrypt.hash(password, 12);
-    const user = await User.create({ name, email: email.toLowerCase(), passwordHash });
 
+    // Save IP on user
+    const user = await User.create({
+      name,
+      email: email.toLowerCase(),
+      passwordHash,
+      signupIp,
+      signinIpHistory: [signupIp], // Initialize with first IP
+    });
+
+    // emailSignup
     const token = signJwt({ id: user._id });
-    setAuthCookie(req, res, token, /* remember= */ !!req.body.rememberMe);
+    setAuthCookie(res, token, { remember: !!rememberMe });
+
+
+    req.log.info("User signup:", user.email, user._id, "ip:", signupIp);
 
     res.status(201).json({
       user: { id: user._id, name: user.name, email: user.email, avatar: user.avatar }
     });
-  } catch (e) {
-    console.error("emailSignup error:", e);
-    res.status(500).json({ error: "Server error" });
+  } catch (err) {
+    req.log.error("emailSignup error:", err);
+    next(err);
   }
 };
 
-// POST /api/auth/signin (email + password)
-export const emailSignin = async (req, res) => {
+/**
+ * POST /api/auth/signin (email + password, log IP)
+ */
+export const emailSignin = async (req, res, next) => {
   try {
     const { email, password, rememberMe } = req.body;
     const user = await User.findOne({ email: email.toLowerCase() });
@@ -83,38 +124,63 @@ export const emailSignin = async (req, res) => {
     }
 
     const ok = await bcrypt.compare(password, user.passwordHash);
-    if (!ok) return res.status(401).json({ error: "Invalid credentials" });
+    if (!ok) {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
 
+    // Get IP and check blocklist
+    const signinIp = getClientIp(req);
+
+    if (await User.isIpBlocked?.(signinIp)) {
+      req.log.warn("Blocked IP tried to signin:", signinIp);
+      return res.status(403).json({ error: "Signin blocked from your network." });
+    }
+
+    // Maintain last 5 signin IPs
+    user.signinIpHistory = [signinIp, ...(user.signinIpHistory || [])].slice(0, 5);
+    await user.save();
+
+    // emailSignin
     const token = signJwt({ id: user._id });
-setAuthCookie(req, res, token, !!req.body.rememberMe);
+    setAuthCookie(res, token, { remember: !!rememberMe });
 
+    req.log.info("User login:", user.email, user._id, "ip:", signinIp);
 
     res.json({
       user: { id: user._id, name: user.name, email: user.email, avatar: user.avatar }
     });
-  } catch (e) {
-    console.error("emailSignin error:", e);
-    res.status(500).json({ error: "Server error" });
+  } catch (err) {
+    req.log.error("emailSignin error:", err);
+    next(err);
   }
 };
 
-// GET /api/auth/google  (carry the remember flag via OAuth "state")
+/**
+ * GET /api/auth/google (OAuth start)
+ */
 export const googleAuth = (req, res, next) => {
-  const remember = req.query.remember === "1" ? "1" : "0";
-  const nextPath = sanitizeNextPath(req.query.next);
-  const state = encodeState({ remember, next: nextPath });
+  try {
+    const remember = req.query.remember === "1" ? "1" : "0";
+    const nextPath = sanitizeNextPath(req.query.next);
+    const state = encodeState({ remember, next: nextPath });
 
-  passport.authenticate("google", {
-    scope: ["profile", "email"],
-    session: false,
-    state,             // <- persist remember + next across the roundtrip
-    prompt: "select_account",
-  })(req, res, next);
+    req.log.info("Google OAuth initiated", { remember, nextPath });
+
+    passport.authenticate("google", {
+      scope: ["profile", "email"],
+      session: false,
+      state,
+      prompt: "select_account",
+    })(req, res, next);
+  } catch (err) {
+    req.log.error("googleAuth error:", err);
+    next(err);
+  }
 };
 
-// GET /api/auth/google/callback
-// authController.js
-
+/**
+ * GET /api/auth/google/callback (OAuth return)
+ */
 export const googleCallback = (req, res, next) => {
   passport.authenticate("google", { session: false }, (err, user) => {
     if (err || !user) {
@@ -172,29 +238,37 @@ export const googleCallback = (req, res, next) => {
 };
 
 
-// POST /api/auth/signout
-export const signout = (_req, res) => {
-  const isProd = process.env.NODE_ENV === "production";
-  res.clearCookie("token", {
-    httpOnly: true,
-    sameSite: isProd ? "none" : "lax",
-    secure: isProd,
-    path: "/",      // must match the set cookie
-  });
-  res.json({ ok: true });
+/**
+ * POST /api/auth/signout
+ */
+export const signout = (_req, res, next) => {
+  try {
+    const isProd = process.env.NODE_ENV === "production";
+    res.clearCookie("token", {
+      httpOnly: true,
+      sameSite: isProd ? "none" : "lax",
+      secure: isProd,
+      path: "/",
+    });
+    res.json({ ok: true });
+    req.log.info("User signed out");
+  } catch (err) {
+    req.log.error("signout error:", err);
+    next(err);
+  }
 };
 
-
-
-// GET /api/auth/me
-export const me = async (req, res) => {
+/**
+ * GET /api/auth/me (returns user profile)
+ */
+export const me = async (req, res, next) => {
   try {
     const user = await User.findById(req.user._id).select(
       "_id name email avatar plan planStartedAt planExpiresAt country phone skills projects slug bio"
     );
     if (!user) return res.status(404).json({ error: "User not found" });
 
-    // auto-downgrade if plan expired
+    // Auto-downgrade expired plan
     if (user.plan !== "free" && user.planExpiresAt && Date.now() > user.planExpiresAt) {
       user.plan = "free";
       user.planExpiresAt = null;
@@ -202,25 +276,29 @@ export const me = async (req, res) => {
     }
 
     res.json({ user });
-  } catch (e) {
-    console.error("authController.me error:", e);
-    res.status(500).json({ error: "Failed to fetch user" });
+  } catch (err) {
+    req.log.error("authController.me error:", err);
+    next(err);
   }
 };
 
-
-
-// --- Notifications API ---
-export const getNotifications = async (req, res) => {
+/**
+ * Notifications: GET /api/auth/notifications
+ */
+export const getNotifications = async (req, res, next) => {
   try {
     const me = await User.findById(req.user._id).select("notifications");
     res.json(me?.notifications || []);
-  } catch (e) {
-    res.status(500).json({ error: "Failed to load notifications" });
+  } catch (err) {
+    req.log.error("getNotifications error:", err);
+    next(err);
   }
 };
 
-export const markNotificationRead = async (req, res) => {
+/**
+ * Notifications: POST /api/auth/notifications/:idx/read
+ */
+export const markNotificationRead = async (req, res, next) => {
   try {
     const idx = Number(req.params.idx);
     const me = await User.findById(req.user._id).select("notifications");
@@ -231,20 +309,28 @@ export const markNotificationRead = async (req, res) => {
     me.notifications[idx].read = true;
     await me.save();
     res.json({ ok: true });
-  } catch (e) {
-    res.status(500).json({ error: "Failed to update notification" });
+  } catch (err) {
+    req.log.error("markNotificationRead error:", err);
+    next(err);
   }
 };
 
-// DELETE /api/auth/notifications/:idx
-export const deleteNotification = async (req, res) => {
-  const idx = Number(req.params.idx);
-  const me = await User.findById(req.user._id).select("notifications");
-  if (!me) return res.status(404).json({ error: "User not found" });
-  if (!Number.isInteger(idx) || idx < 0 || idx >= me.notifications.length) {
-    return res.status(400).json({ error: "Invalid index" });
+/**
+ * Notifications: DELETE /api/auth/notifications/:idx
+ */
+export const deleteNotification = async (req, res, next) => {
+  try {
+    const idx = Number(req.params.idx);
+    const me = await User.findById(req.user._id).select("notifications");
+    if (!me) return res.status(404).json({ error: "User not found" });
+    if (!Number.isInteger(idx) || idx < 0 || idx >= me.notifications.length) {
+      return res.status(400).json({ error: "Invalid index" });
+    }
+    me.notifications.splice(idx, 1);
+    await me.save();
+    res.json({ ok: true });
+  } catch (err) {
+    req.log.error("deleteNotification error:", err);
+    next(err);
   }
-  me.notifications.splice(idx, 1);  // remove one at index
-  await me.save();
-  res.json({ ok: true });
 };

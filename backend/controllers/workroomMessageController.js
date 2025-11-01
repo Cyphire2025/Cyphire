@@ -1,6 +1,13 @@
+// controllers/workroomMessageController.js
+
 import WorkroomMessages from "../models/workroomMessageModel.js";
 import Task from "../models/taskModel.js";
 
+/**
+ * POST /api/workrooms/:workroomId/messages
+ * Post a message (text + attachments) in a workroom.
+ * (This could be used for legacy or non-socket endpoints)
+ */
 export const postMessage = async (req, res) => {
   try {
     const { workroomId } = req.params;
@@ -13,6 +20,7 @@ export const postMessage = async (req, res) => {
 
     const files = Array.isArray(req.files) ? req.files : [];
 
+    // Accepts files already uploaded/processed elsewhere
     const attachments = files.map(f => ({
       url: f.path || f.secure_url || f.url,
       public_id: f.filename || f.public_id,
@@ -32,6 +40,8 @@ export const postMessage = async (req, res) => {
       text: text?.trim() || "",
       attachments,
       createdAt: new Date(),
+      deleted: false,
+      deletedAt: null,
     };
 
     const updated = await WorkroomMessages.findOneAndUpdate(
@@ -50,21 +60,46 @@ export const postMessage = async (req, res) => {
     const inserted = updated.messages[updated.messages.length - 1];
     res.status(201).json({ item: inserted });
   } catch (e) {
-    console.error("postMessage error:", e);
+    req.log.error("[WORKROOM MESSAGE] postMessage error:", e);
     res.status(500).json({ error: "Failed to send message" });
   }
 };
 
+/**
+ * GET /api/workrooms/:workroomId/messages
+ * Fetch all messages for a workroom.
+ * (returns only not-deleted messages)
+ */
 export const getMessages = async (req, res) => {
   try {
     const { workroomId } = req.params;
     const doc = await WorkroomMessages.findOne({ workroomId }).populate("messages.sender", "name avatar");
-
     if (!doc) return res.json({ items: [] });
-
-    res.json({ items: doc.messages });
+    // Filter out deleted messages just in case
+    const items = doc.messages.filter(msg => !msg.deleted);
+    res.json({ items });
   } catch (e) {
-    console.error("getMessages error:", e);
+    req.log.error("[WORKROOM MESSAGE] getMessages error:", e);
     res.status(500).json({ error: "Failed to fetch messages" });
+  }
+};
+
+/**
+ * DELETE /api/workrooms/:workroomId/messages/:messageId
+ * Soft delete a message (marks deleted=true, sets deletedAt)
+ */
+export const deleteMessage = async (req, res) => {
+  try {
+    const { workroomId, messageId } = req.params;
+    const doc = await WorkroomMessages.findOne({ workroomId });
+    if (!doc) return res.status(404).json({ success: false, error: "Workroom not found" });
+
+    const msg = await doc.softDeleteMessage(messageId);
+    if (!msg) return res.status(404).json({ success: false, error: "Message not found" });
+
+    res.json({ success: true, data: { id: msg._id, deletedAt: msg.deletedAt } });
+  } catch (e) {
+    req.log.error("[WORKROOM MESSAGE] deleteMessage error:", e);
+    res.status(500).json({ success: false, error: "Failed to delete message" });
   }
 };

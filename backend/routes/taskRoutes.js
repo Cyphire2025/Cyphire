@@ -1,7 +1,11 @@
-// backend/routes/taskRoutes.js
+// routes/taskRoutes.js
+
 import express from "express";
 import { upload } from "../middlewares/uploadMiddleware.js";
 import { protect } from "../middlewares/authMiddleware.js";
+import rateLimit from "express-rate-limit";
+import RedisStore from "rate-limit-redis";
+import Redis from "ioredis";
 import {
   createTask,
   getTasks,
@@ -10,31 +14,92 @@ import {
   applyToTask,
   selectApplicant,
 } from "../controllers/taskController.js";
+import { validateBody } from "../middlewares/validate.js";
+import {
+  createTaskSchema,
+  applyTaskSchema,
+  selectApplicantSchema,
+} from "../schemas/taskSchemas.js";
+import { requireFlag } from "../middlewares/flags.js";
 
 const router = express.Router();
+router.use(requireFlag("FLAG_TASK", "1"));
 
-/* ===========================
-   Routes
-   =========================== */
+const redisClient = process.env.REDIS_URL
+  ? new Redis(process.env.REDIS_URL)
+  : null;
 
-// ✅ Create a new task (with attachments + metadata)
-// new - allow both fields
-router.post("/",protect,upload.fields([{ name: "attachments", maxCount: 20 },{ name: "logo", maxCount: 1 },]),createTask);
+const createTaskLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 12,
+  message: "Too many tasks created from this account, please try again in an hour.",
+  standardHeaders: true,
+  legacyHeaders: false,
+  ...(redisClient && {
+    store: new RedisStore({
+      sendCommand: (...args) => redisClient.call(...args),
+    }),
+  }),
+});
 
+const applyLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 30,
+  message: "Too many applications from this account, please slow down.",
+  standardHeaders: true,
+  legacyHeaders: false,
+  ...(redisClient && {
+    store: new RedisStore({
+      sendCommand: (...args) => redisClient.call(...args),
+    }),
+  }),
+});
 
-// ✅ Public: list all tasks
+const selectLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 20,
+  message: "Too many selection actions, please slow down.",
+  standardHeaders: true,
+  legacyHeaders: false,
+  ...(redisClient && {
+    store: new RedisStore({
+      sendCommand: (...args) => redisClient.call(...args),
+    }),
+  }),
+});
+
+/*
+|--------------------------------------------------------------------------  
+| TASK ROUTES (Google/Amazon-level structure)  
+|--------------------------------------------------------------------------  
+*/
+
+// --- Create a new task (with attachments + metadata) ---
+router.post(
+  "/",
+  protect,
+  createTaskLimiter,
+  upload.fields([
+    { name: "attachments", maxCount: 20 },
+    { name: "logo", maxCount: 1 },
+  ]),
+  validateBody(createTaskSchema),
+  createTask
+);
+
+// --- Public: List all tasks (search/browse) ---
 router.get("/", getTasks);
 
-// ✅ Auth: list tasks created by the logged-in user
+// --- Auth: List tasks created by the logged-in user ---
 router.get("/mine", protect, getMyTasks);
 
-// ✅ Public: get a single task by ID
+// --- Public: Get a single task by ID ---
 router.get("/:id", getTaskById);
 
-// ✅ Auth: select an applicant (task owner only)
-router.post("/:id/select", protect, selectApplicant);
+// --- Auth: Select an applicant (task owner only) ---
+router.post("/:id/select", protect, selectLimiter, validateBody(selectApplicantSchema), selectApplicant);
 
-// ✅ Auth: apply to a task
-router.post("/:id/apply", protect, applyToTask);
+// --- Auth: Apply to a task ---
+router.post("/:id/apply", protect, applyLimiter, validateBody(applyTaskSchema), applyToTask);
 
 export default router;
