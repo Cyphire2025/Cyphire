@@ -107,7 +107,8 @@ export const createTask = async (req, res, next) => {
         : undefined,
       createdBy: userId,
       applicants: [],
-      status: "open",
+      status: "pending", // pending | in-progress | completed | cancelled
+
     };
 
     const task = await Task.create(doc);
@@ -220,8 +221,9 @@ export const applyToTask = async (req, res, next) => {
     if (!task) return res.status(404).json({ error: "Task not found" });
     if (String(task.createdBy) === String(userId))
       return res.status(400).json({ error: "You cannot apply to your own task" });
-    if (task.status !== "open")
-      return res.status(400).json({ error: "Task is not open for applications" });
+    if (task.status !== "pending")
+      return res.status(400).json({ error: "Task is not accepting applications" });
+
 
     const already = task.applicants.some((a) => String(a) === String(userId));
     if (already) return res.status(400).json({ error: "Already applied" });
