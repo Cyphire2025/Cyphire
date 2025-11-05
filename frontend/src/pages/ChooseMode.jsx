@@ -285,7 +285,8 @@ export default function ChooseMode() {
             </motion.div>
 
             {/* Tiles */}
-            <div className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-3">
+            {/* <div className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-3"> */} 
+            <div className="mt-10 grid grid-cols-1 gap-1 md:grid-cols-2 justify-center place-items-center">
               <Suspense fallback={<SkeletonTile />}>
                 <ActionTile
                   icon={Briefcase}
@@ -327,7 +328,7 @@ export default function ChooseMode() {
               </Suspense>
 
               {/* NEW — Intellectual Mind */}
-              <Suspense fallback={<SkeletonTile />}>
+              {/* <Suspense fallback={<SkeletonTile />}>
                 <ActionTile
                   icon={GraduationCap}
                   title="Intellectual Mind"
@@ -338,16 +339,16 @@ export default function ChooseMode() {
                     "Smart scheduling"
                   ]}
                   onPress={() => startExit("/intellectuals")}  // TODO: change to /intellectuals when page is ready
-                  onHoverPrefetch={prefetchIntellectuals}
-                  /* distinct hover aura so all three are unique */
-                  gradient="from-emerald-600/25 via-teal-600/10 to-cyan-500/20"
-                  reduceMotion={reduceMotion}
-                  smallBlurPx={smallBlurPx}
-                  hoverNone={hoverNone}
-                  describedById="tile-3-desc"
-                  indexForAsymmetry={2}
-                />
-                  </Suspense>
+      onHoverPrefetch={prefetchIntellectuals}
+      gradient="from-emerald-600/25 via-teal-600/10 to-cyan-500/20"
+      reduceMotion={reduceMotion}
+      smallBlurPx={smallBlurPx}
+      hoverNone={hoverNone}
+      describedById="tile-3-desc"
+      indexForAsymmetry={2}
+    />
+  </Suspense>
+*/}
             </div>
           </section>
 

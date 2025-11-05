@@ -1,5 +1,6 @@
 // models/userModel.js
 import mongoose from "mongoose";
+import BlockedIp from "./blockedIpModel.js"; 
 
 function slugify(name = "") {
   return name
@@ -99,10 +100,8 @@ userSchema.pre("save", async function () {
 
 // Optional: static to globally block IPs
 userSchema.statics.isIpBlocked = async function (ip) {
-  // For advanced: Store blocked IPs in a dedicated collection, or in .env/config
-  const BlockedIp = mongoose.model("BlockedIp", new mongoose.Schema({ ip: { type: String, unique: true } }));
-  const exists = await BlockedIp.exists({ ip });
-  return !!exists;
+  if (!ip) return false;
+  return !!(await BlockedIp.exists({ ip }));
 };
 
-export default mongoose.model("User", userSchema);
+export default mongoose.models.User || mongoose.model("User", userSchema);

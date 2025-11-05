@@ -297,7 +297,6 @@ export default function Signup() {
         store.setItem("loginTime", Date.now().toString());
         /* ───────────────────────────────────────────────────────────────── */
 
-        toast.success("Welcome to Cyphire! Redirecting…");
         setTimeout(() => navigate(cleanedRedirect(), { replace: true }), 650);
       } catch (e) {
         toast.error(e.message || "Something went wrong");

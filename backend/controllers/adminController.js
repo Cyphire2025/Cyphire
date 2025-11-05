@@ -8,11 +8,8 @@ import WorkroomMessages from "../models/workroomMessageModel.js";
 import mongoose from "mongoose";
 import HelpTicket from "../models/helpTicketModel.js";
 import HelpQuestion from "../models/helpQuestionModel.js";
+import BlockedIp from "../models/blockedIpModel.js";
 
-const BlockedIp = mongoose.model(
-  "BlockedIp",
-  new mongoose.Schema({ ip: { type: String, unique: true } })
-);
 
 const signAdminJwt = () =>
   jwt.sign({ role: "admin" }, process.env.ADMIN_JWT_SECRET, { expiresIn: process.env.ADMIN_JWT_EXPIRES || "1h" });
