@@ -4,6 +4,10 @@ import {
   ChevronDown, Send, X, CheckCircle2, Loader2, MessageSquare, Star, User, ShieldCheck, BadgeCheck
 } from "lucide-react";
 import { GradientText, GlassCard, NeonButton } from "../pages/home"; // Reuse home.tsx UI atoms
+
+import Navbarspon from "../components/navbarsponhome.jsx";
+import Navbarhome from "../components/navbarhome.jsx";
+
 const API_BASE = import.meta.env?.VITE_API_BASE || "http://localhost:5000";
 
 interface FAQ { question: string; answer: string }

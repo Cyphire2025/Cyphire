@@ -126,7 +126,6 @@ export default function Signin() {
         if (data?.user?.email) store.setItem("userEmail", data.user.email);
         store.setItem("loginTime", Date.now().toString());
 
-        toast.success("Welcome back!");
         navigate(redirectPath, { replace: true });
       } catch (err) {
         toast.error(err.message || "Sign-in failed");

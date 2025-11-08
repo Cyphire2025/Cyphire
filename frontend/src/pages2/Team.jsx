@@ -2,8 +2,9 @@
 // Immersive Teams Page for Cyphire
 // Tailwind + Framer Motion + premium design patterns
 
-import React, { Suspense, useEffect, useState } from "react";
-import Navbar from "../components/navbar";
+import React, { Suspense, useEffect, useState ,useMemo} from "react";
+import NavbarSpon from "../components/navbarsponhome.jsx";
+import NavbarHome from "../components/navbarhome.jsx";
 import Footer from "../components/footer";
 
 import { motion } from "framer-motion";
@@ -147,7 +148,10 @@ const testimonials = [
 
 export default function Teams() {
   const [counter, setCounter] = useState({});
-
+  const Nav = useMemo(() => {
+    const last = sessionStorage.getItem("lastHomeRoute");
+    return last === "/sponsorshiphome" ? NavbarSpon : NavbarHome;
+  }, []);
   // Animate counters
   useEffect(() => {
     stats.forEach((s) => {
@@ -166,7 +170,7 @@ export default function Teams() {
     <div className="min-h-screen bg-gradient-to-b from-[#0a0a0f] via-[#0c0c14] to-[#000] text-gray-100 overflow-x-hidden">
       <main className="relative overflow-hidden">
         <Suspense fallback={<div className="text-center p-6">Loading...</div>}>
-          <Navbar />
+          <Nav/>
           <Aurora />
           <Particles />
         </Suspense>
@@ -185,7 +189,7 @@ export default function Teams() {
             {...fadeUp(0.3)}
             className="mx-auto mt-6 max-w-2xl text-lg text-white/70"
           >
-            Behind every milestone is a team of builders, dreamers, and doers.  
+            Behind every milestone is a team of builders, dreamers, and doers.
             This is Cyphire’s crew.
           </motion.p>
         </section>
@@ -309,7 +313,7 @@ export default function Teams() {
               <GradientText>Want to build the future with us?</GradientText>
             </h3>
             <p className="mt-4 text-white/70">
-              We’re always looking for curious minds and bold builders.  
+              We’re always looking for curious minds and bold builders.
               Check out our open roles and join the Cyphire journey.
             </p>
             <div className="mt-6">

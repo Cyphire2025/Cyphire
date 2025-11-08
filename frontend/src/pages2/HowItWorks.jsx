@@ -3,8 +3,9 @@
 // Premium design: Aurora + Particles, Framer Motion, GradientText, GlassCard, NeonButton
 // Sections: Hero, Client Flow, Freelancer Flow, Comparison, FAQ, Trust, Global, CTA
 
-import React, { Suspense, useState } from "react";
-import Navbar from "../components/navbar";
+import React, { Suspense, useState ,useMemo } from "react";
+import NavbarSpon from "../components/navbarsponhome.jsx";
+import NavbarHome from "../components/navbarhome.jsx";
 import Footer from "../components/footer";
 import { motion } from "framer-motion";
 import {
@@ -171,12 +172,16 @@ const faqs = [
 /* ========== Page ========== */
 export default function HowItWorks() {
   const [openFAQ, setOpenFAQ] = useState(null);
+  const Nav = useMemo(() => {
+  const last = sessionStorage.getItem("lastHomeRoute");
+  return last === "/sponsorshiphome" ? NavbarSpon : NavbarHome;
+}, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#0a0a0f] via-[#0c0c14] to-[#000] text-gray-100 overflow-x-hidden">
       <main className="relative overflow-hidden">
         <Suspense fallback={<div className="text-center p-6">Loading...</div>}>
-          <Navbar />
+          <Nav />
           <Aurora />
           <Particles />
         </Suspense>

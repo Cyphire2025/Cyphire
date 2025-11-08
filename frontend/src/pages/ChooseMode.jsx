@@ -319,7 +319,8 @@ export default function ChooseMode() {
                   ]}
                   onPress={() => startExit("/sponsorshiphome")}
                   onHoverPrefetch={prefetchSponsor}
-                  gradient="from-rose-600/25 via-pink-600/10 to-orange-500/20"
+                  gradient="from-fuchsia-600/25 via-purple-600/10 to-sky-500/20" //pinkish
+                  // gradient="from-rose-600/25 via-pink-600/10 to-orange-500/20" orangish 
                   reduceMotion={reduceMotion}
                   smallBlurPx={smallBlurPx}
                   hoverNone={hoverNone}

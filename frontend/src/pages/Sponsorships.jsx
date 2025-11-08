@@ -3,7 +3,7 @@ import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { FiSearch, FiX, FiMail, FiPhone, FiMapPin, FiExternalLink, FiHeart, FiShare2 } from "react-icons/fi";
 import { Filter, Layers, Wallet, Gift, Star, TrendingUp, Users, Award, Clock } from "lucide-react";
-import Navbar from "../components/navbar";
+import Navbar from "../components/navbarsponhome";
 import Footer from "../components/footer";
 import toast from "react-hot-toast";
 

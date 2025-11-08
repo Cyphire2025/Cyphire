@@ -5,7 +5,8 @@
 import React, { Suspense, useMemo } from "react";
 import About1 from "../assets/about1.jpg"
 import About2 from "../assets/about2.jpg"
-import Navbar from "../components/navbar.jsx";
+import NavbarSpon from "../components/navbarsponhome.jsx";
+import NavbarHome from "../components/navbarhome.jsx";
 import Footer from "../components/footer";
 import { motion, useMotionValue, useTransform } from "framer-motion";
 import {
@@ -190,11 +191,16 @@ const testimonials = [
 /* ========== Page ========== */
 
 export default function About() {
+  const Nav = useMemo(() => {
+  const last = sessionStorage.getItem("lastHomeRoute");
+  return last === "/sponsorshiphome" ? NavbarSpon : NavbarHome;
+}, []);
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#0a0a0f] via-[#0c0c14] to-[#000] text-gray-100 overflow-x-hidden">
       <main className="relative overflow-hidden">
         <Suspense fallback={<div className="text-center p-6">Loading...</div>}>
-          <Navbar />
+          <Nav />
           <Aurora />
           <Particles />
         </Suspense>

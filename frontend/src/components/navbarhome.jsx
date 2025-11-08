@@ -44,7 +44,7 @@ export default function Navbar() {
   const getBreadcrumbs = () => {
     const path = location.pathname;
     const segments = path.split('/').filter(Boolean);
-    
+
     const breadcrumbMap = {
       'home': { label: 'Home', icon: FiHome },
       'tasks': { label: 'Tasks', icon: FiBriefcase },
@@ -159,6 +159,7 @@ export default function Navbar() {
           </div>
         </div>
 
+
         <div className="hidden lg:flex items-center space-x-3">
           {/* About*/}
           <div className="relative">
@@ -172,11 +173,7 @@ export default function Navbar() {
                 setProfileOpen(false);
                 setSponsorOpen(false)
               }}
-              className={`flex items-center transition-all duration-200 font-medium ${
-                isActive('/tasks') || isActive('/home') 
-                  ? 'text-white bg-white/10 px-3 py-1 rounded-lg' 
-                  : 'text-gray-300 hover:text-white'
-              }`}
+              className="group relative flex items-center font-medium text-gray-300 hover:text-white transition-colors duration-200"
             >
               About
               <FiChevronDown
@@ -213,11 +210,10 @@ export default function Navbar() {
                 setProfileOpen(false);
                 setSponsorOpen(false)
               }}
-              className={`flex items-center transition-all duration-200 font-medium ${
-                isActive('/pricing') 
-                  ? 'text-white bg-white/10 px-3 py-1 rounded-lg' 
-                  : 'text-gray-300 hover:text-white'
-              }`}
+              className={`flex items-center transition-all duration-200 font-medium ${isActive('/pricing')
+                ? 'text-white bg-white/10 px-3 py-1 rounded-lg'
+                : 'text-gray-300 hover:text-white'
+                }`}
             >
               Explore
               <FiChevronDown
@@ -241,49 +237,6 @@ export default function Navbar() {
               </div>
             )}
           </div>
-
-          {/* Sponsorships */}
-          <div className="relative">
-            <button
-              onClick={() => {
-                setSponsorOpen((v) => !v);
-                setDiscoverOpen(false);
-                setSolutionsOpen(false);
-                setMsgOpen(false);
-                setNotifOpen(false);
-                setSettingsOpen(false);
-                setProfileOpen(false);
-              }}
-              className={`flex items-center transition-all duration-200 font-medium ${
-                isActive('/Sponsorships') || isActive('/List-Sponsorship')
-                  ? 'text-white bg-white/10 px-3 py-1 rounded-lg' 
-                  : 'text-gray-300 hover:text-white'
-              }`}
-            >
-              Sponsorships
-              <FiChevronDown
-                className={`ml-1 transition-transform duration-200 ${sponsorOpen ? "rotate-180" : ""}`}
-              />
-            </button>
-
-            {sponsorOpen && (
-              <div className="absolute right-0 mt-3 w-56 bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl overflow-hidden z-20">
-                <Link
-                  to="/sponsorships"
-                  className="block px-4 py-3 text-sm text-gray-200 hover:bg-white/20 border-b border-white/10"
-                >
-                  Find Sponsors
-                </Link>
-                <Link
-                  to="/List-Sponsorship"
-                  className="block px-4 py-3 text-sm text-gray-200 hover:bg-white/20"
-                >
-                  List Yourself
-                </Link>
-              </div>
-            )}
-          </div>
-
 
           {/* Messages */}
           <div className="relative">
@@ -400,9 +353,8 @@ export default function Navbar() {
                 setSolutionsOpen(false);
                 setProfileOpen(false);
               }}
-              className={`text-gray-300 hover:text-white transition-all duration-200 p-2 rounded-lg hover:bg-white/10 relative ${
-                notifOpen ? 'bg-white/10 text-white' : ''
-              }`}
+              className={`text-gray-300 hover:text-white transition-all duration-200 p-2 rounded-lg hover:bg-white/10 relative ${notifOpen ? 'bg-white/10 text-white' : ''
+                }`}
             >
               <FaRegBell size={20} />
             </button>
@@ -447,6 +399,73 @@ export default function Navbar() {
               </div>
             )}
           </div>
+          {/* Switch Mode Button (drop-in replacement) */}
+          <motion.button
+            type="button"
+            whileHover={{ scale: 1.035, y: -1 }}
+            whileTap={{ scale: 0.985 }}
+            onClick={() => {
+              try { sessionStorage.setItem("lastHomeRoute", "/sponsorshiphome"); } catch { }
+              window.location.href = "/sponsorshiphome";
+            }}
+            className="relative group inline-flex items-center gap-2 overflow-hidden rounded-xl px-4 py-2 text-sm font-semibold tracking-wide text-white transition-[transform,shadow,background,opacity] duration-300
+             bg-gradient-to-r from-violet-600 via-fuchsia-600 to-sky-600 shadow-[0_12px_30px_-10px_rgba(236,72,153,0.45)] focus:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-400/60"
+          >
+            {/* Outer glow halo */}
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute -inset-1 rounded-2xl bg-gradient-to-r from-violet-500/25 via-fuchsia-500/20 to-sky-500/25 blur-2xl opacity-70 group-hover:opacity-90 transition-opacity"
+            />
+
+            {/* Soft inner glass */}
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-[1px] rounded-[0.70rem] bg-white/[0.06] backdrop-blur-xl"
+            />
+
+            {/* Animated sheen */}
+            <motion.span
+              aria-hidden="true"
+              initial={{ x: "-120%" }}
+              whileHover={{ x: "120%" }}
+              transition={{ duration: 0.9, ease: "easeOut" }}
+              className="pointer-events-none absolute inset-y-0 w-1/3 -skew-x-12 bg-gradient-to-r from-white/5 via-white/25 to-white/5"
+            />
+
+            {/* Breathing border ring */}
+            <motion.span
+              aria-hidden="true"
+              animate={{ opacity: [0.35, 0.6, 0.35] }}
+              transition={{ duration: 2.4, repeat: Infinity }}
+              className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-white/10"
+            />
+
+            {/* Content */}
+            <span className="relative z-10 flex items-center gap-2">
+              <motion.svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                whileHover={{ x: 2 }}
+                transition={{ type: "spring", stiffness: 300, damping: 20 }}
+              >
+                <path d="M4 12h16M12 4l8 8-8 8" />
+              </motion.svg>
+              <span className="text-[13px]">Sponsorship Mode</span>
+            </span>
+
+            {/* Hover glow edge */}
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute -bottom-8 left-1/2 h-16 w-[120%] -translate-x-1/2 rounded-[100%] bg-gradient-to-r from-fuchsia-500/20 via-pink-500/15 to-sky-500/20 blur-3xl opacity-0 group-hover:opacity-100 transition-opacity"
+            />
+          </motion.button>
+
 
           {/* Dashboard button */}
           <button
@@ -557,7 +576,8 @@ export default function Navbar() {
                         method: "POST",
                         credentials: "include",
                       });
-                    } catch {console.error();
+                    } catch {
+                      console.error();
                     }
                     localStorage.removeItem("token");
                     localStorage.removeItem("userId");
@@ -817,7 +837,7 @@ export default function Navbar() {
         </motion.div>
       )}
     </header>
-    
+
     // {/* Breadcrumb Navigation */}
     // {location.pathname !== '/' && location.pathname !== '/home' && (
     //   <div className="fixed top-16 left-0 right-0 z-40 bg-black/20 backdrop-blur-sm border-b border-white/10">

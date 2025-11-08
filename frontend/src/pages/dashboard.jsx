@@ -1,7 +1,8 @@
 // src/pages/dashboard.jsx
 import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
-import Navbar from "../components/navbar";
+import NavbarSpon from "../components/navbarsponhome.jsx";
+import NavbarHome from "../components/navbarhome.jsx";
 import Footer from "../components/footer";
 import {
   ChevronDown,
@@ -93,6 +94,11 @@ const Skel = ({ w = "w-full", h = "h-4", className = "" }) => (
    Dashboard main
    ====================== */
 export default function DashboardPage() {
+  const Nav = useMemo(() => {
+    const last = sessionStorage.getItem("lastHomeRoute");
+    return last === "/sponsorshiphome" ? NavbarSpon : NavbarHome;
+  }, []);
+
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
 
@@ -669,7 +675,7 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#0a0a0f] via-[#0c0c14] to-[#000] text-gray-100">
       <Tokens />
-      <Navbar />
+      <Nav/>
 
       <main className="relative mx-auto max-w-7xl px-6 pt-24 pb-16">
         <Header />

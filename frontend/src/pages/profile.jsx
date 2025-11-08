@@ -1,7 +1,7 @@
 /* eslint-disable no-unused-vars */
 // src/pages/profile.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import Navbar from "../components/navbar";
+import Navbar from "../components/navbarsponhome";
 import Footer from "../components/footer";
 import {
   Camera,

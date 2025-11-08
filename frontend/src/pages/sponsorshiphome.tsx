@@ -4,12 +4,15 @@ import { motion, AnimatePresence, useMotionValue, useTransform, useReducedMotion
 import {
   ArrowRight, ArrowUp, ArrowUpRight, BadgeCheck, Bolt, CheckCircle2, ChevronDown, ChevronRight, Layers, Loader2, Lock, MessageSquare, ShieldCheck, Sparkles, Star, Zap,
 } from "lucide-react";
+import { TiltTaskCard as TasksTile } from "./Tasks";
 
 // Lazy load heavy components
-const Navbar = lazy(() => import("../components/navbar2"));
+const Navbar = lazy(() => import("../components/navbarsponhome"));
 const SwipeCarousel = lazy(() => import("../components/HeroArt").then(module => ({ default: module.SwipeCarousel })));
 
 const API_BASE = import.meta.env?.VITE_API_BASE || "http://localhost:5000";
+
+
 
 // --- TypeScript: Define Core Data Types ---
 interface Task {
@@ -45,8 +48,8 @@ const FAQ_ITEMS: FAQItem[] = [{ question: "How fast can I launch a new brief?", 
 // --- UTILITY COMPONENTS (Typed) ---
 
 interface TextProps { children: ReactNode; className?: string; }
-export const GradientText: FC<TextProps> = React.memo(({ children, className = "" }) => ( <span className={`bg-gradient-to-r from-violet-300 via-fuchsia-300 to-sky-300 bg-clip-text text-transparent ${className}`}>{children}</span> ));
-export const GlassCard: FC<TextProps> = React.memo(({ children, className = "" }) => ( <div className={`rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl shadow-[0_0_0_1px_rgba(255,255,255,0.04)] ${className}`}>{children}</div> ));
+export const GradientText: FC<TextProps> = React.memo(({ children, className = "" }) => (<span className={`bg-gradient-to-r from-violet-300 via-fuchsia-300 to-sky-300 bg-clip-text text-transparent ${className}`}>{children}</span>));
+export const GlassCard: FC<TextProps> = React.memo(({ children, className = "" }) => (<div className={`rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl shadow-[0_0_0_1px_rgba(255,255,255,0.04)] ${className}`}>{children}</div>));
 
 interface NeonButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> { children: ReactNode; loading?: boolean; }
 export const NeonButton: FC<NeonButtonProps> = React.memo(({ children, className = "", onClick, loading = false, ...props }) => (
@@ -62,7 +65,7 @@ const formatINR = (n: number | undefined | null): string => {
   return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n);
 };
 
-const Aurora: FC = React.memo(() => ( <div className="absolute inset-0 -z-10 overflow-hidden"> <div className="absolute -inset-x-40 -top-40 h-[50rem] bg-[radial-gradient(ellipse_at_top,rgba(139,92,246,0.15),transparent_60%)] will-change-transform" /><div className="absolute -inset-x-20 -top-20 h-[50rem] bg-[radial-gradient(ellipse_at_center,rgba(236,72,153,0.12),transparent_60%)] will-change-transform" /><div className="absolute inset-x-0 bottom-0 h-[40rem] bg-[radial-gradient(ellipse_at_bottom,rgba(14,165,233,0.12),transparent_60%)] will-change-transform" /></div> ));
+const Aurora: FC = React.memo(() => (<div className="absolute inset-0 -z-10 overflow-hidden"> <div className="absolute -inset-x-40 -top-40 h-[50rem] bg-[radial-gradient(ellipse_at_top,rgba(139,92,246,0.15),transparent_60%)] will-change-transform" /><div className="absolute -inset-x-20 -top-20 h-[50rem] bg-[radial-gradient(ellipse_at_center,rgba(236,72,153,0.12),transparent_60%)] will-change-transform" /><div className="absolute inset-x-0 bottom-0 h-[40rem] bg-[radial-gradient(ellipse_at_bottom,rgba(14,165,233,0.12),transparent_60%)] will-change-transform" /></div>));
 
 const Particles: FC = React.memo(() => {
   const prefersReducedMotion = useReducedMotion();
@@ -71,13 +74,13 @@ const Particles: FC = React.memo(() => {
   if (prefersReducedMotion) return null;
   return (
     <div className="pointer-events-none absolute inset-0 -z-10">
-      {Array.from({ length: particleCount }).map((_, i) => (<span key={i} className="absolute h-1 w-1 rounded-full bg-white/30 shadow-[0_0_8px_rgba(255,255,255,0.25)] will-change-transform" style={{ left: `${Math.random() * 100}%`, top: `${Math.random() * 100}%`, animation: `float${i % 3} ${6 + (i % 5)}s ease-in-out ${i * 0.12}s infinite` }}/>))}
+      {Array.from({ length: particleCount }).map((_, i) => (<span key={i} className="absolute h-1 w-1 rounded-full bg-white/30 shadow-[0_0_8px_rgba(255,255,255,0.25)] will-change-transform" style={{ left: `${Math.random() * 100}%`, top: `${Math.random() * 100}%`, animation: `float${i % 3} ${6 + (i % 5)}s ease-in-out ${i * 0.12}s infinite` }} />))}
       <style>{`@keyframes float0{0%,100%{transform:translate3d(0,0,0)}50%{transform:translate3d(0,-10px,0)}} @keyframes float1{0%,100%{transform:translate3d(0,0,0)}50%{transform:translate3d(0,-16px,0)}} @keyframes float2{0%,100%{transform:translate3d(0,0,0)}50%{transform:translate3d(0,-22px,0)}}`}</style>
     </div>
   );
 });
 
-const Shimmer: FC<{ className?: string }> = React.memo(({ className = "" }) => ( <div className={`animate-pulse rounded-2xl border border-white/10 bg-white/5 ${className}`}> <div className="h-full w-full bg-gradient-to-r from-transparent via-white/5 to-transparent animate-shimmer" /> </div> ));
+const Shimmer: FC<{ className?: string }> = React.memo(({ className = "" }) => (<div className={`animate-pulse rounded-2xl border border-white/10 bg-white/5 ${className}`}> <div className="h-full w-full bg-gradient-to-r from-transparent via-white/5 to-transparent animate-shimmer" /> </div>));
 
 
 // --- TASK CARD ---
@@ -91,14 +94,14 @@ const TiltTaskCard: FC<TiltTaskCardProps> = React.memo(({ task, onView, onApply 
   const daysLeft = useMemo(() => Math.ceil(((new Date(createdAt.getTime() + 7 * 24 * 60 * 60 * 1000)).getTime() - Date.now()) / (1000 * 60 * 60 * 24)), [createdAt]);
   const isNew = useMemo(() => (Date.now() - createdAt.getTime()) < (24 * 60 * 60 * 1000), [createdAt]); const isUrgent = daysLeft > 0 && daysLeft <= 2;
   const categories = Array.isArray(task?.category) ? task.category.slice(0, 3) : []; const capacity = Number(task?.numberOfApplicants) || 0; const applied = Array.isArray(task?.applicants) ? task.applicants.length : 0;
-  
-  const handleMouseMove = useCallback((event: MouseEvent<HTMLDivElement>) => { 
-    if (prefersReducedMotion || !event.currentTarget) return; 
-    const rect = event.currentTarget.getBoundingClientRect(); 
-    x.set((event.clientX - rect.left) / rect.width); 
-    y.set((event.clientY - rect.top) / rect.height); 
-    event.currentTarget.style.setProperty("--x", `${((event.clientX - rect.left) / rect.width) * 100}%`); 
-    event.currentTarget.style.setProperty("--y", `${((event.clientY - rect.top) / rect.height) * 100}%`); 
+
+  const handleMouseMove = useCallback((event: MouseEvent<HTMLDivElement>) => {
+    if (prefersReducedMotion || !event.currentTarget) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    x.set((event.clientX - rect.left) / rect.width);
+    y.set((event.clientY - rect.top) / rect.height);
+    event.currentTarget.style.setProperty("--x", `${((event.clientX - rect.left) / rect.width) * 100}%`);
+    event.currentTarget.style.setProperty("--y", `${((event.clientY - rect.top) / rect.height) * 100}%`);
   }, [prefersReducedMotion, x, y]);
   const handleMouseLeave = useCallback(() => { x.set(0.5); y.set(0.5); }, [x, y]);
 
@@ -110,7 +113,7 @@ const TiltTaskCard: FC<TiltTaskCardProps> = React.memo(({ task, onView, onApply 
         <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
           {isNew && <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2 py-1 font-medium text-emerald-300"> <Sparkles aria-hidden="true" className="h-3 w-3" /> New </span>}
           {isUrgent && <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-1 font-medium text-amber-300"> <Zap aria-hidden="true" className="h-3 w-3" /> Urgent </span>}
-          {categories.slice(0, 1).map((cat) => ( <span key={cat} className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-2 py-1 text-white/70"> <Star aria-hidden="true" className="h-3 w-3" /> {cat} </span> ))}
+          {categories.slice(0, 1).map((cat) => (<span key={cat} className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-2 py-1 text-white/70"> <Star aria-hidden="true" className="h-3 w-3" /> {cat} </span>))}
         </div>
         <h3 id={`task-title-${task._id}`} className="text-lg font-semibold text-white line-clamp-2">{task?.title}</h3>
         <p className="mt-2 text-sm text-white/70 line-clamp-3 flex-grow">{task?.description}</p>
@@ -212,7 +215,7 @@ const FAQSection: FC<{ items: FAQItem[] }> = React.memo(({ items }) => {
   const [openIndex, setOpenIndex] = useState(0);
   return (
     <section aria-labelledby="faq-title" className="mx-auto max-w-4xl px-6 py-16">
-      <SectionHeader id="faq-title" eyebrow="Questions" title="Everything you need to know" subtitle="If you have anything else on your mind, our support team is a heartbeat away."/>
+      <SectionHeader id="faq-title" eyebrow="Questions" title="Everything you need to know" subtitle="If you have anything else on your mind, our support team is a heartbeat away." />
       <div className="space-y-3">
         {items.map((item, index) => {
           const isOpen = openIndex === index;
@@ -240,6 +243,9 @@ const FAQSection: FC<{ items: FAQItem[] }> = React.memo(({ items }) => {
 
 // --- MAIN HOME COMPONENT ---
 export default function Home() {
+  useEffect(() => {
+    sessionStorage.setItem("lastHomeRoute", "/sponsorshiphome");
+  }, []);
   const navigate = useNavigate();
   // TypeScript: Type state with our `Task` interface
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -268,12 +274,20 @@ export default function Home() {
 
   // Initial loader effect
   useEffect(() => { const timer = setTimeout(() => setIsInitialLoading(false), 800); return () => clearTimeout(timer); }, []);
-  
+
   // Auth and Task fetching logic remains identical
   useEffect(() => { const controller = new AbortController(); (async () => { try { const response = await fetch(`${API_BASE}/api/auth/me`, { credentials: "include", signal: controller.signal }); if (response.status === 401 || response.status === 403) navigate("/signup", { replace: true }); } catch (error) { if (error.name !== "AbortError") console.error("Auth check failed:", error); } })(); return () => controller.abort(); }, [navigate]);
-  useEffect(() => { const controller = new AbortController(); setLoadingTasks(true); setTaskError(""); (async () => { try { const response = await fetch(`${API_BASE}/api/tasks`, { credentials: "include", cache: "no-store", signal: controller.signal }); if (!response.ok) throw new Error("Failed to fetch tasks"); const data = await response.json(); setTasks(Array.isArray(data) ? data : []); } catch (error) { if (error.name !== "AbortError") { console.error("Error fetching tasks:", error); setTaskError("We couldn't load live briefs. Try again soon."); } } finally { if (!controller.signal.aborted) setLoadingTasks(false); } })(); return () => controller.abort(); }, [reloadToken]);
+  useEffect(() => { const controller = new AbortController(); setLoadingTasks(true); setTaskError(""); (async () => { try { const response = await fetch(`${API_BASE}/api/tasks?category=Sponsorship`, { credentials: "include", cache: "no-store", signal: controller.signal }); if (!response.ok) throw new Error("Failed to fetch tasks"); const data = await response.json(); setTasks(Array.isArray(data) ? data : []); } catch (error) { if (error.name !== "AbortError") { console.error("Error fetching tasks:", error); setTaskError("We couldn't load live briefs. Try again soon."); } } finally { if (!controller.signal.aborted) setLoadingTasks(false); } })(); return () => controller.abort(); }, [reloadToken]);
 
-  const liveTasks = useMemo(() => tasks.slice(0, 6), [tasks]);
+  // Show only sponsorship-related tasks
+  const sponsorshipTasks = useMemo(() => {
+    return (tasks || []).filter((t) => {
+      const cats = Array.isArray(t?.category) ? t.category : [t?.category];
+      return cats.some((c) => String(c || "").toLowerCase() === "sponsorship");
+    });
+  }, [tasks]);
+
+  const liveTasks = useMemo(() => sponsorshipTasks.slice(0, 6), [sponsorshipTasks]);
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-gradient-to-b from-[#0a0a0f] via-[#0c0c14] to-[#000] text-gray-100 antialiased">
@@ -285,7 +299,7 @@ export default function Home() {
         <HeroSection navigate={navigate} />
 
         <section aria-labelledby="features-title" className="mx-auto max-w-screen-2xl px-6 py-16">
-          <SectionHeader id="features-title" eyebrow="Why Cyphire" title="A marketplace engineered for outcomes" subtitle="Purpose-built primitives that reduce risk and increase throughput for both sides."/>
+          <SectionHeader id="features-title" eyebrow="Why Cyphire" title="A marketplace engineered for outcomes" subtitle="Purpose-built primitives that reduce risk and increase throughput for both sides." />
           <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">{FEATURES.map((feature, index) => { const Icon = feature.icon; return (<motion.div key={feature.title} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.3 }} transition={{ duration: 0.5, delay: index * 0.1 }}><GlassCard className="flex flex-col gap-5 p-6 h-full hover:border-white/20 transition-colors"><div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/70 w-fit"><Icon aria-hidden="true" className="h-4 w-4" /><span>{feature.badge}</span></div><div><h3 className="text-lg font-semibold text-white">{feature.title}</h3><p className="mt-2 text-sm text-white/70 leading-relaxed">{feature.desc}</p></div><button className="mt-auto inline-flex items-center gap-2 text-sm text-fuchsia-300/90 transition-colors hover:text-fuchsia-200 group">Learn more <ArrowUpRight aria-hidden="true" className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" /></button></GlassCard></motion.div>); })}</div>
         </section>
 
@@ -298,16 +312,46 @@ export default function Home() {
               <select className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/70 backdrop-blur-xl focus:border-fuchsia-400/50 focus:ring-fuchsia-400/50 transition-colors"><option>Budget</option></select>
             </div>
           </div>
-          {taskError && (<GlassCard role="alert" aria-live="polite" className="mb-6 flex items-center justify-between px-5 py-4 text-sm text-white/70"><span>{taskError}</span><button onClick={() => setReloadToken(t=>t+1)} className="rounded-lg border border-white/10 px-3 py-1 text-xs uppercase tracking-wider text-white/70 hover:bg-white/10 transition-colors">Retry</button></GlassCard>)}
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {loadingTasks ? [0, 1, 2].map((i) => <Shimmer key={i} className="h-[420px]" />) : liveTasks.length > 0 ? liveTasks.map((task) => <TiltTaskCard key={task._id} task={task} onView={() => navigate(`/task/${task._id}`)} onApply={() => navigate(`/apply/${task._id}`)} />) : <GlassCard className="col-span-full flex flex-col items-center justify-center gap-3 px-6 py-20 text-white/70"><BadgeCheck aria-hidden="true" className="h-8 w-8 text-fuchsia-300" /><p>No live briefs yet—check back in a moment.</p></GlassCard>}
+          {taskError && (<GlassCard role="alert" aria-live="polite" className="mb-6 flex items-center justify-between px-5 py-4 text-sm text-white/70"><span>{taskError}</span><button onClick={() => setReloadToken(t => t + 1)} className="rounded-lg border border-white/10 px-3 py-1 text-xs uppercase tracking-wider text-white/70 hover:bg-white/10 transition-colors">Retry</button></GlassCard>)}
+          {/*Updated task tiles*/}
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
+            {loadingTasks ? (
+              [0, 1, 2].map((i) => <Shimmer key={i} className="h-[420px]" />)
+            ) : liveTasks.length > 0 ? (
+              liveTasks.map((task) => (
+                <div
+                  key={task._id}
+                  className="
+      relative group rounded-2xl overflow-hidden
+          /* === SAME GLOW AS SponsorCard (premium) === */
+          border-1 border-fuchsia-500/60
+          bg-gradient-to-br from-fuchsia-900/10 via-purple-600/10 to-sky-900/20
+          shadow-[0_0_15px_rgba(236,72,153,0)]
+          hover:shadow-[0_0_35px_rgba(236,72,153,0.3)]
+          transition-shadow duration-300
+    "
+                // bg-gradient-to-br from-sky-900/30 via-blue-900/20 to-fuchsia-900/20
+                //bg-gradient-to-br from-fuchsia-900/30 via-purple-900/20 to-sky-900/20
+                >
+                  {/* Using the exact Tasks page tile so the image shows above details */}
+                  {/* @ts-ignore - if your project is strict TS and Tasks.jsx is JS */}
+                  <TasksTile task={task} />
+                </div>
+              ))
+            ) : (
+              <GlassCard className="col-span-full flex flex-col items-center justify-center gap-3 px-6 py-20 text-white/70">
+                <BadgeCheck aria-hidden="true" className="h-8 w-8 text-fuchsia-300" />
+                <p>No live briefs yet—check back in a moment.</p>
+              </GlassCard>
+            )}
           </div>
-          <div className="mt-12 flex items-center justify-center"><button onClick={() => navigate("/tasks")} className="group inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3 text-white/80 backdrop-blur-xl transition-all hover:bg-white/10 active:scale-95">View all tasks <ChevronRight aria-hidden="true" className="h-4 w-4 transition-transform group-hover:translate-x-1" /></button></div>
+
+          <div className="mt-12 flex items-center justify-center"><button onClick={() => navigate("/sponsorships")} className="group inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3 text-white/80 backdrop-blur-xl transition-all hover:bg-white/10 active:scale-95">View all Sponsorships <ChevronRight aria-hidden="true" className="h-4 w-4 transition-transform group-hover:translate-x-1" /></button></div>
         </section>
 
         <section aria-labelledby="security-title" className="mx-auto max-w-screen-2xl px-6 py-16">
           <SectionHeader id="security-title" eyebrow="Security & compliance" title="Enterprise-grade controls without the drag" subtitle="Cyphire builds governance into every workflow so your legal and finance teams can sleep at night." />
-          <div className="text-center mb-10"><span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-medium text-emerald-300"><ShieldCheck aria-hidden="true" className="h-5 w-5"/> SOC-2 Compliant Infrastructure</span></div>
+          <div className="text-center mb-10"><span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-medium text-emerald-300"><ShieldCheck aria-hidden="true" className="h-5 w-5" /> SOC-2 Compliant Infrastructure</span></div>
           <div className="grid gap-6 md:grid-cols-3">{SECURITY_PILLARS.map((p, i) => { const Icon = p.icon; return (<motion.div key={p.title} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.3 }} transition={{ duration: 0.5, delay: i * 0.1 }}><GlassCard className="flex flex-col gap-4 p-6 h-full hover:border-emerald-400/20 transition-colors"><div className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-emerald-400/40 bg-emerald-400/10 text-emerald-200"><Icon aria-hidden="true" className="h-6 w-6" /></div><h3 className="text-lg font-semibold text-white">{p.title}</h3><p className="text-sm text-white/70 leading-relaxed">{p.desc}</p></GlassCard></motion.div>); })}</div>
         </section>
 

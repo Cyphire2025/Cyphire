@@ -2,7 +2,7 @@
 // src/pages/Tasks.jsx
 import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import Navbar from "../components/navbar";
+import Navbar from "../components/navbarsponhome";
 import Footer from "../components/footer";
 import { GradientText } from "./home"; // ✅ reuse your components
 import { motion, useMotionValue, useTransform } from "framer-motion";

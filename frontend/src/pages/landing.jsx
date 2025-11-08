@@ -239,8 +239,8 @@ function IntroSequence() {
   useEffect(() => {
     if (!introAnimating) return;
     const timers = [
-      setTimeout(() => setPhase(1), 1200),
-      setTimeout(() => setIntroFinished(), 2200),
+      setTimeout(() => setPhase(1), 1000),
+      setTimeout(() => setIntroFinished(), 1500),
     ];
     return () => timers.forEach(clearTimeout);
   }, [introAnimating, setIntroFinished]);
@@ -253,7 +253,7 @@ function IntroSequence() {
           initial={{ opacity: 1 }}
           animate={{ opacity: phase >= 1 ? 0 : 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.8, ease: 'easeInOut' }}
+          transition={{ duration: 0.5, ease: 'easeInOut' }}
         >
           <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
             <motion.span
@@ -329,7 +329,11 @@ function FloatingShardMessage() {
                   initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -16 }}
-                  transition={{ duration: 0.5 }}
+                  transition={{
+                    duration: 1.1,
+                    ease: [0.65, 0, 0.35, 1]
+                  }}
+
                 >
                   {slide.headline}
                 </motion.h3>
@@ -339,7 +343,12 @@ function FloatingShardMessage() {
                   initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -16 }}
-                  transition={{ duration: 0.5, delay: 0.05 }}
+                  transition={{
+                    duration: 1.2,
+                    delay: 0.15,
+                    ease: [0.65, 0, 0.35, 1]
+                  }}
+
                 >
                   {slide.body}
                 </motion.p>
@@ -656,7 +665,7 @@ function PortalWatcher() {
   useEffect(() => {
     if (!portalActive) return;
     if (portalProgress < 1) return;
-    const timeout = setTimeout(() => navigate(targetRoute), 4500);
+    const timeout = setTimeout(() => navigate(targetRoute), 500);
     return () => clearTimeout(timeout);
   }, [navigate, portalActive, portalProgress, targetRoute]);
 

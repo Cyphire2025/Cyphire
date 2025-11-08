@@ -8,11 +8,13 @@ import Footer from "../components/footer";
 import { TiltTaskCard as TasksTile } from "./Tasks";
 
 // Lazy load heavy components
-const Navbar = lazy(() => import("../components/navbar"));
+const Navbar = lazy(() => import("../components/navbarhome"));
 
 const SwipeCarousel = lazy(() => import("../components/HeroArt").then(module => ({ default: module.SwipeCarousel })));
 
 const API_BASE = import.meta.env?.VITE_API_BASE || "http://localhost:5000";
+
+
 
 // --- TypeScript: Define Core Data Types ---
 interface Task {
@@ -243,6 +245,9 @@ const FAQSection: FC<{ items: FAQItem[] }> = React.memo(({ items }) => {
 
 // --- MAIN HOME COMPONENT ---
 export default function Home() {
+  useEffect(() => {
+    sessionStorage.setItem("lastHomeRoute", "/home");
+  }, []);
   const navigate = useNavigate();
   // TypeScript: Type state with our `Task` interface
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -276,7 +281,17 @@ export default function Home() {
   useEffect(() => { const controller = new AbortController(); (async () => { try { const response = await fetch(`${API_BASE}/api/auth/me`, { credentials: "include", signal: controller.signal }); if (response.status === 401 || response.status === 403) navigate("/signup", { replace: true }); } catch (error) { if (error.name !== "AbortError") console.error("Auth check failed:", error); } })(); return () => controller.abort(); }, [navigate]);
   useEffect(() => { const controller = new AbortController(); setLoadingTasks(true); setTaskError(""); (async () => { try { const response = await fetch(`${API_BASE}/api/tasks`, { credentials: "include", cache: "no-store", signal: controller.signal }); if (!response.ok) throw new Error("Failed to fetch tasks"); const data = await response.json(); setTasks(Array.isArray(data) ? data : []); } catch (error) { if (error.name !== "AbortError") { console.error("Error fetching tasks:", error); setTaskError("We couldn't load live briefs. Try again soon."); } } finally { if (!controller.signal.aborted) setLoadingTasks(false); } })(); return () => controller.abort(); }, [reloadToken]);
 
-  const liveTasks = useMemo(() => tasks.slice(0, 5), [tasks]);
+  // Keep only non-sponsorship tasks for Home "Recently Posted"
+  const nonSponsorshipTasks = useMemo(() => {
+    return (tasks || []).filter((t) => {
+      // category might be a string or an array
+      const cats = Array.isArray(t?.category) ? t.category : [t?.category];
+      return !cats.some((c) => String(c ?? "").toLowerCase() === "sponsorship");
+    });
+  }, [tasks]);
+
+  const liveTasks = useMemo(() => nonSponsorshipTasks.slice(0, 5), [nonSponsorshipTasks]);
+
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-gradient-to-b from-[#0a0a0f] via-[#0c0c14] to-[#000] text-gray-100 antialiased">
@@ -302,21 +317,38 @@ export default function Home() {
             </div>
           </div>
           {taskError && (<GlassCard role="alert" aria-live="polite" className="mb-6 flex items-center justify-between px-5 py-4 text-sm text-white/70"><span>{taskError}</span><button onClick={() => setReloadToken(t => t + 1)} className="rounded-lg border border-white/10 px-3 py-1 text-xs uppercase tracking-wider text-white/70 hover:bg-white/10 transition-colors">Retry</button></GlassCard>)}
+
+          {/*Updated task tiles*/}
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
-            {loadingTasks
-              ? [0, 1, 2].map((i) => <Shimmer key={i} className="h-[420px]" />)
-              : liveTasks.length > 0
-                ? liveTasks.map((task) => (
-                  // Using the exact Tasks page tile so the image shows above details
-                  // @ts-ignore - if your project is strict TS and Tasks.jsx is JS
-                  <TasksTile key={task._id} task={task} />
-                ))
-                : (
-                  <GlassCard className="col-span-full flex flex-col items-center justify-center gap-3 px-6 py-20 text-white/70">
-                    <BadgeCheck aria-hidden="true" className="h-8 w-8 text-fuchsia-300" />
-                    <p>No live briefs yet—check back in a moment.</p>
-                  </GlassCard>
-                )
+            {loadingTasks ? (
+              [0, 1, 2].map((i) => <Shimmer key={i} className="h-[420px]" />)
+            ) : liveTasks.length > 0 ? (
+              liveTasks.map((task) => (
+                <div
+                  key={task._id}
+                  className="
+                  relative group rounded-2xl overflow-hidden
+                      /* === SAME GLOW AS SponsorCard (premium) === */
+                      border-1 border-fuchsia-500/60
+                      bg-gradient-to-br from-fuchsia-900/10 via-purple-600/10 to-sky-900/20
+                      shadow-[0_0_15px_rgba(236,72,153,0)]
+                      hover:shadow-[0_0_35px_rgba(236,72,153,0.3)]
+                      transition-shadow duration-300
+                "
+                // bg-gradient-to-br from-sky-900/30 via-blue-900/20 to-fuchsia-900/20
+                //bg-gradient-to-br from-fuchsia-900/30 via-purple-900/20 to-sky-900/20
+                >
+                  {/* Using the exact Tasks page tile so the image shows above details */}
+                  {/* @ts-ignore - if your project is strict TS and Tasks.jsx is JS */}
+                  <TasksTile task={task} />
+                </div>
+              ))
+            ) : (
+              <GlassCard className="col-span-full flex flex-col items-center justify-center gap-3 px-6 py-20 text-white/70">
+                <BadgeCheck aria-hidden="true" className="h-8 w-8 text-fuchsia-300" />
+                <p>No live briefs yet—check back in a moment.</p>
+              </GlassCard>
+            )
             }
           </div>
 

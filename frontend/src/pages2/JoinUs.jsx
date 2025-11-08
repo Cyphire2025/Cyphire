@@ -2,8 +2,9 @@
 // Detailed Join Us Page for Cyphire
 // For now, shows "not hiring" but still premium and professional
 
-import React, { Suspense } from "react";
-import Navbar from "../components/navbar";
+import React, { Suspense ,useMemo} from "react";
+import NavbarSpon from "../components/navbarsponhome.jsx";
+import NavbarHome from "../components/navbarhome.jsx";
 import Footer from "../components/footer";
 import { motion } from "framer-motion";
 import {
@@ -89,11 +90,15 @@ const perks = [
 ];
 
 export default function JoinUs() {
+  const Nav = useMemo(() => {
+    const last = sessionStorage.getItem("lastHomeRoute");
+    return last === "/sponsorshiphome" ? NavbarSpon : NavbarHome;
+  }, []);
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#0a0a0f] via-[#0c0c14] to-[#000] text-gray-100 overflow-x-hidden">
       <main className="relative overflow-hidden">
         <Suspense fallback={<div className="text-center p-6">Loading...</div>}>
-          <Navbar />
+          <Nav />
           <Aurora />
           <Particles />
         </Suspense>

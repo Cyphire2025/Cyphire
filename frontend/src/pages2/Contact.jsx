@@ -2,8 +2,9 @@
 // Premium Contact Page for Cyphire
 // ~450 lines with maps, FAQ, animations, real Unsplash images
 
-import React, { Suspense, useEffect, useState } from "react";
-import Navbar from "../components/navbar";
+import React, { Suspense, useEffect, useState ,useMemo} from "react";
+import NavbarSpon from "../components/navbarsponhome.jsx";
+import NavbarHome from "../components/navbarhome.jsx";
 import Footer from "../components/footer";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -97,6 +98,11 @@ const FAQItem = ({ q, a, open, onClick }) => (
 /* ===== Page ===== */
 
 export default function Contact() {
+  const Nav = useMemo(() => {
+  const last = sessionStorage.getItem("lastHomeRoute");
+  return last === "/sponsorshiphome" ? NavbarSpon : NavbarHome;
+}, []);
+
   const [counter, setCounter] = useState({});
   const [faqOpen, setFaqOpen] = useState(null);
 
@@ -145,7 +151,7 @@ export default function Contact() {
     <div className="min-h-screen bg-gradient-to-b from-[#0a0a0f] via-[#0c0c14] to-[#000] text-gray-100 overflow-x-hidden">
       <main className="relative overflow-hidden">
         <Suspense fallback={<div className="text-center p-6">Loading...</div>}>
-          <Navbar />
+          <Nav />
           <Aurora />
           <Particles />
         </Suspense>

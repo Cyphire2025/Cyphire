@@ -1,0 +1,9 @@
+import NavbarSpon from "../components/navbarsponhome.jsx";
+import NavbarHome from "../components/navbarhome.jsx";
+
+const Nav = useMemo(() => {
+  const last = sessionStorage.getItem("lastHomeRoute");
+  return last === "/sponsorshiphome" ? NavbarSpon : NavbarHome;
+}, []);
+
+<Nav />
