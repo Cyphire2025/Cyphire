@@ -5,6 +5,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import Navbar from "../components/navbarsponhome";
 import Footer from "../components/footer";
 import { Globe2, Tag, FolderOpen, ArrowLeft } from "lucide-react";
+import { apiFetch } from "../lib/fetch";
 
 const API_BASE = import.meta.env?.VITE_API_BASE || "http://localhost:5000";
 
@@ -59,7 +60,7 @@ export default function ViewProfilePage() {
       setLoading(true);
       setErr("");
       try {
-        const r = await fetch(`${API_BASE}/api/users/slug/${slug}/public`, {
+        const r = await apiFetch(`${API_BASE}/api/users/slug/${slug}/public`, {
           cache: "no-store",
           headers: { "Cache-Control": "no-cache" },
         });

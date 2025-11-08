@@ -15,6 +15,9 @@ import {
   FieldError,
   Toast,
 } from "../components/ApplyFormHelpers";
+import { apiFetch } from "../lib/fetch";
+
+const API_BASE = import.meta.env?.VITE_API_BASE || "http://localhost:5000";
 
 // ---- THEME + HELPERS ----
 const inputCls = "w-full rounded-xl bg-black/30 px-3 py-2.5 leading-6 outline-none placeholder:text-white/40 focus:ring-2 focus:ring-emerald-300/35 transition border";
@@ -217,8 +220,8 @@ export default function ApplyInfluencer() {
 
         const API = import.meta.env?.VITE_API_BASE || "http://localhost:5000";
         setSaving(true);
-        const res = await fetch(`${API}/api/intellectuals/applications`, {
-          method: "POST", credentials: "include", body: fd,
+        const res = await apiFetch(`${API}/api/intellectuals/applications`, {
+          method: "POST", body: fd,
         });
         setSaving(false);
 

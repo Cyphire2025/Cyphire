@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
+import { apiFetch } from "../lib/fetch";
 
 const API_BASE = import.meta.env?.VITE_API_BASE || "http://localhost:5000";
 
@@ -117,11 +118,11 @@ export default function ArchitecturePostTask() {
 
       attachments.forEach((file) => formData.append("attachments", file));
 
-      const res = await fetch(`${API_BASE}/api/tasks`, {
+      const res = await apiFetch(`${API_BASE}/api/tasks`, {
         method: "POST",
-        credentials: "include",
         body: formData,
       });
+
 
       if (res.ok) {
         setPosted(true);

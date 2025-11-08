@@ -17,6 +17,7 @@ import {
   Flame,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { apiFetch } from "../lib/fetch";
 
 const API_BASE = import.meta.env?.VITE_API_BASE || "http://localhost:5000";
 
@@ -153,10 +154,9 @@ export default function WorkroomPage() {
       return;
     }
     try {
-      const res = await fetch(`${API_BASE}/api/workrooms/${workroomId}/payment-log`, {
+      const res = await apiFetch(`${API_BASE}/api/workrooms/${workroomId}/payment-log`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({ upiId: handle }),
       });
       const data = await parseJsonSafe(res);
@@ -260,10 +260,9 @@ export default function WorkroomPage() {
       if (trimmed) form.append("text", trimmed);
       files.forEach((f) => form.append("attachments", f));
 
-      const r = await fetch(`${API_BASE}/api/workrooms/${workroomId}/messages`, {
+      const r = await apiFetch(`${API_BASE}/api/workrooms/${workroomId}/messages`, {
         method: "POST",
         body: form,
-        credentials: "include",
       });
       if (!r.ok) throw new Error(`Send failed: ${r.status} ${r.statusText}`);
       const d = await parseJsonSafe(r);
@@ -355,9 +354,9 @@ export default function WorkroomPage() {
                 {meta?.role === "client" && !meta?.clientFinalised && (
                   <button
                     onClick={async () => {
-                      await fetch(`${API_BASE}/api/workrooms/${workroomId}/finalise`, {
+                      await apiFetch(`${API_BASE}/api/workrooms/${workroomId}/finalise`, {
                         method: "POST",
-                        credentials: "include",
+
                       });
                       fetchMessages(true);
                     }}
@@ -369,9 +368,8 @@ export default function WorkroomPage() {
                 {meta?.role === "worker" && !meta?.workerFinalised && (
                   <button
                     onClick={async () => {
-                      await fetch(`${API_BASE}/api/workrooms/${workroomId}/finalise`, {
+                      await apiFetch(`${API_BASE}/api/workrooms/${workroomId}/finalise`, {
                         method: "POST",
-                        credentials: "include",
                       });
                       fetchMessages(true);
                     }}

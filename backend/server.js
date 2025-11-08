@@ -21,28 +21,30 @@ import pino from "pino";
 import pinoHttp from "pino-http";
 import { v4 as uuidv4 } from "uuid";
 
+// 🔐 CSRF middleware import
+import { verifyDoubleSubmitCsrf } from "./utils/csrfMiddleware.js";
+
+// 🔐 Socket guard deps
+import { verifyJwt } from "./utils/jwt.js";
+import Task from "./models/taskModel.js";
+
 // ---- Express App + Server ----
 const app = express();
 const PORT = process.env.PORT || 5000;
 const server = http.createServer(app);
 
-// --- Structured Logging: MUST BE FIRST (before any routes, CORS, etc) ---
+// --- Structured Logging ---
 const logger = pino({
   level: process.env.LOG_LEVEL || "info",
   transport: process.env.NODE_ENV === "production"
     ? undefined
-    : {
-        target: "pino-pretty",
-        options: { colorize: true }
-      }
+    : { target: "pino-pretty", options: { colorize: true } }
 });
 const pinoHttpMiddleware = pinoHttp({
   logger,
   genReqId: (req) => {
     const headerId = req.headers["x-request-id"];
-    return typeof headerId === "string" && headerId.length > 10
-      ? headerId
-      : uuidv4();
+    return typeof headerId === "string" && headerId.length > 10 ? headerId : uuidv4();
   }
 });
 app.use(pinoHttpMiddleware);
@@ -59,59 +61,40 @@ app.use((req, res, next) => {
   const startEpoch = Date.now();
   res.on("finish", () => {
     const route = req.route?.path || req.path || "unknown";
-    httpRequestDurationMicroseconds
-      .labels(req.method, route, res.statusCode)
+    httpRequestDurationMicroseconds.labels(req.method, route, res.statusCode)
       .observe(Date.now() - startEpoch);
   });
   next();
 });
 
 // Security Headers
-app.use(
-  helmet({
-    crossOriginResourcePolicy: false,
-  })
-);
+app.use(helmet({ crossOriginResourcePolicy: false }));
 
 // ✅ Allow both frontend and admin origins
 const allowedOrigins = [
-  "http://localhost:5173", // test frontend
-  "http://localhost:5174", // test admin
-  "http://localhost:5175", // test workroom
-  "https://cyphire-frontend.vercel.app", // frontend
-  "https://cyphire-workroom.vercel.app", // workroom
-  "https://cyphire-admin.vercel.app", // admin
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "http://localhost:5175",
+  "https://cyphire-frontend.vercel.app",
+  "https://cyphire-workroom.vercel.app",
+  "https://cyphire-admin.vercel.app",
 ];
-
-// small helper to also allow any Vercel preview
 const isVercelPreview = (origin) => {
   try {
     const u = new URL(origin);
     return u.protocol === "https:" && u.hostname.endsWith(".vercel.app");
-  } catch {
-    return false;
-  }
+  } catch { return false; }
 };
-// 🔐 Required on Render so Secure cookies are honored behind the proxy
 app.set("trust proxy", 1);
 
-app.use((req, res, next) => {
-  res.header("Vary", "Origin");
-  next();
-});
-
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      if (!origin || allowedOrigins.includes(origin) || isVercelPreview(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
-    credentials: true,
-  })
-);
+app.use((req, res, next) => { res.header("Vary", "Origin"); next(); });
+app.use(cors({
+  origin(origin, cb) {
+    if (!origin || allowedOrigins.includes(origin) || isVercelPreview(origin)) cb(null, true);
+    else cb(new Error("Not allowed by CORS"));
+  },
+  credentials: true,
+}));
 
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
@@ -121,59 +104,84 @@ app.use(passport.initialize());
 // Static uploads
 app.use("/uploads", express.static("uploads"));
 
-// Advanced Rate Limiting (per-IP, per-route; uses Redis if available)
-const redisClient = process.env.REDIS_URL
-  ? new Redis(process.env.REDIS_URL)
-  : null;
-
+// Advanced Rate Limiting
+const redisClient = process.env.REDIS_URL ? new Redis(process.env.REDIS_URL) : null;
 const limiter = rateLimit({
-  windowMs: 10 * 60 * 1000, // 10 minutes
+  windowMs: 10 * 60 * 1000,
   max: 200,
   message: "Too many requests, please try again later.",
-  ...(redisClient && {
-    store: new RedisStore({
-      sendCommand: (...args) => redisClient.call(...args),
-    }),
-  }),
+  ...(redisClient && { store: new RedisStore({ sendCommand: (...a) => redisClient.call(...a) }) }),
 });
-
 app.use(limiter);
 
 // --- Socket.io Setup ---
 const io = new Server(server, {
   cors: {
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin) || isVercelPreview(origin)) {
-        return callback(null, true);
-      }
+      if (!origin || allowedOrigins.includes(origin) || isVercelPreview(origin)) return callback(null, true);
       return callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
   },
 });
 
+// 🔐 Socket handshake auth (JWT required)
+io.use((socket, next) => {
+  try {
+    const raw =
+      socket.handshake.auth?.token ||
+      (socket.handshake.headers?.authorization || "").split(" ")[1];
+    if (!raw) return next(new Error("Unauthorized"));
+    const payload = verifyJwt(raw); // should throw on invalid
+    socket.user = { _id: String(payload._id || payload.id), isAdmin: !!payload.isAdmin };
+    return next();
+  } catch {
+    return next(new Error("Unauthorized"));
+  }
+});
+
 // ----- Socket.io events -----
 io.on("connection", (socket) => {
   console.log(`🔌 New client connected: ${socket.id}`);
 
-  socket.on("workroom:join", ({ workroomId }) => {
-    const room = `workroom:${workroomId}`;
-    socket.join(room);
-    console.log(`👥 Socket ${socket.id} joined room ${room}`);
+  socket.on("workroom:join", async ({ workroomId }) => {
+    try {
+      const task = await Task.findOne({ workroomId }).select("createdBy selectedApplicant");
+      if (!task) return socket.emit("error", "Workroom not found");
+      const uid = socket.user?._id;
+      const allowed =
+        uid &&
+        (String(task.createdBy) === uid ||
+         String(task.selectedApplicant) === uid ||
+         socket.user.isAdmin);
+      if (!allowed) return socket.emit("error", "Forbidden");
+      socket.join(`workroom:${workroomId}`);
+      socket.emit("joined", { ok: true });
+    } catch {
+      socket.emit("error", "Join failed");
+    }
   });
 
-  socket.on("message:new", (data) => {
-    const { workroomId, ...message } = data;
-    const room = `workroom:${workroomId}`;
-    message.sender = data.userId;
-    if (!message.createdAt) {
-      message.createdAt = new Date().toISOString();
+  socket.on("message:new", async ({ workroomId, text, attachments = [] }, ack) => {
+    try {
+      const task = await Task.findOne({ workroomId }).select("createdBy selectedApplicant");
+      if (!task) return ack?.({ ok: false, error: "Workroom not found" });
+      const uid = socket.user?._id;
+      const allowed =
+        uid &&
+        (String(task.createdBy) === uid ||
+         String(task.selectedApplicant) === uid ||
+         socket.user.isAdmin);
+      if (!allowed) return ack?.({ ok: false, error: "Forbidden" });
+
+      // TODO: Persist message via WorkroomMessage model if desired
+      io.to(`workroom:${workroomId}`).emit("message:new", {
+        text, attachments, sender: uid, createdAt: new Date().toISOString(),
+      });
+      ack?.({ ok: true });
+    } catch {
+      ack?.({ ok: false, error: "Failed" });
     }
-    console.log(
-      `📤 Broadcasting message to room ${room}:`,
-      message._id || message.text
-    );
-    socket.to(room).emit("message:new", message);
   });
 
   socket.on("disconnect", () => {
@@ -181,47 +189,30 @@ io.on("connection", (socket) => {
   });
 });
 
-// ----- Core Middleware -----
-
-// ensure caches/CDNs don’t mix responses between origins
-app.use((req, res, next) => {
-  res.header("Vary", "Origin");
-  next();
-});
-
-// ✅ Fix: Dynamically allow known origins + vercel previews; allow credentials
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      if (!origin || allowedOrigins.includes(origin) || isVercelPreview(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
-    credentials: true,
-  })
-);
-
-app.use((req, _res, next) => {
-  req.io = io;
-  next();
-});
-
+// ----- Core Middleware (dup blocks kept to avoid breaking existing order) -----
+app.use((req, res, next) => { res.header("Vary", "Origin"); next(); });
+app.use(cors({
+  origin(origin, cb) {
+    if (!origin || allowedOrigins.includes(origin) || isVercelPreview(origin)) cb(null, true);
+    else cb(new Error("Not allowed by CORS"));
+  },
+  credentials: true,
+}));
+app.use((req, _res, next) => { req.io = io; next(); });
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(passport.initialize());
-
-// Serve static files from uploads directory
 app.use("/uploads", express.static("uploads"));
+
+// 🔐 CSRF: double-submit verification (after cookieParser, before routes)
+app.use(verifyDoubleSubmitCsrf);
 
 // ----- Health Check -----
 app.get("/", (_req, res) => res.send("Cyphire API up"));
 
-
 // Prometheus scrape endpoint
-app.get("/metrics", async (req, res) => {
+app.get("/metrics", async (_req, res) => {
   res.set("Content-Type", client.register.contentType);
   res.end(await client.register.metrics());
 });
@@ -246,17 +237,14 @@ app.use("/api/intellectuals", intellectualsRoutes);
 app.use("/api/workrooms", workroomRoutes);
 app.use("/api/workrooms", workroomMessageRoutes);
 app.use("/api/admin", adminRoutes);
-
 app.use("/api/payment", paymentRoutes);
 app.use("/api", paymentLogRoutes);
+app.use("/api/help", helpRoutes);
+app.use("/api/help/questions", helpQuestionRoutes);
 
-app.use("/api/help", helpRoutes); // All /api/help/tickets and /api/help routes
-app.use("/api/help/questions", helpQuestionRoutes); // All /api/help/questions routes
-
-// --- Global Error Handler (Structured) ---
-app.use((err, req, res, next) => {
-  req.log?.error?.(err); // Use pino log if available
-  // Log error in detail (can upgrade to Winston/Sentry)
+// --- Global Error Handler ---
+app.use((err, req, res, _next) => {
+  req.log?.error?.(err);
   console.error("GLOBAL ERROR:", err);
   res.status(err.status || 500).json({
     error: err.message || "Internal Server Error",
@@ -276,11 +264,8 @@ function shutdown(signal) {
   logger.info(`[SHUTDOWN] Received ${signal}. Shutting down gracefully...`);
   server.close(() => {
     logger.info("[SHUTDOWN] HTTP server closed.");
-    // Close Socket.IO
     if (io && io.close) io.close();
-    // Close Redis if used
     if (redisClient && redisClient.quit) redisClient.quit();
-    // If using mongoose, close DB connection:
     if (typeof mongoose !== "undefined" && mongoose.connection?.close) {
       mongoose.connection.close(false, () => {
         logger.info("[SHUTDOWN] MongoDB connection closed.");
@@ -291,8 +276,6 @@ function shutdown(signal) {
     }
   });
 }
-
-// Listen for process signals
 ["SIGINT", "SIGTERM"].forEach((signal) => {
   process.on(signal, () => shutdown(signal));
 });

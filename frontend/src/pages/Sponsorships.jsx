@@ -6,6 +6,7 @@ import { Filter, Layers, Wallet, Gift, Star, TrendingUp, Users, Award, Clock } f
 import Navbar from "../components/navbarsponhome";
 import Footer from "../components/footer";
 import toast from "react-hot-toast";
+import { apiFetch } from "../lib/fetch";
 
 const API_BASE = import.meta.env?.VITE_API_BASE || "http://localhost:5000";
 

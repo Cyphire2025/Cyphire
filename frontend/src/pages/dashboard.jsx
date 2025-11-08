@@ -24,6 +24,7 @@ import {
   Filter,
   Search,
 } from "lucide-react";
+import { apiFetch } from "../lib/fetch";
 
 /**
  * Backend + Razorpay
@@ -259,10 +260,9 @@ export default function DashboardPage() {
         alert("Payment service not available. Please try again later.");
         return;
       }
-      const orderRes = await fetch(`${API_BASE}/api/payment/create-order`, {
+      const orderRes = await apiFetch(`${API_BASE}/api/payment/create-order`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({ amount: Number(paymentTask.price) }),
       });
       const order = await orderRes.json();
@@ -278,10 +278,9 @@ export default function DashboardPage() {
         handler: async (resp) => {
           try {
             setVerifyingPayment(true);
-            const vr = await fetch(`${API_BASE}/api/payment/verify-and-select`, {
+            const vr = await apiFetch(`${API_BASE}/api/payment/verify-and-select`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              credentials: "include",
               body: JSON.stringify({
                 razorpay_order_id: resp.razorpay_order_id,
                 razorpay_payment_id: resp.razorpay_payment_id,

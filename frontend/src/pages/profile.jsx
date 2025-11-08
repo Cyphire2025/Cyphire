@@ -127,7 +127,7 @@ export default function ProfilePage() {
       setLoading(true);
       setErr("");
       try {
-        const r = await fetch(`${API_BASE}/api/auth/me`, {
+        const r = await apifetch(`${API_BASE}/api/auth/me`, {
           credentials: "include",
           cache: "no-store",
           headers: { "Cache-Control": "no-cache" },
@@ -217,9 +217,8 @@ export default function ProfilePage() {
     try {
       const fd = new FormData();
       fd.append("avatar", avatarFile);
-      const res = await fetch(`${API_BASE}/api/users/avatar`, {
+      const res = await apiFetch(`${API_BASE}/api/users/avatar`, {
         method: "POST",
-        credentials: "include",
         body: fd,
       });
       if (!res.ok) {
@@ -315,9 +314,8 @@ export default function ProfilePage() {
     try {
       // include bio in payload
       const body = { name, country, phone, skills, bio: (bio || "").slice(0, 300) };
-      const res = await fetch(`${API_BASE}/api/users/me`, {
+      const res = await apiFetch(`${API_BASE}/api/users/me`, {
         method: "PUT",
-        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
@@ -345,9 +343,8 @@ export default function ProfilePage() {
   const deleteSavedProject = async (idx) => {
     if (!confirm("Delete this project? This will remove its media too.")) return;
     try {
-      const res = await fetch(`${API_BASE}/api/users/projects/${idx}`, {
+      const res = await apiFetch(`${API_BASE}/api/users/projects/${idx}`, {
         method: "DELETE",
-        credentials: "include",
       });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
@@ -364,9 +361,9 @@ export default function ProfilePage() {
   const deleteSavedProjectMedia = async (idx, publicId) => {
     if (!confirm("Remove this media file?")) return;
     try {
-      const res = await fetch(
+      const res = await apiFetch(
         `${API_BASE}/api/users/projects/${idx}/media/${encodeURIComponent(publicId)}`,
-        { method: "DELETE", credentials: "include" }
+        { method: "DELETE" }
       );
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
@@ -389,9 +386,8 @@ export default function ProfilePage() {
         if (!p.title?.trim()) throw new Error("Add a title to the project");
 
         // 1) update metadata
-        const res = await fetch(`${API_BASE}/api/users/projects/${editingIndex}`, {
+        const res = await apiFetch(`${API_BASE}/api/users/projects/${editingIndex}`, {
           method: "PUT",
-          credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ title: p.title, description: p.description, link: (p.link || "").trim() }),
         });
@@ -404,9 +400,8 @@ export default function ProfilePage() {
         if (p.files?.length) {
           const fd = new FormData();
           p.files.slice(0, 5).forEach((f) => fd.append("files", f));
-          const mr = await fetch(`${API_BASE}/api/users/projects/${editingIndex}/media`, {
+          const mr = await apiFetch(`${API_BASE}/api/users/projects/${editingIndex}/media`, {
             method: "POST",
-            credentials: "include",
             body: fd,
           });
           if (!mr.ok) {
@@ -416,7 +411,7 @@ export default function ProfilePage() {
         }
 
         // 3) refresh saved list
-        const me = await fetch(`${API_BASE}/api/auth/me`, { credentials: "include", cache: "no-store" });
+        const me = await fetch(`${API_BASE}/api/auth/me`, {credentials: "include", cache: "no-store" });
         const meJson = await me.json();
         setSavedProjects(Array.isArray(meJson?.user?.projects) ? meJson.user.projects : []);
 
@@ -442,9 +437,8 @@ export default function ProfilePage() {
 
       const merged = [...existingSlim, ...newPayload].slice(0, maxProjects);
       // 1) save metadata for all
-      const res = await fetch(`${API_BASE}/api/users/projects`, {
+      const res = await apiFetch(`${API_BASE}/api/users/projects`, {
         method: "POST",
-        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ projects: merged }),
       });
@@ -461,9 +455,8 @@ export default function ProfilePage() {
 
         const fd = new FormData();
         p.files.slice(0, 5).forEach((f) => fd.append("files", f)); // max 5 files
-        const mr = await fetch(`${API_BASE}/api/users/projects/${startIndex + i}/media`, {
+        const mr = await apiFetch(`${API_BASE}/api/users/projects/${startIndex + i}/media`, {
           method: "POST",
-          credentials: "include",
           body: fd,
         });
         if (!mr.ok) {

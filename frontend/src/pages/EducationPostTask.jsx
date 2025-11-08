@@ -17,6 +17,9 @@ import {
   ArrowUpRight,
 } from "lucide-react";
 import PostingOverlay from "../components/PostingOverlay";
+import { apiFetch } from "../lib/fetch";
+
+const API_BASE = import.meta.env?.VITE_API_BASE || "http://localhost:5000";
 
 const Calendar = React.lazy(() => import('@/components/ui/Cal'));
 const MAX_CATEGORIES = 5;
@@ -129,12 +132,11 @@ export default function EducationPostTask() {
       if (logo) formData.append("logo", logo);
       attachments.forEach((file) => formData.append("attachments", file));
 
-      const API_BASE = import.meta.env?.VITE_API_BASE || "http://localhost:5000";
-      const res = await fetch(`${API_BASE}/api/tasks`, {
+      const res = await apiFetch(`${API_BASE}/api/tasks`, {
         method: "POST",
-        credentials: "include",
         body: formData,
       });
+
 
       if (res.ok) {
         setPosted(true);
@@ -336,7 +338,7 @@ export default function EducationPostTask() {
                   />
                   <label
                     htmlFor="subject"
-                   className="pointer-events-none absolute left-5 top-3 text-[11px] font-medium uppercase tracking-[0.18em] text-purple-200 transition-all duration-200 peer-placeholder-shown:top-6 peer-placeholder-shown:text-sm peer-placeholder-shown:text-gray-400 peer-focus:top-3 peer-focus:text-[11px] peer-focus:text-purple-100"
+                    className="pointer-events-none absolute left-5 top-3 text-[11px] font-medium uppercase tracking-[0.18em] text-purple-200 transition-all duration-200 peer-placeholder-shown:top-6 peer-placeholder-shown:text-sm peer-placeholder-shown:text-gray-400 peer-focus:top-3 peer-focus:text-[11px] peer-focus:text-purple-100"
                   >
                     Subject
                   </label>

@@ -1,3 +1,5 @@
+
+import "./lib/http";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
@@ -19,7 +21,7 @@ import ApplyExpert from "./pages/ApplyExpert.jsx";
 import ApplyInfluencer from "./pages/ApplyInfluencer";
 import ApplyMentor from "./pages/ApplyMentor.jsx";
 
-import TechPostTask from "./pages/Techposttask.jsx";
+import TechPostTask from "./pages/Techposttask.tsx";
 import ViewTask from "./pages/viewtask";
 import EducationPostTask from "./pages/EducationPostTask";
 import ArchitecturePostTask from "./pages/ArchitecturePostTask";

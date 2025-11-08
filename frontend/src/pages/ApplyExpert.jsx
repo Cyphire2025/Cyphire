@@ -15,7 +15,10 @@ import {
   FieldError,
   Toast,
 } from "../components/ApplyFormHelpers";
+import { apiFetch } from "../lib/fetch";
 
+
+const API_BASE = import.meta.env?.VITE_API_BASE || "http://localhost:5000";
 const DRAFT_KEY = "cyphire.apply.industryexpert.v1";
 const STEPS = [
   { key: "basics", label: "Basics", icon: Briefcase },
@@ -216,8 +219,8 @@ export default function ApplyExpert() {
 
         const API = import.meta.env?.VITE_API_BASE || "http://localhost:5000";
         setSaving(true);
-        const res = await fetch(`${API}/api/intellectuals/applications`, {
-          method: "POST", credentials: "include", body: fd,
+        const res = await apiFetch(`${API}/api/intellectuals/applications`, {
+          method: "POST",  body: fd,
         });
         setSaving(false);
 

@@ -7,6 +7,7 @@ import {
   FiEye, FiEyeOff, FiShield, FiLock, FiMail, FiUser, FiCheck, FiX, FiZap, FiCpu, FiActivity,
 } from "react-icons/fi";
 import toast from "react-hot-toast";
+import { apiFetch } from "../lib/fetch";
 
 const API_BASE = import.meta.env?.VITE_API_BASE || "http://localhost:5000";
 
@@ -276,13 +277,12 @@ export default function Signup() {
       }
       setLoading(true);
       try {
-        const res = await fetch(`${API_BASE}/api/auth/signup`, {
+        const res = await apiFetch(`${API_BASE}/api/auth/signup`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             "X-Device-Fingerprint": deviceFingerprint(), // for server-side rate-limit composite key
           },
-          credentials: "include",
           body: JSON.stringify({ name: form.name, email: form.email, password: form.password, rememberMe: remember }),
         });
 

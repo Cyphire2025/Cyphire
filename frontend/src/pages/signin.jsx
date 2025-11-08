@@ -14,6 +14,7 @@ import {
   FiClock,
   FiTrendingUp,
 } from "react-icons/fi";
+import { apiFetch } from "../lib/fetch";
 
 const API_BASE = import.meta.env?.VITE_API_BASE || "http://localhost:5000";
 
@@ -106,13 +107,12 @@ export default function Signin() {
       }
       setLoading(true);
       try {
-        const res = await fetch(`${API_BASE}/api/auth/signin`, {
+        const res = await apiFetch(`${API_BASE}/api/auth/signin`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             "X-Device-Fingerprint": deviceFingerprint(),
           },
-          credentials: "include",
           body: JSON.stringify({ ...form, rememberMe: remember }),
         });
 
