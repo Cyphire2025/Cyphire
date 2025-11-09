@@ -97,30 +97,96 @@ const cspDirectives = {
 };
 
 // ---- Security Headers (Helmet)
-app.use(
-  helmet({
-    crossOriginResourcePolicy: false, // allow Cloudinary renders
-    contentSecurityPolicy: { useDefaults: true, directives: cspDirectives },
-    referrerPolicy: { policy: "no-referrer-when-downgrade" },
-    crossOriginOpenerPolicy: { policy: "same-origin" },
-    crossOriginEmbedderPolicy: false, // keep false unless COEP required
+// app.use(
+//   helmet({
+//     crossOriginResourcePolicy: false, // allow Cloudinary renders
+//     contentSecurityPolicy: { useDefaults: true, directives: cspDirectives },
+//     referrerPolicy: { policy: "no-referrer-when-downgrade" },
+//     crossOriginOpenerPolicy: { policy: "same-origin" },
+//     crossOriginEmbedderPolicy: false, // keep false unless COEP required
 
-    // 🚦 HTTP Security Header Pack
-    hsts: { maxAge: 63072000, includeSubDomains: true, preload: true }, // Strict-Transport-Security
-    noSniff: true,   // X-Content-Type-Options: nosniff
-    frameguard: { action: "deny" }, // X-Frame-Options: DENY
-    xssFilter: true, // adds X-XSS-Protection header (legacy)
-    permissionsPolicy: {
-      features: {
-        camera: ["none"],
-        microphone: ["none"],
-        geolocation: ["none"]
-      }
+//     // 🚦 HTTP Security Header Pack
+//     hsts: { maxAge: 63072000, includeSubDomains: true, preload: true }, // Strict-Transport-Security
+//     noSniff: true,   // X-Content-Type-Options: nosniff
+//     frameguard: { action: "deny" }, // X-Frame-Options: DENY
+//     xssFilter: true, // adds X-XSS-Protection header (legacy)
+//     permissionsPolicy: {
+//       features: {
+//         camera: ["none"],
+//         microphone: ["none"],
+//         geolocation: ["none"]
+//       }
+//     }
+//   })
+// );
+
+app.use(helmet({
+  // Keep other good headers on
+  referrerPolicy: { policy: "no-referrer-when-downgrade" },
+  frameguard: { action: "deny" },
+  noSniff: true,
+  hsts: { maxAge: 63072000, includeSubDomains: true, preload: true },
+
+  // R3F/three + WASM + Razorpay need COEP disabled in most setups
+  crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: false,
+
+  contentSecurityPolicy: {
+    useDefaults: true,
+    directives: {
+      "default-src": ["'self'"],
+      "base-uri": ["'self'"],
+      "object-src": ["'none'"],
+      "frame-ancestors": ["'none'"],
+
+      // Scripts: your app + Razorpay + WASM compile/eval paths
+      "script-src": [
+        "'self'",
+        "https://checkout.razorpay.com",
+        "'wasm-unsafe-eval'",
+        "'unsafe-eval'"
+      ],
+
+      // Styles: allow Google Fonts + inline style attributes Razorpay/React use
+      "style-src": [
+        "'self'",
+        "'unsafe-inline'",
+        "https://fonts.googleapis.com"
+      ],
+      // If you want maximum strictness while still working, you can split:
+      // "style-src-elem": ["'self'", "https://fonts.googleapis.com"],
+      // "style-src-attr": ["'unsafe-inline'"],
+
+      // Fonts for Google Fonts
+      "font-src": ["'self'", "https://fonts.gstatic.com", "data:"],
+
+      // Images & textures (three.js often uses blob/data URLs), Cloudinary CDN
+      "img-src": ["'self'", "data:", "blob:", "https://res.cloudinary.com"],
+
+      // XHR/WebSocket targets + blob (for loaders/workers)
+      "connect-src": [
+        "'self'",
+        "blob:",
+        "https://api.razorpay.com",
+        "https://cyphire.onrender.com",
+        "wss://cyphire.onrender.com"
+      ],
+
+      // Workers (DRACO/KTX2/etc.) and children from blob:
+      "worker-src": ["'self'", "blob:"],
+      "child-src": ["'self'", "blob:"],
+
+      // Media future-proofing
+      "media-src": ["'self'", "data:", "blob:"],
+
+      // Razorpay opens an iframe
+      "frame-src": ["https://*.razorpay.com"],
+
+      // Help avoid mixed content in case any http links sneak in
+      "upgrade-insecure-requests": []
     }
-  })
-);
-
-
+  }
+}));
 // ---- CORS
 app.set("trust proxy", 1);
 const allowedOrigins = [
