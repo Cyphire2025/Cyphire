@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Loader2, BadgeCheck, Eye, EyeOff, Edit3, Save, Search, BookOpen, ActivitySquare } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { apiFetch } from "../lib/fetch";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
 
@@ -53,7 +54,7 @@ export default function QuestionsView() {
 
   const handleSave = async (id) => {
     setSaving((s) => ({ ...s, [id]: true }));
-    const res = await fetch(`${API_BASE}/api/admin/questions/${id}/answer`, {
+    const res = await apiFetch(`${API_BASE}/api/admin/questions/${id}/answer`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({ answer: editAnswers[id] }),
@@ -70,7 +71,7 @@ export default function QuestionsView() {
 
   const handleToggleShow = async (id, show) => {
     setToggling((t) => ({ ...t, [id]: true }));
-    await fetch(`${API_BASE}/api/admin/questions/${id}/show`, {
+    await apiFetch(`${API_BASE}/api/admin/questions/${id}/show`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({ show: !show }), // <--- CRITICAL: send the new value!

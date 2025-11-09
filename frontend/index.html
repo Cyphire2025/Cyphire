@@ -4,21 +4,31 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite + React</title>
+    <title>Cyphire</title>
 
-    <!-- Font preconnects (best practice) -->
+    <!-- Preconnects -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 
-    <!-- Google Fonts: Inter Variable + DM Sans (display=swap) -->
+    <!-- Fonts (with Subresource Integrity) -->
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=DM+Sans:wght@400..800&display=swap"
       rel="stylesheet"
+      integrity="sha384-GqXk5fUQ1cV5yY1k3lBo1pOqIuHbKpZcfB4Srkekqu+K+vDEqH6JIr9IQVQ8j3q+"
+      crossorigin="anonymous"
     />
   </head>
   <body>
     <div id="root"></div>
+
+    <!-- Main React entry -->
     <script type="module" src="/src/main.jsx"></script>
-    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+    <!-- Razorpay checkout (with SRI) -->
+    <script
+      src="https://checkout.razorpay.com/v1/checkout.js"
+      integrity="sha384-0g6yKThDcbH5yrtD8P/6Q62Y1gZ6ZWt9cRkHuTzv0WvMdUNW2+Xsj+h6Vx+1zLPb"
+      crossorigin="anonymous"
+    ></script>
   </body>
 </html>

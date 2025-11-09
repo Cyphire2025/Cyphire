@@ -8,6 +8,7 @@ import {
   ChevronUp,
   ArrowUpRight,
 } from "lucide-react";
+import { apiFetch } from "../lib/fetch";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
 const FRONTEND_BASE = import.meta.env.VITE_FRONTEND_BASE || "http://localhost:5173";
@@ -52,7 +53,7 @@ export default function TasksView() {
         url = `${API_BASE}/api/admin/tasks/${id}/status`;
       }
 
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method,
         headers: {
           "Content-Type": "application/json",
@@ -60,6 +61,7 @@ export default function TasksView() {
         },
         body: body ? JSON.stringify(body) : null,
       });
+
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Action failed");

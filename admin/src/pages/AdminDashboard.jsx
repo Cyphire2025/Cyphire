@@ -20,6 +20,7 @@ import TasksView from "./tasksview";
 import PaymentsView from "./paymentsview";
 import QuestionsView from "./questionsview"; 
 import TicketsView from "./ticketsview";
+import { apiFetch } from "../lib/fetch";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
 

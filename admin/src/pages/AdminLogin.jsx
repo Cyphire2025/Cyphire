@@ -3,8 +3,10 @@ import { motion } from "framer-motion";
 import { Eye, EyeOff } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import  bgImage from "../assets/bg.jpg"; 
+import { apiFetch } from "../lib/fetch";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
+const API_BASE = import.meta.env?.VITE_API_BASE || "http://localhost:5000";
+
 
 
 export default function AdminLogin() {
@@ -24,11 +26,10 @@ export default function AdminLogin() {
         return setError("All fields are required.");
       }
 
-      const res = await fetch(`${API_BASE}/api/admin/login`, {
+      const res = await apiFetch(`${API_BASE}/api/admin/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
-        credentials: "include",
       });
 
       const data = await res.json();

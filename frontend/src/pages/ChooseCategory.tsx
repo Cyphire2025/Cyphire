@@ -143,7 +143,7 @@ export default function ChooseCategory() {
           className="px-6 pt-8 pb-4 max-w-7xl mx-auto w-full"
         >
           <button
-            onClick={() => navigate("/")}
+            onClick={() => navigate("/home")}
             className="group relative inline-flex items-center gap-2.5 rounded-xl px-5 py-2.5 text-sm font-medium transition-all duration-300"
             style={{
               background: "hsla(240, 8%, 6%, 0.4)",

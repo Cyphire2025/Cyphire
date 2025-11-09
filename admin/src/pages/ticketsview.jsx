@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Loader2, BadgeCheck, User, X, Send } from "lucide-react";
+import { apiFetch } from "../lib/fetch";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
 
@@ -39,7 +40,7 @@ export default function TicketsView() {
     const formData = new FormData();
     formData.append("text", reply);
     replyFiles.forEach(f => formData.append("files", f));
-    await fetch(`${API_BASE}/api/help/tickets/${ticketId}/comments`, {
+    await apiFetch(`${API_BASE}/api/help/tickets/${ticketId}/comments`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
       body: formData,

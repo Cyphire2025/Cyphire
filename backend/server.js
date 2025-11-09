@@ -1,5 +1,6 @@
+// server.js
 import dotenv from "dotenv";
-dotenv.config(); // <-- MUST be first before any imports
+dotenv.config(); // MUST be first
 
 import http from "http";
 import express from "express";
@@ -11,6 +12,7 @@ import passport from "passport";
 import rateLimit from "express-rate-limit";
 import RedisStore from "rate-limit-redis";
 import Redis from "ioredis";
+import mongoose from "mongoose";
 import { connectDB } from "./config/mongodb.js";
 import "./config/passport.js";
 import { Server } from "socket.io";
@@ -21,56 +23,106 @@ import pino from "pino";
 import pinoHttp from "pino-http";
 import { v4 as uuidv4 } from "uuid";
 
-// 🔐 CSRF middleware import
+// 🔐 CSRF middleware
 import { verifyDoubleSubmitCsrf } from "./utils/csrfMiddleware.js";
-
-// 🔐 Socket guard deps
+// 🔐 JWT verify for sockets
 import { verifyJwt } from "./utils/jwt.js";
+// For workroom access checks
 import Task from "./models/taskModel.js";
 
-// ---- Express App + Server ----
+// ---- App / Server ----
 const app = express();
 const PORT = process.env.PORT || 5000;
 const server = http.createServer(app);
 
-// --- Structured Logging ---
+// ---- Logging
 const logger = pino({
   level: process.env.LOG_LEVEL || "info",
-  transport: process.env.NODE_ENV === "production"
-    ? undefined
-    : { target: "pino-pretty", options: { colorize: true } }
+  transport:
+    process.env.NODE_ENV === "production"
+      ? undefined
+      : { target: "pino-pretty", options: { colorize: true } },
 });
-const pinoHttpMiddleware = pinoHttp({
-  logger,
-  genReqId: (req) => {
-    const headerId = req.headers["x-request-id"];
-    return typeof headerId === "string" && headerId.length > 10 ? headerId : uuidv4();
-  }
-});
-app.use(pinoHttpMiddleware);
+app.use(
+  pinoHttp({
+    logger,
+    genReqId: (req) => {
+      const headerId = req.headers["x-request-id"];
+      return typeof headerId === "string" && headerId.length > 10
+        ? headerId
+        : uuidv4();
+    },
+  })
+);
 
-// --- Prometheus Metrics ---
+// ---- Prometheus Metrics
 client.collectDefaultMetrics();
-const httpRequestDurationMicroseconds = new client.Histogram({
-  name: 'http_request_duration_ms',
-  help: 'Duration of HTTP requests in ms',
-  labelNames: ['method', 'route', 'status_code'],
-  buckets: [50, 100, 200, 400, 800, 1600, 3200, 6400, 10000]
+const httpRequestDurationMs = new client.Histogram({
+  name: "http_request_duration_ms",
+  help: "Duration of HTTP requests in ms",
+  labelNames: ["method", "route", "status_code"],
+  buckets: [50, 100, 200, 400, 800, 1600, 3200, 6400, 10000],
 });
 app.use((req, res, next) => {
-  const startEpoch = Date.now();
+  const started = Date.now();
   res.on("finish", () => {
     const route = req.route?.path || req.path || "unknown";
-    httpRequestDurationMicroseconds.labels(req.method, route, res.statusCode)
-      .observe(Date.now() - startEpoch);
+    httpRequestDurationMs
+      .labels(req.method, route, String(res.statusCode))
+      .observe(Date.now() - started);
   });
   next();
 });
 
-// Security Headers
-app.use(helmet({ crossOriginResourcePolicy: false }));
+// ---- CSP (Content Security Policy) via Helmet
+// If you add more third-party origins (analytics, Sentry, etc.), include them here.
+const cspDirectives = {
+  defaultSrc: ["'self'"],
+  baseUri: ["'self'"],
+  objectSrc: ["'none'"],
+  frameAncestors: ["'none'"], // clickjacking defense
+  imgSrc: ["'self'", "data:", "blob:", "https://res.cloudinary.com"],
+  mediaSrc: ["'self'", "data:", "blob:", "https://res.cloudinary.com"],
+  fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+  styleSrc: ["'self'", "https://fonts.googleapis.com"], // avoid 'unsafe-inline'
+  scriptSrc: ["'self'", "https://checkout.razorpay.com"], // Razorpay Checkout
+  connectSrc: [
+    "'self'",
+    "https://api.razorpay.com",
+    // Add your backend WS origin if different from 'self' in frontends:
+    ...(process.env.BACKEND_WS_ORIGIN ? [process.env.BACKEND_WS_ORIGIN] : []),
+  ],
+  frameSrc: ["https://*.razorpay.com"], // Razorpay iframes
+  upgradeInsecureRequests: [],
+};
 
-// ✅ Allow both frontend and admin origins
+// ---- Security Headers (Helmet)
+app.use(
+  helmet({
+    crossOriginResourcePolicy: false, // allow Cloudinary renders
+    contentSecurityPolicy: { useDefaults: true, directives: cspDirectives },
+    referrerPolicy: { policy: "no-referrer-when-downgrade" },
+    crossOriginOpenerPolicy: { policy: "same-origin" },
+    crossOriginEmbedderPolicy: false, // keep false unless COEP required
+
+    // 🚦 HTTP Security Header Pack
+    hsts: { maxAge: 63072000, includeSubDomains: true, preload: true }, // Strict-Transport-Security
+    noSniff: true,   // X-Content-Type-Options: nosniff
+    frameguard: { action: "deny" }, // X-Frame-Options: DENY
+    xssFilter: true, // adds X-XSS-Protection header (legacy)
+    permissionsPolicy: {
+      features: {
+        camera: ["none"],
+        microphone: ["none"],
+        geolocation: ["none"]
+      }
+    }
+  })
+);
+
+
+// ---- CORS
+app.set("trust proxy", 1);
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:5174",
@@ -83,42 +135,56 @@ const isVercelPreview = (origin) => {
   try {
     const u = new URL(origin);
     return u.protocol === "https:" && u.hostname.endsWith(".vercel.app");
-  } catch { return false; }
+  } catch {
+    return false;
+  }
 };
-app.set("trust proxy", 1);
+app.use((_, res, next) => {
+  res.header("Vary", "Origin"); // proper caching per-origin
+  next();
+});
+app.use(
+  cors({
+    origin(origin, cb) {
+      if (!origin || allowedOrigins.includes(origin) || isVercelPreview(origin))
+        cb(null, true);
+      else cb(new Error("Not allowed by CORS"));
+    },
+    credentials: true,
+  })
+);
 
-app.use((req, res, next) => { res.header("Vary", "Origin"); next(); });
-app.use(cors({
-  origin(origin, cb) {
-    if (!origin || allowedOrigins.includes(origin) || isVercelPreview(origin)) cb(null, true);
-    else cb(new Error("Not allowed by CORS"));
-  },
-  credentials: true,
-}));
-
+// ---- Parsers / Auth
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(passport.initialize());
 
-// Static uploads
+// ---- Static uploads (kept; consider moving to signed URLs later)
 app.use("/uploads", express.static("uploads"));
 
-// Advanced Rate Limiting
-const redisClient = process.env.REDIS_URL ? new Redis(process.env.REDIS_URL) : null;
-const limiter = rateLimit({
+// ---- Rate Limiting (Redis optional)
+const redisClient = process.env.REDIS_URL
+  ? new Redis(process.env.REDIS_URL)
+  : null;
+const limiterOpts = {
   windowMs: 10 * 60 * 1000,
   max: 200,
   message: "Too many requests, please try again later.",
-  ...(redisClient && { store: new RedisStore({ sendCommand: (...a) => redisClient.call(...a) }) }),
-});
-app.use(limiter);
+};
+if (redisClient) {
+  limiterOpts.store = new RedisStore({
+    sendCommand: (...args) => redisClient.call(...args),
+  });
+}
+app.use(rateLimit(limiterOpts));
 
-// --- Socket.io Setup ---
+// ---- Socket.IO
 const io = new Server(server, {
   cors: {
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin) || isVercelPreview(origin)) return callback(null, true);
+      if (!origin || allowedOrigins.includes(origin) || isVercelPreview(origin))
+        return callback(null, true);
       return callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
@@ -128,33 +194,40 @@ const io = new Server(server, {
 // 🔐 Socket handshake auth (JWT required)
 io.use((socket, next) => {
   try {
-    const raw =
+    const token =
       socket.handshake.auth?.token ||
       (socket.handshake.headers?.authorization || "").split(" ")[1];
-    if (!raw) return next(new Error("Unauthorized"));
-    const payload = verifyJwt(raw); // should throw on invalid
-    socket.user = { _id: String(payload._id || payload.id), isAdmin: !!payload.isAdmin };
+    if (!token) return next(new Error("Unauthorized"));
+    const payload = verifyJwt(token); // throws if invalid
+    socket.user = {
+      _id: String(payload._id || payload.id),
+      isAdmin: !!payload.isAdmin,
+    };
     return next();
   } catch {
     return next(new Error("Unauthorized"));
   }
 });
 
-// ----- Socket.io events -----
+// 🔐 Access-controlled rooms + messaging
 io.on("connection", (socket) => {
-  console.log(`🔌 New client connected: ${socket.id}`);
+  logger.info({ sid: socket.id }, "Socket connected");
 
   socket.on("workroom:join", async ({ workroomId }) => {
     try {
-      const task = await Task.findOne({ workroomId }).select("createdBy selectedApplicant");
+      const task = await Task.findOne({ workroomId }).select(
+        "createdBy selectedApplicant"
+      );
       if (!task) return socket.emit("error", "Workroom not found");
+
       const uid = socket.user?._id;
       const allowed =
         uid &&
         (String(task.createdBy) === uid ||
-         String(task.selectedApplicant) === uid ||
-         socket.user.isAdmin);
+          String(task.selectedApplicant) === uid ||
+          socket.user.isAdmin);
       if (!allowed) return socket.emit("error", "Forbidden");
+
       socket.join(`workroom:${workroomId}`);
       socket.emit("joined", { ok: true });
     } catch {
@@ -164,19 +237,24 @@ io.on("connection", (socket) => {
 
   socket.on("message:new", async ({ workroomId, text, attachments = [] }, ack) => {
     try {
-      const task = await Task.findOne({ workroomId }).select("createdBy selectedApplicant");
+      const task = await Task.findOne({ workroomId }).select(
+        "createdBy selectedApplicant"
+      );
       if (!task) return ack?.({ ok: false, error: "Workroom not found" });
+
       const uid = socket.user?._id;
       const allowed =
         uid &&
         (String(task.createdBy) === uid ||
-         String(task.selectedApplicant) === uid ||
-         socket.user.isAdmin);
+          String(task.selectedApplicant) === uid ||
+          socket.user.isAdmin);
       if (!allowed) return ack?.({ ok: false, error: "Forbidden" });
 
-      // TODO: Persist message via WorkroomMessage model if desired
       io.to(`workroom:${workroomId}`).emit("message:new", {
-        text, attachments, sender: uid, createdAt: new Date().toISOString(),
+        text,
+        attachments,
+        sender: uid,
+        createdAt: new Date().toISOString(),
       });
       ack?.({ ok: true });
     } catch {
@@ -185,39 +263,21 @@ io.on("connection", (socket) => {
   });
 
   socket.on("disconnect", () => {
-    console.log(`❌ Client disconnected: ${socket.id}`);
+    logger.info({ sid: socket.id }, "Socket disconnected");
   });
 });
 
-// ----- Core Middleware (dup blocks kept to avoid breaking existing order) -----
-app.use((req, res, next) => { res.header("Vary", "Origin"); next(); });
-app.use(cors({
-  origin(origin, cb) {
-    if (!origin || allowedOrigins.includes(origin) || isVercelPreview(origin)) cb(null, true);
-    else cb(new Error("Not allowed by CORS"));
-  },
-  credentials: true,
-}));
-app.use((req, _res, next) => { req.io = io; next(); });
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true }));
-app.use(cookieParser());
-app.use(passport.initialize());
-app.use("/uploads", express.static("uploads"));
-
-// 🔐 CSRF: double-submit verification (after cookieParser, before routes)
+// ---- CSRF (double-submit) — after cookieParser, before routes
 app.use(verifyDoubleSubmitCsrf);
 
-// ----- Health Check -----
+// ---- Health & Metrics
 app.get("/", (_req, res) => res.send("Cyphire API up"));
-
-// Prometheus scrape endpoint
 app.get("/metrics", async (_req, res) => {
   res.set("Content-Type", client.register.contentType);
   res.end(await client.register.metrics());
 });
 
-// ----- Routes -----
+// ---- Routes
 import authRoutes from "./routes/authRoutes.js";
 import taskRoutes from "./routes/taskRoutes.js";
 import usersRoutes from "./routes/usersRoutes.js";
@@ -242,40 +302,40 @@ app.use("/api", paymentLogRoutes);
 app.use("/api/help", helpRoutes);
 app.use("/api/help/questions", helpQuestionRoutes);
 
-// --- Global Error Handler ---
+// ---- Global Error Handler
 app.use((err, req, res, _next) => {
   req.log?.error?.(err);
-  console.error("GLOBAL ERROR:", err);
+  logger.error(err);
   res.status(err.status || 500).json({
     error: err.message || "Internal Server Error",
     stack: process.env.NODE_ENV === "production" ? undefined : err.stack,
   });
 });
 
-// ----- Start Server -----
+// ---- Start
 connectDB().then(() => {
   server.listen(PORT, () => {
     logger.info(`✅ Server + Socket.IO running on http://localhost:${PORT}`);
   });
 });
 
-// ---- Graceful Shutdown ----
+// ---- Graceful Shutdown
 function shutdown(signal) {
   logger.info(`[SHUTDOWN] Received ${signal}. Shutting down gracefully...`);
   server.close(() => {
     logger.info("[SHUTDOWN] HTTP server closed.");
-    if (io && io.close) io.close();
-    if (redisClient && redisClient.quit) redisClient.quit();
-    if (typeof mongoose !== "undefined" && mongoose.connection?.close) {
-      mongoose.connection.close(false, () => {
-        logger.info("[SHUTDOWN] MongoDB connection closed.");
-        process.exit(0);
-      });
-    } else {
+    try {
+      if (io && io.close) io.close();
+      if (redisClient && redisClient.quit) redisClient.quit();
+      if (mongoose.connection?.readyState)
+        mongoose.connection.close(false, () => {
+          logger.info("[SHUTDOWN] MongoDB connection closed.");
+          process.exit(0);
+        });
+      else process.exit(0);
+    } catch {
       process.exit(0);
     }
   });
 }
-["SIGINT", "SIGTERM"].forEach((signal) => {
-  process.on(signal, () => shutdown(signal));
-});
+["SIGINT", "SIGTERM"].forEach((sig) => process.on(sig, () => shutdown(sig)));

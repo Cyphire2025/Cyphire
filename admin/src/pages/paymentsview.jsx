@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { CheckCircle2, XCircle, ExternalLink } from "lucide-react";
 import { QRCodeCanvas } from "qrcode.react";
-
+import { apiFetch } from "../lib/fetch";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
 
@@ -36,7 +36,7 @@ export default function PaymentsView() {
   const handleMarkPaid = async (id, paid) => {
     try {
       const token = localStorage.getItem("admin-token");
-      const res = await fetch(`${API_BASE}/api/admin/payments/${id}/status`, {
+      const res = await apiFetch(`${API_BASE}/api/admin/payments/${id}/status`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",

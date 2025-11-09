@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Eye, Trash2 } from "lucide-react";
+import { apiFetch } from "../lib/fetch";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
 const API_FRONTEND_BASE = import.meta.env.VITE_FRONTEND_BASE || "http://localhost:5173";
@@ -100,7 +101,7 @@ export default function UsersView() {
   const handleDelete = async (id) => {
     if (!confirm("Are you sure?")) return;
     const token = localStorage.getItem("admin-token");
-    const res = await fetch(`${API_BASE}/api/admin/users/${id}`, {
+    const res = await apiFetch(`${API_BASE}/api/admin/users/${id}`, {
       method: "DELETE",
       headers: {
         Authorization: token ? `Bearer ${token}` : "",
@@ -119,7 +120,7 @@ export default function UsersView() {
   // Set plan
   const handleSetPlan = async (id, plan) => {
     const token = localStorage.getItem("admin-token");
-    const res = await fetch(`${API_BASE}/api/admin/users/${id}/plan`, {
+    const res = await apiFetch(`${API_BASE}/api/admin/users/${id}/plan`, {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
