@@ -185,7 +185,7 @@ export default function ChooseMode() {
   const [showTooltip, setShowTooltip] = useState(false);
 
   return (
-    <AnimatePresence mode="wait">
+    <AnimatePresence >
       <FullscreenLoader visible={showLoader} label="Preparing your workspace…" />
       <motion.main
         key="choose-mode"
@@ -361,7 +361,7 @@ export default function ChooseMode() {
                 style={{ contentVisibility: "auto", containIntrinsicSize: "250px" }}
               >
                 <div aria-live="polite">
-                  <AnimatePresence mode="wait">
+                  <AnimatePresence>
                     <motion.blockquote
                       key={qIndex}
                       initial={{ opacity: 0, y: 6 }}
