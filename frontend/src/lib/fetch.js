@@ -1,13 +1,15 @@
 // src/lib/fetch.js
-// Production-safe CSRF helper that works across domains (Vercel ↔ Render)
+// Build-safe, cross-site CSRF helper for Vite (Vercel ↔ Render)
 
 let _csrfToken = null;
 let _csrfPromise = null;
 
+// Use Vite env at build time; provide sane default for dev
 const API_BASE =
-  (typeof import !== "undefined" && import.meta?.env?.VITE_API_BASE) ||
-  (typeof import !== "undefined" && import.meta?.env?.VITE_API_URL) ||
-  "http://localhost:5000";
+  import.meta.env.VITE_API_BASE ||
+  import.meta.env.VITE_API_URL ||
+  import.meta.env.VITE_BACKEND_URL ||
+  "https://cyphire.onrender.com"; // change to http://localhost:5000 for local if you prefer
 
 function originOf(u) {
   try { return new URL(u).origin; } catch { return ""; }
@@ -15,8 +17,6 @@ function originOf(u) {
 
 const backendOrigin = originOf(API_BASE);
 
-// Fetch and cache CSRF token from backend JSON endpoint.
-// Backend should also set the same value in the httpOnly cookie.
 async function getCsrfToken() {
   if (_csrfToken) return _csrfToken;
   if (_csrfPromise) return _csrfPromise;
@@ -35,17 +35,19 @@ async function getCsrfToken() {
       _csrfToken = tok || null;
       return _csrfToken;
     })
-    .finally(() => { _csrfPromise = null; });
+    .finally(() => {
+      _csrfPromise = null;
+    });
 
   return _csrfPromise;
 }
 
-// Unified fetch with CSRF + credentials for backend, safe defaults elsewhere.
+// Unified fetch that auto-adds CSRF for unsafe methods to your backend
 export async function apiFetch(input, options = {}) {
   const method = String(options.method || "GET").toUpperCase();
 
-  // Normalize URL and compute target origin
-  let url = typeof input === "string" ? input : input?.url || String(input);
+  // Normalize to absolute URL for origin check
+  let url = typeof input === "string" ? input : (input && input.url) ? input.url : String(input);
   try { url = new URL(url, window.location.href).href; } catch {}
 
   const targetOrigin = originOf(url);
@@ -56,16 +58,16 @@ export async function apiFetch(input, options = {}) {
   const final = { ...options, headers };
 
   if (isBackend) {
-    // Always send cookies to your API
+    // ensure cookies flow cross-site
     final.credentials = "include";
 
-    // For unsafe methods, attach CSRF token from the backend JSON endpoint
+    // add CSRF header for unsafe methods (double-submit pattern)
     if (isUnsafe) {
       const token = await getCsrfToken();
       if (token) headers.set("X-CSRF-Token", token);
     }
   }
 
-  // IMPORTANT: don't set Content-Type when sending FormData—let the browser set boundary
+  // IMPORTANT: if body is FormData, don't set Content-Type manually
   return fetch(url, final);
 }
