@@ -14,6 +14,7 @@ import {
   Tag,
   FolderOpen,
 } from "lucide-react";
+import { apiFetch } from "../lib/fetch";
 
 const API_BASE = import.meta.env?.VITE_API_BASE || "http://localhost:5000";
 
@@ -127,7 +128,7 @@ export default function ProfilePage() {
       setLoading(true);
       setErr("");
       try {
-        const r = await apifetch(`${API_BASE}/api/auth/me`, {
+        const r = await apiFetch(`${API_BASE}/api/auth/me`, {
           credentials: "include",
           cache: "no-store",
           headers: { "Cache-Control": "no-cache" },

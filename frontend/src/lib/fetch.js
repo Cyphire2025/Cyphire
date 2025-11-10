@@ -2,7 +2,7 @@
 const API_BASE =
   import.meta?.env?.VITE_API_BASE ||
   (location.hostname.includes("localhost")
-    ? "http://localhost:8080"
+    ? "http://localhost:5000"
     : "https://cyphire.onrender.com");
 
 let cachedCsrf = null;

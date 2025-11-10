@@ -1,7 +1,10 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate} from "react-router-dom";
 import { motion, Variants } from "framer-motion";
 import { ArrowLeft, Laptop, GraduationCap, Heart, Calendar, Building2 } from "lucide-react";
-import { useState } from "react";
+import { useState , useMemo } from "react";
+import NavbarSpon from "../components/navbarsponhome.jsx";
+import NavbarHome from "../components/navbarhome.jsx";
+import Footer from "../components/footer";
 
 interface Category {
   name: string;
@@ -80,6 +83,11 @@ const itemVariants: Variants = {
 };
 
 export default function ChooseCategory() {
+  const Nav = useMemo(() => {
+  const last = sessionStorage.getItem("lastHomeRoute");
+  return last === "/sponsorshiphome" ? NavbarSpon : NavbarHome;
+}, []);
+
   const navigate = useNavigate();
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
@@ -97,6 +105,8 @@ export default function ChooseCategory() {
         color: "hsl(0, 0%, 98%)",
       }}
     >
+
+      <Nav/>
       {/* Ambient Background Glows */}
       <div className="absolute inset-0 -z-10 overflow-hidden pointer-events-none">
         <motion.div 
@@ -167,9 +177,6 @@ export default function ChooseCategory() {
                 background: "linear-gradient(to right, hsla(326, 78%, 60%, 0.1), hsla(266, 83%, 67%, 0.1), hsla(198, 93%, 60%, 0.1))",
               }}
             />
-            
-            <ArrowLeft className="w-4 h-4 relative transition-transform duration-300 group-hover:-translate-x-1" />
-            <span className="relative font-medium">Back to Home</span>
           </button>
         </motion.header>
 
@@ -241,75 +248,8 @@ export default function ChooseCategory() {
           </motion.div>
         </section>
       </main>
-
-      {/* Footer */}
-      <motion.footer 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.5, duration: 0.5 }}
-        className="relative z-10 mt-auto"
-        role="contentinfo"
-        style={{
-          borderTop: "1px solid hsla(240, 6%, 15%, 0.5)",
-          background: "hsla(240, 8%, 6%, 0.3)",
-          backdropFilter: "blur(48px)",
-        }}
-      >
-        <div className="max-w-7xl mx-auto px-6 py-8">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <span 
-                className="text-lg font-bold"
-                style={{
-                  background: "linear-gradient(to right, hsl(326, 78%, 60%), hsl(198, 93%, 60%))",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  backgroundClip: "text",
-                }}
-              >
-                Cyphire
-              </span>
-            </div>
-
-            <div className="text-sm" style={{ color: "hsl(240, 5%, 64.9%)" }}>
-              © {new Date().getFullYear()} Cyphire. All rights reserved.
-            </div>
-
-            <nav className="flex items-center gap-6" aria-label="Footer navigation">
-              <a 
-                href="#" 
-                className="text-sm transition-colors duration-200 rounded-sm"
-                style={{ color: "hsl(240, 5%, 64.9%)" }}
-                onMouseEnter={(e) => e.currentTarget.style.color = "hsl(0, 0%, 98%)"}
-                onMouseLeave={(e) => e.currentTarget.style.color = "hsl(240, 5%, 64.9%)"}
-                aria-label="Privacy Policy"
-              >
-                Privacy
-              </a>
-              <a 
-                href="#" 
-                className="text-sm transition-colors duration-200 rounded-sm"
-                style={{ color: "hsl(240, 5%, 64.9%)" }}
-                onMouseEnter={(e) => e.currentTarget.style.color = "hsl(0, 0%, 98%)"}
-                onMouseLeave={(e) => e.currentTarget.style.color = "hsl(240, 5%, 64.9%)"}
-                aria-label="Terms of Service"
-              >
-                Terms
-              </a>
-              <a 
-                href="#" 
-                className="text-sm transition-colors duration-200 rounded-sm"
-                style={{ color: "hsl(240, 5%, 64.9%)" }}
-                onMouseEnter={(e) => e.currentTarget.style.color = "hsl(0, 0%, 98%)"}
-                onMouseLeave={(e) => e.currentTarget.style.color = "hsl(240, 5%, 64.9%)"}
-                aria-label="Contact Support"
-              >
-                Contact
-              </a>
-            </nav>
-          </div>
-        </div>
-      </motion.footer>
+      
+      <Footer />
     </div>
   );
 }
