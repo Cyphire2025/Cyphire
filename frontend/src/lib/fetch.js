@@ -1,73 +1,62 @@
-// src/lib/fetch.js
-// Build-safe, cross-site CSRF helper for Vite (Vercel ↔ Render)
-
-let _csrfToken = null;
-let _csrfPromise = null;
-
-// Use Vite env at build time; provide sane default for dev
+// frontend/src/lib/fetch.js
 const API_BASE =
-  import.meta.env.VITE_API_BASE ||
-  import.meta.env.VITE_API_URL ||
-  import.meta.env.VITE_BACKEND_URL ||
-  "https://cyphire.onrender.com"; // change to http://localhost:5000 for local if you prefer
+  import.meta?.env?.VITE_API_BASE ||
+  (location.hostname.includes("localhost")
+    ? "http://localhost:8080"
+    : "https://cyphire.onrender.com");
 
-function originOf(u) {
-  try { return new URL(u).origin; } catch { return ""; }
-}
+let cachedCsrf = null;
+const UNSAFE = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
-const backendOrigin = originOf(API_BASE);
+async function getCsrf() {
+  // Cache per page load
+  if (cachedCsrf) return cachedCsrf;
 
-async function getCsrfToken() {
-  if (_csrfToken) return _csrfToken;
-  if (_csrfPromise) return _csrfPromise;
-
-  _csrfPromise = fetch(`${backendOrigin}/csrf-token`, {
+  const res = await fetch(`${API_BASE}/csrf-token`, {
     method: "GET",
-    credentials: "include",
-    cache: "no-store"
-  })
-    .then(async (r) => {
-      if (!r.ok) return null;
-      const data = await r.json().catch(() => null);
-      return data?.csrfToken || null;
-    })
-    .then((tok) => {
-      _csrfToken = tok || null;
-      return _csrfToken;
-    })
-    .finally(() => {
-      _csrfPromise = null;
-    });
+    credentials: "include", // MUST include for cross-site cookie
+    mode: "cors",
+  });
 
-  return _csrfPromise;
-}
-
-// Unified fetch that auto-adds CSRF for unsafe methods to your backend
-export async function apiFetch(input, options = {}) {
-  const method = String(options.method || "GET").toUpperCase();
-
-  // Normalize to absolute URL for origin check
-  let url = typeof input === "string" ? input : (input && input.url) ? input.url : String(input);
-  try { url = new URL(url, window.location.href).href; } catch {}
-
-  const targetOrigin = originOf(url);
-  const isBackend = targetOrigin === backendOrigin;
-  const isUnsafe = /^(POST|PUT|PATCH|DELETE)$/.test(method);
-
-  const headers = new Headers(options.headers || {});
-  const final = { ...options, headers };
-
-  if (isBackend) {
-    // ensure cookies flow cross-site
-    final.credentials = "include";
-
-    // add CSRF header for unsafe methods (double-submit pattern)
-    if (isUnsafe) {
-      const token = await getCsrfToken();
-      if (token) headers.set("X-CSRF-Token", token);
-    }
+  if (!res.ok) {
+    throw new Error(`Failed to fetch CSRF token: ${res.status}`);
   }
 
-  // IMPORTANT: if body is FormData, don't set Content-Type manually
-  return fetch(url, final);
+  const data = await res.json();
+  cachedCsrf = data?.csrfToken || null;
+  return cachedCsrf;
 }
+
+/**
+ * apiFetch wraps fetch with:
+ *  - credentials: include (cookies)
+ *  - X-CSRF-Token for unsafe methods
+ */
+export async function apiFetch(url, options = {}) {
+  const opts = { method: "GET", ...options };
+
+  // Ensure FormData / JSON both work — do NOT set Content-Type for FormData
+  const isFormData = opts.body instanceof FormData;
+
+  if (UNSAFE.has(opts.method?.toUpperCase?.())) {
+    const token = await getCsrf();
+    opts.headers = {
+      ...(opts.headers || {}),
+      "X-CSRF-Token": token || "",
+      ...(isFormData ? {} : { "Content-Type": "application/json" }),
+    };
+  } else {
+    // Safe methods: still copy headers if provided, but don't force content-type
+    opts.headers = {
+      ...(opts.headers || {}),
+      ...(isFormData ? {} : opts.headers?.["Content-Type"] ? {} : {}),
+    };
+  }
+
+  opts.credentials = "include";
+  opts.mode = "cors";
+
+  return fetch(url.startsWith("http") ? url : `${API_BASE}${url}`, opts);
+}
+
+export { API_BASE };
